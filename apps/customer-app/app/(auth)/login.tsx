@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { StatusBar } from 'expo-status-bar';
 import { auth } from '../../lib/firebase';
-import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { signInWithPhoneNumber, ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
 
 type LoginStep = 'PHONE' | 'OTP' | 'PROFILE';
 
@@ -30,8 +30,26 @@ export default function LoginScreen() {
   const [tempToken, setTempToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState<any>(null);
 
   const API_URL = 'http://localhost:4000/api/v1';
+
+  // Initialize reCAPTCHA verifier for Web browser execution
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      try {
+        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {
+            console.log('[Firebase Auth] Web Recaptcha resolved successfully.');
+          }
+        });
+        setRecaptchaVerifier(verifier);
+      } catch (err) {
+        console.warn('[Firebase Auth] Failed to initialize Web RecaptchaVerifier:', err);
+      }
+    }
+  }, []);
 
   const handleRequestOtp = async () => {
     if (!phoneNumber || phoneNumber.trim().length < 8) {
@@ -40,18 +58,23 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      // 1. Configure Firebase App verification bypass for testing (bypass reCAPTCHA)
-      auth.settings.appVerificationDisabledForTesting = true;
-      
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+234${phoneNumber.replace(/^0+/, '')}`;
+      let verifier: any;
+
+      if (Platform.OS === 'web' && recaptchaVerifier) {
+        // For real SMS testing on Web, disable testing bypass and use the real verifier
+        auth.settings.appVerificationDisabledForTesting = false;
+        verifier = recaptchaVerifier;
+      } else {
+        // For testing/mocking in simulators (or native without linked keys), bypass recaptcha
+        auth.settings.appVerificationDisabledForTesting = true;
+        verifier = {
+          type: 'recaptcha' as const,
+          verify: async () => 'mock-recaptcha-token',
+        };
+      }
       
-      // 2. Trigger Firebase Auth Phone dispatch using mock verifier (which is accepted in testing bypass mode)
-      const mockVerifier = {
-        type: 'recaptcha' as const,
-        verify: async () => 'mock-recaptcha-token',
-      };
-      
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, mockVerifier);
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, verifier);
       setConfirmationResult(confirmation);
       setStep('OTP');
       Alert.alert(
@@ -275,6 +298,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {Platform.OS === 'web' && <View id="recaptcha-container" style={{ display: 'none' } as any} />}
       </ScrollView>
     </KeyboardAvoidingView>
   );
