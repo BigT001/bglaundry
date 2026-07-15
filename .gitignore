@@ -1,0 +1,23 @@
+# Dependency directories
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Expo directories
+.expo/
+web-build/
+
+# Turborepo Cache
+.turbo/
+
+# Local env files
+.env
+.env.*
+
+# System files
+.DS_Store
+
+# Logs
+*.log

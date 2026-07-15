@@ -1,0 +1,139 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  DRIVER
+  ADMIN
+}
+
+enum OrderStatus {
+  PICKUP_PENDING
+  PICKUP_IN_PROGRESS
+  PICKED_UP
+  PROCESSING         // Washing / Drying / Ironing
+  DELIVERY_PENDING
+  DELIVERY_IN_PROGRESS
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  phoneNumber   String    @unique
+  email         String?   @unique
+  fullName      String
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Customer specific
+  customerOrders Order[]  @relation("CustomerOrders")
+  
+  // Driver specific
+  driverOrders   Order[]  @relation("DriverOrders")
+  driverEarnings Earning[]
+  driverProfile  DriverProfile?
+}
+
+model DriverProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  vehicleType   String?
+  licenseNumber String?
+  isOnline      Boolean   @default(false)
+  currentLat    Float?
+  currentLng    Float?
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique // e.g. BG-1002
+  customerId      String
+  customer        User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  driverId        String?
+  driver          User?       @relation("DriverOrders", fields: [driverId], references: [id])
+  
+  status          OrderStatus @default(PICKUP_PENDING)
+  totalAmount     Float
+  pickupAddress   String
+  deliveryAddress String
+  pickupDate      DateTime
+  deliveryDate    DateTime?
+  pickupOTP       String?     // Secure OTP for driver confirmation
+  deliveryOTP     String?     // Secure OTP for delivery confirmation
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  items           OrderItem[]
+  payments        Payment[]
+  trackingHistory TrackingEvent[]
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  serviceName String   // e.g. "Shirt - Dry Clean", "Duvet - Wash & Fold"
+  quantity    Int
+  price       Float
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  reference     String        @unique // Gateway reference
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  gateway       String        // e.g. "Paystack", "Stripe"
+  createdAt     DateTime      @default(now())
+}
+
+model TrackingEvent {
+  id        String      @id @default(uuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+}
+
+model Earning {
+  id          String   @id @default(uuid())
+  driverId    String
+  driver      User     @relation(fields: [driverId], references: [id])
+  amount      Float
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Service {
+  id            String   @id @default(uuid())
+  name          String
+  category      String   // "Clothing" | "Household" | "Additional"
+  icon          String
+  hasWash       Boolean  @default(true)
+  hasIron       Boolean  @default(true)
+  hasWashIron   Boolean  @default(true)
+  washPrice     Float    @default(0)
+  ironPrice     Float    @default(0)
+  washIronPrice Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
