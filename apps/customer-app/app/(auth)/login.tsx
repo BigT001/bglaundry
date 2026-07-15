@@ -15,6 +15,8 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { StatusBar } from 'expo-status-bar';
+import { auth } from '../../lib/firebase';
+import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 type LoginStep = 'PHONE' | 'OTP' | 'PROFILE';
 
@@ -27,6 +29,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [tempToken, setTempToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const API_URL = 'http://localhost:4000/api/v1';
 
@@ -37,34 +40,69 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/request-otp`, { phoneNumber });
+      // 1. Configure Firebase App verification bypass for testing (bypass reCAPTCHA)
+      auth.settings.appVerificationDisabledForTesting = true;
+      
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+234${phoneNumber.replace(/^0+/, '')}`;
+      
+      // 2. Trigger Firebase Auth Phone dispatch using mock verifier (which is accepted in testing bypass mode)
+      const mockVerifier = {
+        type: 'recaptcha' as const,
+        verify: async () => 'mock-recaptcha-token',
+      };
+      
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, mockVerifier);
+      setConfirmationResult(confirmation);
       setStep('OTP');
       Alert.alert(
-        'OTP Sent',
-        'Check the terminal console or admin backend for the verification code (use "1234" for mock bypass).',
+        'Code Dispatched',
+        `An SMS verification code has been requested for ${formattedPhone}.`
       );
     } catch (error: any) {
-      console.error('Request OTP Error:', error);
-      Alert.alert(
-        'Connection Error',
-        'Could not connect to the backend server. Make sure the server is running on port 4000.',
-      );
+      console.warn('Firebase Request OTP failed, falling back to Mock API:', error.message);
+      // Fallback to local Mock backend
+      try {
+        await axios.post(`${API_URL}/auth/request-otp`, { phoneNumber });
+        setStep('OTP');
+        Alert.alert(
+          'Mock OTP Sent',
+          'Could not contact Firebase. Bypassed to backend Mock OTP (logged to console).'
+        );
+      } catch (fallbackError) {
+        console.error('All authentication pathways failed:', fallbackError);
+        Alert.alert('Authentication Error', 'Failed to request OTP. Please verify server connection.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (code.trim().length !== 4) {
-      Alert.alert('Error', 'Please enter the 4-digit verification code.');
+    if (code.trim().length < 4) {
+      Alert.alert('Error', 'Please enter a valid verification code.');
       return;
     }
     setLoading(true);
     try {
+      let firebaseToken = 'mock-firebase-id-token';
+      
+      if (confirmationResult) {
+        // 1. Verify code on Firebase Auth
+        const userCredential = await confirmationResult.confirm(code);
+        // 2. Fetch the ID Token from the signed-in user profile
+        firebaseToken = await userCredential.user.getIdToken();
+      } else {
+        // If we are in fallback mock mode, we bypass Firebase and verify using mock values
+        console.log('[Login] Running in mock verify fallback mode.');
+      }
+
+      // 3. Authenticate with Next.js database API
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+234${phoneNumber.replace(/^0+/, '')}`;
       const response = await axios.post(`${API_URL}/auth/verify-otp`, {
-        phoneNumber,
-        code,
+        phoneNumber: formattedPhone,
+        idToken: firebaseToken,
       });
+      
       const { token, user } = response.data;
 
       if (!user.fullName || user.fullName === 'Customer Account') {
@@ -80,7 +118,7 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       console.error('Verify OTP Error:', error);
-      Alert.alert('Invalid Code', 'The verification code is incorrect. Use "1234" to bypass.');
+      Alert.alert('Verification Failed', 'The code is incorrect or expired. Try using "123456" for your test number.');
     } finally {
       setLoading(false);
     }
@@ -176,15 +214,15 @@ export default function LoginScreen() {
           <View style={styles.formContainer}>
             <Text style={styles.sectionTitle}>Enter Verification Code</Text>
             <Text style={styles.sectionSubtitle}>
-              Type the 4-digit code sent to your phone number (+234) {phoneNumber}.
+              Type the code sent to your phone number (+234) {phoneNumber}.
             </Text>
 
             <TextInput
               style={styles.codeOtpInput}
-              placeholder="e.g. 1234"
+              placeholder="e.g. 123456"
               placeholderTextColor="#94A3B8"
               keyboardType="number-pad"
-              maxLength={4}
+              maxLength={6}
               value={code}
               onChangeText={setCode}
               editable={!loading}
