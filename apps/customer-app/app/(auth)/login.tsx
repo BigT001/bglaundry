@@ -71,6 +71,8 @@ export default function LoginScreen() {
         verifier = {
           type: 'recaptcha' as const,
           verify: async () => 'mock-recaptcha-token',
+          _reset: () => {},
+          clear: () => {},
         };
       }
       
