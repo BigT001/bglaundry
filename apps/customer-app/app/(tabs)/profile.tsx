@@ -110,10 +110,10 @@ export default function ProfileScreen() {
           try {
             await AsyncStorage.removeItem('@bglaundry_token');
             await AsyncStorage.removeItem('@bglaundry_user');
-            router.replace('/');
+            router.replace('/(auth)/login');
           } catch (err) {
             console.error('Logout error:', err);
-            router.replace('/');
+            router.replace('/(auth)/login');
           }
         },
       },
