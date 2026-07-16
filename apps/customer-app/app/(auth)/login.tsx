@@ -84,19 +84,8 @@ export default function LoginScreen() {
         `An SMS verification code has been requested for ${formattedPhone}.`
       );
     } catch (error: any) {
-      console.warn('Firebase Request OTP failed, falling back to Mock API:', error.message);
-      // Fallback to local Mock backend
-      try {
-        await axios.post(`${API_URL}/auth/request-otp`, { phoneNumber });
-        setStep('OTP');
-        Alert.alert(
-          'Mock OTP Sent',
-          'Could not contact Firebase. Bypassed to backend Mock OTP (logged to console).'
-        );
-      } catch (fallbackError) {
-        console.error('All authentication pathways failed:', fallbackError);
-        Alert.alert('Authentication Error', 'Failed to request OTP. Please verify server connection.');
-      }
+      console.error('Firebase Request OTP failed:', error);
+      Alert.alert('Authentication Error', error.message || 'Failed to send OTP verification code.');
     } finally {
       setLoading(false);
     }
@@ -109,17 +98,16 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      let firebaseToken = 'mock-firebase-id-token';
-      
-      if (confirmationResult) {
-        // 1. Verify code on Firebase Auth
-        const userCredential = await confirmationResult.confirm(code);
-        // 2. Fetch the ID Token from the signed-in user profile
-        firebaseToken = await userCredential.user.getIdToken();
-      } else {
-        // If we are in fallback mock mode, we bypass Firebase and verify using mock values
-        console.log('[Login] Running in mock verify fallback mode.');
+      if (!confirmationResult) {
+        Alert.alert('Error', 'No active verification session. Please request a new code.');
+        setLoading(false);
+        return;
       }
+      
+      // 1. Verify code on Firebase Auth
+      const userCredential = await confirmationResult.confirm(code);
+      // 2. Fetch the ID Token from the signed-in user profile
+      const firebaseToken = await userCredential.user.getIdToken();
 
       // 3. Authenticate with Next.js database API
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+234${phoneNumber.replace(/^0+/, '')}`;
