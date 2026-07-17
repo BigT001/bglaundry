@@ -17,6 +17,7 @@ import axios from 'axios';
 import { StatusBar } from 'expo-status-bar';
 import { auth } from '../../lib/firebase';
 import { signInWithPhoneNumber, ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
+import { API_URL } from '../../lib/config';
 
 type LoginStep = 'PHONE' | 'OTP' | 'PROFILE';
 
@@ -31,8 +32,6 @@ export default function LoginScreen() {
   const [tempUser, setTempUser] = useState<any>(null);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<any>(null);
-
-  const API_URL = 'http://localhost:4000/api/v1';
 
   // Initialize reCAPTCHA verifier for Web browser execution
   useEffect(() => {
