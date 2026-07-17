@@ -80,8 +80,8 @@ export default function LoginScreen() {
       setConfirmationResult(confirmation);
       setStep('OTP');
       Alert.alert(
-        'Code Dispatched',
-        `An SMS verification code has been requested for ${formattedPhone}.`
+        'Verification Code Sent',
+        'Please enter the 6-digit code sent to your phone.'
       );
     } catch (error: any) {
       console.error('Firebase Request OTP failed:', error);
@@ -131,7 +131,7 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       console.error('Verify OTP Error:', error);
-      Alert.alert('Verification Failed', 'The code is incorrect or expired. Try using "123456" for your test number.');
+      Alert.alert('Verification Failed', 'The code is incorrect or expired. Please check your messages and try again.');
     } finally {
       setLoading(false);
     }
