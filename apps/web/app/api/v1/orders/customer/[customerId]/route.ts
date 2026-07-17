@@ -16,12 +16,12 @@ export async function GET(
       );
     }
 
+    const history = request.nextUrl.searchParams.get('history') === 'true';
+
     const orders = await prisma.order.findMany({
       where: {
         customerId,
-        status: {
-          not: OrderStatus.DELIVERED,
-        },
+        status: history ? OrderStatus.DELIVERED : { not: OrderStatus.DELIVERED },
       },
       include: {
         items: true,
