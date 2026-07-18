@@ -120,13 +120,13 @@ export default function LoginPage() {
     if (!fullName.trim() || loading) return;
     setLoading(true); setError('');
     try {
-      const { data } = await axios.put(
-        `/api/v1/users/${tempUser.id}`,
+      const { data } = await axios.patch(
+        '/api/v1/users/profile',
         { fullName: fullName.trim() },
         { headers: { Authorization: `Bearer ${tempToken}` } }
       );
       localStorage.setItem('customerToken', tempToken);
-      localStorage.setItem('customerUser', JSON.stringify(data));
+      localStorage.setItem('customerUser', JSON.stringify(data.user));
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
