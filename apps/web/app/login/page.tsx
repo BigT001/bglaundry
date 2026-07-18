@@ -23,35 +23,74 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     let v: RecaptchaVerifier | null = null;
-    try {
-      const el = document.getElementById('recaptcha-container');
-      if (el) el.innerHTML = '';
-      v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-      setVerifier(v);
-    } catch (_) {}
-    return () => { try { v?.clear(); } catch (_) {} };
+
+    // Small delay ensures the DOM element is mounted before reCAPTCHA binds
+    const timer = setTimeout(() => {
+      try {
+        const container = document.getElementById('recaptcha-container');
+        if (!container) return;
+        container.innerHTML = '';                 // clear any stale widget
+        v = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+          'expired-callback': () => {
+            // silently reset on expiry so the next attempt gets a fresh token
+            setVerifier(null);
+          },
+        });
+        // Render eagerly so the token is ready before the user submits
+        v.render().then(() => setVerifier(v)).catch(() => {});
+      } catch (e) {
+        console.warn('[reCAPTCHA init]', e);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      try { v?.clear(); } catch (_) {}
+    };
   }, []);
 
   const formatted = phone.startsWith('+') ? phone : `+234${phone.replace(/^0+/, '')}`;
+
+  const resetVerifier = () => {
+    try {
+      verifier?.clear();
+      const c = document.getElementById('recaptcha-container');
+      if (c) c.innerHTML = '';
+      const v2 = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible', callback: () => {} });
+      v2.render().then(() => setVerifier(v2)).catch(() => {});
+    } catch (_) {}
+  };
 
   const handlePhone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || loading) return;
     setLoading(true); setError(''); setInfo('');
     try {
-      if (!verifier) throw new Error('Security check not ready. Please refresh the page.');
-      const result = await signInWithPhoneNumber(auth, formatted, verifier);
+      // Re-build verifier if it expired between page load and submit
+      let v = verifier;
+      if (!v) {
+        const c = document.getElementById('recaptcha-container');
+        if (c) c.innerHTML = '';
+        v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+        await v.render();
+        setVerifier(v);
+      }
+      const result = await signInWithPhoneNumber(auth, formatted, v);
       setConfirmation(result);
       setInfo(`Code sent to ${formatted}`);
       setStep('OTP');
     } catch (err: any) {
-      setError(err.message || 'Could not send code. Please try again.');
-      if (verifier) {
-        verifier.clear();
-        const v2 = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-        setVerifier(v2);
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('invalid-app-credential') || msg.includes('recaptcha')) {
+        setError('Security check failed. Please click Continue again to retry.');
+      } else {
+        setError(err.message || 'Could not send code. Please try again.');
       }
+      resetVerifier();
     } finally { setLoading(false); }
   };
 
