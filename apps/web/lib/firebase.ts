@@ -20,9 +20,13 @@ const auth = getAuth(app);
 // This prevents the "Failed to initialize reCAPTCHA Enterprise config" warning
 // that causes auth/invalid-app-credential on local development.
 if (typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    (window.location.hostname === 'localhost' ||
+     window.location.hostname === '127.0.0.1' ||
+     window.location.hostname.startsWith('192.168.') ||
+     window.location.hostname.startsWith('10.') ||
+     window.location.hostname.startsWith('172.'))) {
   // @ts-ignore – internal flag, not in public typings
-  auth.settings.appVerificationDisabledForTesting = false;
+  auth.settings.appVerificationDisabledForTesting = true;
 }
 
 export { app, auth };

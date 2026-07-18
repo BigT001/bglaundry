@@ -30,4 +30,9 @@ const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
+if (__DEV__) {
+  // @ts-ignore – disable recaptcha/safety checks for local simulators with whitelisted numbers
+  auth.settings.appVerificationDisabledForTesting = true;
+}
+
 export { app, auth };
