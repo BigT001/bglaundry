@@ -166,20 +166,69 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F8FAFC' }}>
+    <div className="login-container">
+      {/* Premium Fonts & Global CSS Injection */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        * {
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
+          box-sizing: border-box;
+        }
+        .login-container {
+          display: flex;
+          min-height: 100vh;
+          background-color: #F8FAFC;
+        }
+        .hero-column {
+          flex: 1;
+          background-color: #002B7F;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 80px;
+          color: #FFFFFF;
+        }
+        .form-column {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px;
+        }
+        .login-card {
+          width: 100%;
+          max-width: 400px;
+          background-color: #FFFFFF;
+          padding: 40px;
+          border-radius: 12px;
+          border: 1px solid #E6F0FA;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        @media (max-width: 820px) {
+          .hero-column {
+            display: none !important;
+          }
+          .form-column {
+            padding: 20px !important;
+          }
+          .login-card {
+            padding: 32px 24px !important;
+            box-shadow: none !important;
+            border: none !important;
+            background-color: transparent !important;
+          }
+        }
+      `}} />
+
       {/* Invisible Recaptcha Container required by Firebase SDK */}
       <div id="recaptcha-container"></div>
 
       {/* Brand Hero Column (Left Side) */}
-      <div style={{
-        flex: 1,
-        backgroundColor: '#002B7F',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        padding: '80px',
-        color: '#FFFFFF'
-      }} className="hidden md:flex">
+      <div className="hero-column">
         <div style={{ maxWidth: '440px' }}>
           <h1 style={{ fontSize: '42px', fontWeight: 'bold', lineHeight: '1.2', marginBottom: '24px' }}>
             Clean Today,<br />Ready Tomorrow!
@@ -191,22 +240,8 @@ export default function LoginPage() {
       </div>
 
       {/* Auth Interface Column (Right Side) */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px'
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '400px',
-          backgroundColor: '#FFFFFF',
-          padding: '40px',
-          borderRadius: '12px',
-          border: '1px solid #E6F0FA',
-          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-        }}>
+      <div className="form-column">
+        <div className="login-card">
           {/* Logo / Header */}
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#002B7F', margin: '0 0 8px 0' }}>
