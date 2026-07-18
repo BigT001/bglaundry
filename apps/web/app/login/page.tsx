@@ -26,9 +26,16 @@ export default function LoginPage() {
   // Initialize reCAPTCHA Verifier
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      let verifier: RecaptchaVerifier | null = null;
       try {
+        // Clear any previous raw HTML nodes in the container (fixes React double-rendering bugs)
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+
         // Create invisible recaptcha verifier
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {
             console.log('[reCAPTCHA] Resolved successfully.');
@@ -39,6 +46,17 @@ export default function LoginPage() {
         console.error('[reCAPTCHA] Initialization failed:', err);
         setError('Failed to initialize security verification. Please reload the page.');
       }
+
+      // Cleanup on unmount
+      return () => {
+        if (verifier) {
+          try {
+            verifier.clear();
+          } catch (e) {
+            console.error('Error cleaning up recaptcha verifier:', e);
+          }
+        }
+      };
     }
   }, []);
 
