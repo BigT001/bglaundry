@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
@@ -17,10 +17,12 @@ import {
   Shirt,
   Sparkles,
   ChevronRight,
-  Info
+  Info,
+  User,
+  X,
+  MapPinned
 } from 'lucide-react';
 
-// Tab configuration
 type TabType = 'BOOK' | 'ACTIVE' | 'HISTORY';
 type ServiceCategory = 'Clothing' | 'Household' | 'Additional';
 
@@ -35,29 +37,25 @@ export default function CustomerDashboard() {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   
-  // Dashboard navigation tab
   const [activeTab, setActiveTab] = useState<TabType>('BOOK');
   const [categoryTab, setCategoryTab] = useState<ServiceCategory>('Clothing');
   
-  // Fetch lists
   const [services, setServices] = useState<any[]>([]);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
   
-  // Loading & Error states
   const [loading, setLoading] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // Basket & Schedule states
   const [basket, setBasket] = useState<Record<string, BasketItem>>({});
   const [pickupAddress, setPickupAddress] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [pickupDate, setPickupDate] = useState('');
   const [bookingStep, setBookingStep] = useState<'SELECT' | 'SCHEDULE'>('SELECT');
+  const [mobileBasketOpen, setMobileBasketOpen] = useState(false);
 
-  // Verify auth session on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedToken = localStorage.getItem('customerToken');
@@ -72,11 +70,9 @@ export default function CustomerDashboard() {
     }
   }, [router]);
 
-  // Fetch Services & Customer data
   useEffect(() => {
     if (!token || !user) return;
     
-    // 1. Fetch Laundry Services Catalog
     setLoading(true);
     axios.get('/api/v1/admin/services')
       .then((res) => {
@@ -88,7 +84,6 @@ export default function CustomerDashboard() {
       })
       .finally(() => setLoading(false));
 
-    // 2. Fetch Active Bookings & History
     refreshOrders();
   }, [token, user]);
 
@@ -96,7 +91,6 @@ export default function CustomerDashboard() {
     if (!token || !user) return;
     setOrdersLoading(true);
 
-    // Active bookings
     axios.get(`/api/v1/orders/customer/${user.id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -105,7 +99,6 @@ export default function CustomerDashboard() {
       })
       .catch((err) => console.error('Active orders error:', err));
 
-    // Completed History
     axios.get(`/api/v1/orders/customer/${user.id}?history=true`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -122,7 +115,6 @@ export default function CustomerDashboard() {
     router.push('/login');
   };
 
-  // Basket Handlers
   const handleAddToBasket = (serviceName: string, optionName: string, price: number) => {
     const basketKey = `${serviceName} - ${optionName}`;
     setBasket((prev) => {
@@ -161,6 +153,10 @@ export default function CustomerDashboard() {
     return Object.values(basket).reduce((sum, item) => sum + item.price * item.quantity, 0);
   };
 
+  const getBasketCount = () => {
+    return Object.values(basket).reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !user) return;
@@ -191,6 +187,7 @@ export default function CustomerDashboard() {
       setDeliveryAddress('');
       setPickupDate('');
       setBookingStep('SELECT');
+      setMobileBasketOpen(false);
       setActiveTab('ACTIVE');
       refreshOrders();
     } catch (err: any) {
@@ -201,12 +198,10 @@ export default function CustomerDashboard() {
     }
   };
 
-  // Helper to format currency
   const formatCurrency = (val: number) => {
     return `₦${val.toLocaleString('en-US')}`;
   };
 
-  // Helper to resolve laundry status pipelines
   const getStatusStep = (status: string) => {
     switch (status) {
       case 'PICKUP_PENDING': return 1;
@@ -223,10 +218,10 @@ export default function CustomerDashboard() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'PICKUP_PENDING': return 'Waiting for Driver';
-      case 'PICKUP_IN_PROGRESS': return 'Driver en route for pickup';
-      case 'PICKED_UP': return 'Picked up';
+      case 'PICKUP_IN_PROGRESS': return 'Driver en route';
+      case 'PICKED_UP': return 'Collected';
       case 'PROCESSING': return 'Cleaning in Progress';
-      case 'DELIVERY_PENDING': return 'Ready for Delivery';
+      case 'DELIVERY_PENDING': return 'Ready to Deliver';
       case 'DELIVERY_IN_PROGRESS': return 'Out for Delivery';
       case 'DELIVERED': return 'Delivered';
       case 'CANCELLED': return 'Cancelled';
@@ -234,16 +229,95 @@ export default function CustomerDashboard() {
     }
   };
 
-  // Filter services by category
   const filteredServices = services.filter((svc) => svc.category === categoryTab);
+  const initials = user?.fullName ? user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#F8FAFC' }}>
-      {/* Top Header Navigation Bar */}
-      <header style={{
+    <div style={{ minHeight: '100vh', backgroundColor: '#FAF9F7', color: '#0D0D0D', display: 'flex', flexDirection: 'column' }}>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        .header-logo { font-size: 18px; font-weight: 700; color: #0D0D0D; letter-spacing: -0.4px; }
+        .header-profile-circle { width: 34px; height: 34px; border-radius: 50%; background: #0D0D0D; color: #FAF9F7; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; }
+        
+        .sidebar { width: 260px; background: #fff; border-right: 1px solid #EAE8E3; padding: 32px 18px; display: flex; flex-direction: column; gap: 8px; }
+        .sidebar-btn { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: none; border-radius: 12px; background: transparent; color: #6B7280; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s ease; width: 100%; }
+        .sidebar-btn.active { background: #0D0D0D; color: #FAF9F7; }
+        .sidebar-btn:hover:not(.active) { background: #F3F1ED; color: #0D0D0D; }
+
+        .cat-scroll-container { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid #EAE8E3; padding-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .cat-scroll-container::-webkit-scrollbar { display: none; }
+        .cat-tab { padding: 8px 18px; border: none; border-radius: 100px; background: transparent; color: #6B7280; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; }
+        .cat-tab.active { background: #0D0D0D; color: #FAF9F7; }
+
+        .service-card { background: #fff; border: 1px solid #EAE8E3; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s; }
+        .service-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+
+        .btn-action-sm { padding: 6px 14px; border-radius: 8px; border: none; background: #0D0D0D; color: #FAF9F7; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s; }
+        .btn-action-sm:hover { opacity: 0.85; }
+
+        .btn-round-adjust { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #EAE8E3; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #0D0D0D; transition: all 0.15s; }
+        .btn-round-adjust:hover { border-color: #0D0D0D; background: #FAF9F7; }
+
+        .field-label { display: block; font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+        .field-input { width: 100%; padding: 12px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: #0D0D0D; background: #fff; border: 1.5px solid #EAE8E3; border-radius: 10px; outline: none; transition: all 0.18s; }
+        .field-input:focus { border-color: #0D0D0D; box-shadow: 0 0 0 3px rgba(13,13,13,0.05); }
+
+        .timeline-vertical { display: flex; flex-direction: column; gap: 16px; position: relative; margin-top: 24px; padding-left: 20px; }
+        .timeline-vertical-line { position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: #EAE8E3; }
+        .timeline-vertical-progress { position: absolute; left: 6px; top: 8px; width: 2px; background: #0055FF; transition: height 0.4s ease; }
+        .timeline-node-v { display: flex; gap: 16px; align-items: flex-start; position: relative; z-index: 2; }
+        .timeline-dot-v { width: 14px; height: 14px; border-radius: 50%; background: #FAF9F7; border: 3px solid #EAE8E3; flex-shrink: 0; margin-top: 3px; transition: all 0.3s; }
+        .timeline-dot-v.passed { border-color: #0055FF; background: #0055FF; }
+        .timeline-dot-v.current { border-color: #0055FF; background: #FAF9F7; box-shadow: 0 0 0 3px rgba(0,85,255,0.2); }
+
+        /* Mobile bottom nav */
+        .mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #fff; border-top: 1px solid #EAE8E3; z-index: 100; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
+        .mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: #9CA3AF; cursor: pointer; width: 60px; font-family: 'DM Sans', sans-serif; }
+        .mobile-nav-item.active { color: #0D0D0D; }
+        .mobile-nav-label { font-size: 10px; font-weight: 600; letter-spacing: -0.1px; }
+
+        /* Floating Mobile Basket Bar */
+        .mobile-basket-bar { display: none; position: fixed; bottom: 80px; left: 16px; right: 16px; background: #0D0D0D; color: #FAF9F7; padding: 14px 20px; border-radius: 100px; z-index: 99; align-items: center; justify-content: space-between; box-shadow: 0 8px 30px rgba(0,0,0,0.18); cursor: pointer; animation: fadeUp 0.3s ease; }
+
+        /* Drawer Overlay */
+        .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; animation: fadeIn 0.25s ease; }
+        .drawer-container { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top-left-radius: 24px; border-top-right-radius: 24px; z-index: 151; padding: 32px 24px 40px; max-height: 85vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.12); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+        .drawer-container.open { transform: translateY(0); }
+
+        /* Responsive Layouts */
+        @media (max-width: 900px) {
+          .desktop-layout { flex-direction: column !important; }
+          .sidebar { display: none !important; }
+          .desktop-basket { display: none !important; }
+          .main-content { padding: 24px 16px 110px !important; }
+          .mobile-bottom-nav { display: flex; }
+          .header-nav { padding: 16px 20px !important; }
+          .services-grid { grid-template-columns: 1fr !important; }
+          .mobile-basket-bar.show { display: flex; }
+          .checkout-container { max-width: 100% !important; }
+          .order-card-inner { flex-direction: column !important; gap: 16px !important; }
+          .order-tracker-h { display: none !important; }
+          .order-tracker-v { display: block !important; }
+        }
+
+        @media (min-width: 901px) {
+          .order-tracker-v { display: none !important; }
+        }
+      `}} />
+
+      {/* ═══════════════════════════════════════
+          TOP HEADER
+      ═══════════════════════════════════════ */}
+      <header className="header-nav" style={{
         backgroundColor: '#FFFFFF',
-        borderBottom: '1px solid #E2E8F0',
-        padding: '16px 40px',
+        borderBottom: '1px solid #EAE8E3',
+        padding: '16px 48px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -251,73 +325,34 @@ export default function CustomerDashboard() {
         top: 0,
         zIndex: 50
       }}>
-        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#002B7F', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="header-logo">
           BG Laundry Portal
         </div>
         
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A' }}>{user.fullName}</div>
-              <div style={{ fontSize: '12px', color: '#64748B' }}>{user.phoneNumber}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }} className="desktop-profile-info">
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0D0D0D' }}>{user.fullName}</span>
+              <span style={{ fontSize: '11px', color: '#6B7280' }}>+234{user.phoneNumber.replace(/^(\+234|0)/, '')}</span>
             </div>
             
-            <button
-              onClick={handleLogout}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                backgroundColor: '#FFFFFF',
-                color: '#EF4444',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FEF2F2'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
+            <div className="header-profile-circle" onClick={handleLogout} title="Click to Logout">
+              {initials}
+            </div>
           </div>
         )}
       </header>
 
-      {/* Main Dashboard Layout */}
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Left Navigation Sidebar */}
-        <aside style={{
-          width: '260px',
-          backgroundColor: '#FFFFFF',
-          borderRight: '1px solid #E2E8F0',
-          padding: '24px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
+      {/* ═══════════════════════════════════════
+          MAIN WRAPPER
+      ═══════════════════════════════════════ */}
+      <div className="desktop-layout" style={{ display: 'flex', flex: 1 }}>
+        
+        {/* DESKTOP SIDEBAR */}
+        <aside className="sidebar">
           <button
             onClick={() => { setActiveTab('BOOK'); setSuccess(''); setError(''); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 16px',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: activeTab === 'BOOK' ? '#F0F5FF' : 'transparent',
-              color: activeTab === 'BOOK' ? '#002B7F' : '#64748B',
-              fontSize: '15px',
-              fontWeight: '600',
-              textAlign: 'left',
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'background-color 0.2s'
-            }}
+            className={`sidebar-btn ${activeTab === 'BOOK' ? 'active' : ''}`}
           >
             <ShoppingBag size={18} />
             Book Laundry
@@ -325,33 +360,19 @@ export default function CustomerDashboard() {
 
           <button
             onClick={() => { setActiveTab('ACTIVE'); setSuccess(''); setError(''); refreshOrders(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 16px',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: activeTab === 'ACTIVE' ? '#F0F5FF' : 'transparent',
-              color: activeTab === 'ACTIVE' ? '#002B7F' : '#64748B',
-              fontSize: '15px',
-              fontWeight: '600',
-              textAlign: 'left',
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'background-color 0.2s'
-            }}
+            className={`sidebar-btn ${activeTab === 'ACTIVE' ? 'active' : ''}`}
           >
             <Activity size={18} />
             Active Bookings
             {activeOrders.length > 0 && (
               <span style={{
                 marginLeft: 'auto',
-                backgroundColor: '#0066FF',
-                color: '#FFFFFF',
+                backgroundColor: activeTab === 'ACTIVE' ? '#0D0D0D' : '#EAE8E3',
+                color: activeTab === 'ACTIVE' ? '#FAF9F7' : '#0D0D0D',
                 fontSize: '11px',
-                padding: '2px 6px',
-                borderRadius: '10px'
+                padding: '2px 7px',
+                borderRadius: '100px',
+                fontWeight: '700'
               }}>
                 {activeOrders.length}
               </span>
@@ -360,102 +381,79 @@ export default function CustomerDashboard() {
 
           <button
             onClick={() => { setActiveTab('HISTORY'); setSuccess(''); setError(''); refreshOrders(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 16px',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: activeTab === 'HISTORY' ? '#F0F5FF' : 'transparent',
-              color: activeTab === 'HISTORY' ? '#002B7F' : '#64748B',
-              fontSize: '15px',
-              fontWeight: '600',
-              textAlign: 'left',
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'background-color 0.2s'
-            }}
+            className={`sidebar-btn ${activeTab === 'HISTORY' ? 'active' : ''}`}
           >
             <History size={18} />
             Order History
           </button>
         </aside>
 
-        {/* Content Workspace Area */}
-        <main style={{ flex: 1, padding: '40px' }}>
-          {/* Global Messaging banner */}
+        {/* WORKSPACE AREA */}
+        <main className="main-content" style={{ flex: 1, padding: '48px' }}>
+          
           {success && (
             <div style={{
-              padding: '16px',
+              padding: '14px 18px',
               backgroundColor: '#F0FDF4',
-              border: '1px solid #86EFAC',
+              border: '1px solid #BBF7D0',
               color: '#166534',
-              borderRadius: '8px',
-              marginBottom: '24px',
+              borderRadius: '12px',
+              marginBottom: '28px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '10px',
+              fontSize: '14px'
             }}>
-              <Check size={18} />
+              <Check size={16} />
               <span>{success}</span>
             </div>
           )}
 
           {error && (
             <div style={{
-              padding: '16px',
+              padding: '14px 18px',
               backgroundColor: '#FEF2F2',
-              border: '1px solid #FCA5A5',
+              border: '1px solid #FECACA',
               color: '#B91C1C',
-              borderRadius: '8px',
-              marginBottom: '24px'
+              borderRadius: '12px',
+              marginBottom: '28px',
+              fontSize: '14px'
             }}>
               <span>{error}</span>
             </div>
           )}
 
-          {/* TAB 1: BOOK LAUNDRY VIEW */}
+          {/* ═══════════════════════════════════════
+              TAB 1: BOOK VIEW
+          ═══════════════════════════════════════ */}
           {activeTab === 'BOOK' && (
-            <div style={{ display: 'flex', gap: '32px', height: '100%', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
               
-              {/* Left Column: Catalog selection */}
               <div style={{ flex: 1 }}>
                 {bookingStep === 'SELECT' ? (
                   <>
-                    <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0F172A', margin: '0 0 24px 0' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.5px' }}>
                       Select Services
                     </h2>
                     
-                    {/* Category tabs */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px' }}>
+                    <div className="cat-scroll-container">
                       {(['Clothing', 'Household', 'Additional'] as ServiceCategory[]).map((cat) => (
                         <button
                           key={cat}
                           onClick={() => setCategoryTab(cat)}
-                          style={{
-                            padding: '8px 16px',
-                            border: 'none',
-                            borderRadius: '20px',
-                            backgroundColor: categoryTab === cat ? '#002B7F' : 'transparent',
-                            color: categoryTab === cat ? '#FFFFFF' : '#64748B',
-                            fontWeight: '600',
-                            fontSize: '14px',
-                            cursor: 'pointer'
-                          }}
+                          className={`cat-tab ${categoryTab === cat ? 'active' : ''}`}
                         >
                           {cat}
                         </button>
                       ))}
                     </div>
 
-                    {/* Services cards grid */}
                     {loading ? (
-                      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                        <Loader2 size={32} className="animate-spin" style={{ color: '#002B7F' }} />
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+                        <Loader2 size={28} style={{ animation: 'spin 0.8s linear infinite', color: '#0D0D0D' }} />
                       </div>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                      <div className="services-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                         {filteredServices.map((svc) => {
                           const options = [];
                           if (svc.hasWashIron) options.push({ type: 'Wash & Iron', price: svc.washIronPrice });
@@ -463,104 +461,49 @@ export default function CustomerDashboard() {
                           if (svc.hasIron) options.push({ type: 'Iron Only', price: svc.ironPrice });
 
                           return (
-                            <div key={svc.id} style={{
-                              backgroundColor: '#FFFFFF',
-                              borderRadius: '12px',
-                              border: '1px solid #E2E8F0',
-                              padding: '20px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '12px'
-                            }}>
+                            <div key={svc.id} className="service-card">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  borderRadius: '8px',
-                                  backgroundColor: '#F0F5FF',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: '#002B7F',
-                                  fontWeight: 'bold'
+                                  width: '36px', height: '36px', borderRadius: '10px',
+                                  backgroundColor: '#FAF9F7', border: '1px solid #EAE8E3',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  color: '#0055FF'
                                 }}>
-                                  <Shirt size={18} />
+                                  <Shirt size={16} />
                                 </div>
-                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#0F172A', margin: 0 }}>
+                                <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#0D0D0D' }}>
                                   {svc.name}
                                 </h3>
                               </div>
 
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {options.map((opt, idx) => {
                                   const key = `${svc.name} - ${opt.type}`;
                                   const basketQty = basket[key]?.quantity || 0;
 
                                   return (
                                     <div key={idx} style={{
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center',
-                                      padding: '8px 12px',
-                                      backgroundColor: '#F8FAFC',
-                                      borderRadius: '8px',
-                                      border: '1px solid #F1F5F9'
+                                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                      padding: '10px 14px', backgroundColor: '#FAFAF9',
+                                      borderRadius: '10px', border: '1.5px solid #F1F0ED'
                                     }}>
                                       <div>
-                                        <div style={{ fontSize: '13px', fontWeight: '500', color: '#0F172A' }}>{opt.type}</div>
-                                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0066FF' }}>{formatCurrency(opt.price)}</div>
+                                        <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151' }}>{opt.type}</div>
+                                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0D0D0D', marginTop: '1px' }}>{formatCurrency(opt.price)}</div>
                                       </div>
 
                                       {basketQty > 0 ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                          <button
-                                            onClick={() => handleRemoveFromBasket(key)}
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              borderRadius: '14px',
-                                              border: '1px solid #E2E8F0',
-                                              backgroundColor: '#FFFFFF',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              cursor: 'pointer'
-                                            }}
-                                          >
-                                            <Minus size={12} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                          <button onClick={() => handleRemoveFromBasket(key)} className="btn-round-adjust">
+                                            <Minus size={11} />
                                           </button>
-                                          <span style={{ fontSize: '14px', fontWeight: '700' }}>{basketQty}</span>
-                                          <button
-                                            onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)}
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              borderRadius: '14px',
-                                              border: '1px solid #E2E8F0',
-                                              backgroundColor: '#FFFFFF',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              cursor: 'pointer'
-                                            }}
-                                          >
-                                            <Plus size={12} />
+                                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#0D0D0D', width: '12px', textAlign: 'center' }}>{basketQty}</span>
+                                          <button onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)} className="btn-round-adjust">
+                                            <Plus size={11} />
                                           </button>
                                         </div>
                                       ) : (
-                                        <button
-                                          onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)}
-                                          style={{
-                                            padding: '6px 12px',
-                                            borderRadius: '6px',
-                                            border: 'none',
-                                            backgroundColor: '#002B7F',
-                                            color: '#FFFFFF',
-                                            fontSize: '12px',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
-                                          }}
-                                        >
+                                        <button onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)} className="btn-action-sm">
                                           Add
                                         </button>
                                       )}
@@ -575,117 +518,80 @@ export default function CustomerDashboard() {
                     )}
                   </>
                 ) : (
-                  // Schedule details step
-                  <div style={{
+                  /* SCHEDULE OPTION STEP */
+                  <div className="checkout-container" style={{
                     backgroundColor: '#FFFFFF',
-                    borderRadius: '12px',
-                    border: '1px solid #E2E8F0',
+                    borderRadius: '16px',
+                    border: '1px solid #EAE8E3',
                     padding: '32px',
-                    maxWidth: '600px'
+                    maxWidth: '560px'
                   }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0F172A', margin: '0 0 24px 0' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.3px' }}>
                       Schedule Laundry Pickup
                     </h2>
 
                     <form onSubmit={handlePlaceOrder}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#0F172A', marginBottom: '8px' }}>
-                            Pickup Address
-                          </label>
+                          <label className="field-label">Pickup Address</label>
                           <input
                             type="text"
                             required
                             value={pickupAddress}
                             onChange={(e) => setPickupAddress(e.target.value)}
-                            placeholder="e.g. Apartment 4, 16B Maria Okor Street, Ejibo"
-                            style={{
-                              width: '100%',
-                              padding: '12px',
-                              border: '1px solid #E2E8F0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              boxSizing: 'border-box'
-                            }}
+                            placeholder="e.g. Apt 4, 16B Maria Okor Street, Ejibo"
+                            className="field-input"
                           />
                         </div>
 
                         <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#0F172A', marginBottom: '8px' }}>
-                            Delivery Address
-                          </label>
+                          <label className="field-label">Delivery Address</label>
                           <input
                             type="text"
                             required
                             value={deliveryAddress}
                             onChange={(e) => setDeliveryAddress(e.target.value)}
                             placeholder="e.g. Same as pickup address"
-                            style={{
-                              width: '100%',
-                              padding: '12px',
-                              border: '1px solid #E2E8F0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              boxSizing: 'border-box'
-                            }}
+                            className="field-input"
                           />
                         </div>
 
                         <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#0F172A', marginBottom: '8px' }}>
-                            Pickup Date & Time
-                          </label>
+                          <label className="field-label">Pickup Date & Time</label>
                           <input
                             type="datetime-local"
                             required
                             value={pickupDate}
                             onChange={(e) => setPickupDate(e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '12px',
-                              border: '1px solid #E2E8F0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              boxSizing: 'border-box'
-                            }}
+                            className="field-input"
                           />
                         </div>
 
-                        <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                           <button
                             type="button"
                             onClick={() => setBookingStep('SELECT')}
                             style={{
-                              flex: 1,
-                              padding: '14px',
-                              border: '1px solid #E2E8F0',
-                              borderRadius: '6px',
-                              backgroundColor: '#FFFFFF',
-                              color: '#0F172A',
-                              fontSize: '15px',
-                              fontWeight: '600',
-                              cursor: 'pointer'
+                              flex: 1, padding: '14px', border: '1.5px solid #D6D3CD',
+                              borderRadius: '12px', backgroundColor: '#FFFFFF',
+                              color: '#0D0D0D', fontSize: '14px', fontWeight: '600',
+                              cursor: 'pointer', fontFamily: 'DM Sans'
                             }}
                           >
-                            Back to Items
+                            Back
                           </button>
                           <button
                             type="submit"
                             disabled={loading}
                             style={{
-                              flex: 2,
-                              padding: '14px',
-                              border: 'none',
-                              borderRadius: '6px',
-                              backgroundColor: '#0066FF',
-                              color: '#FFFFFF',
-                              fontSize: '15px',
-                              fontWeight: 'bold',
+                              flex: 2, padding: '14px', border: 'none',
+                              borderRadius: '12px', backgroundColor: '#0D0D0D',
+                              color: '#FAF9F7', fontSize: '14px', fontWeight: '600',
                               cursor: loading ? 'not-allowed' : 'pointer',
-                              opacity: loading ? 0.7 : 1
+                              fontFamily: 'DM Sans', opacity: loading ? 0.7 : 1
                             }}
                           >
-                            {loading ? 'Submitting booking...' : 'Confirm & Book Laundry'}
+                            {loading ? 'Booking...' : 'Confirm Order'}
                           </button>
                         </div>
                       </div>
@@ -694,74 +600,50 @@ export default function CustomerDashboard() {
                 )}
               </div>
 
-              {/* Right Column: Basket details */}
+              {/* DESKTOP SIDE BAR BASKET */}
               {bookingStep === 'SELECT' && (
-                <div style={{
+                <div className="desktop-basket" style={{
                   width: '320px',
                   backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1px solid #E2E8F0',
+                  borderRadius: '16px',
+                  border: '1px solid #EAE8E3',
                   padding: '24px',
                   display: 'flex',
                   flexDirection: 'column',
-                  maxHeight: '80vh'
+                  maxHeight: '75vh',
+                  position: 'sticky',
+                  top: '100px'
                 }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShoppingBag size={18} />
+                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0D0D0D', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingBag size={16} />
                     Basket
                   </h3>
 
                   {Object.keys(basket).length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
-                      <p style={{ margin: 0, fontSize: '14px' }}>Your basket is currently empty.</p>
+                    <div style={{ textAlign: 'center', padding: '32px 0', color: '#9CA3AF' }}>
+                      <p style={{ fontSize: '13px' }}>Your basket is empty.</p>
                     </div>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', flex: 1, marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flex: 1, marginBottom: '20px', paddingRight: '4px' }}>
                         {Object.values(basket).map((item) => (
-                          <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
-                            <div style={{ flex: 1, paddingRight: '12px' }}>
-                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{item.serviceName}</div>
-                              <div style={{ fontSize: '12px', color: '#64748B' }}>
+                          <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F3F1ED', paddingBottom: '10px' }}>
+                            <div style={{ flex: 1, paddingRight: '8px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#0D0D0D' }}>{item.serviceName}</div>
+                              <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
                                 {item.quantity} × {formatCurrency(item.price)}
                               </div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#002B7F', marginBottom: '8px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0D0D0D', marginBottom: '6px' }}>
                                 {formatCurrency(item.price * item.quantity)}
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                <button
-                                  onClick={() => handleRemoveFromBasket(item.serviceName)}
-                                  style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    borderRadius: '10px',
-                                    border: '1px solid #E2E8F0',
-                                    backgroundColor: '#FFFFFF',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  <Minus size={10} />
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                <button onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" style={{ width: '18px', height: '18px' }}>
+                                  <Minus size={9} />
                                 </button>
-                                <button
-                                  onClick={() => handleAddToBasket(item.serviceName.split(' - ')[0], item.serviceName.split(' - ')[1], item.price)}
-                                  style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    borderRadius: '10px',
-                                    border: '1px solid #E2E8F0',
-                                    backgroundColor: '#FFFFFF',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  <Plus size={10} />
+                                <button onClick={() => handleAddToBasket(item.serviceName.split(' - ')[0], item.serviceName.split(' - ')[1], item.price)} className="btn-round-adjust" style={{ width: '18px', height: '18px' }}>
+                                  <Plus size={9} />
                                 </button>
                               </div>
                             </div>
@@ -769,10 +651,10 @@ export default function CustomerDashboard() {
                         ))}
                       </div>
 
-                      <div style={{ borderTop: '2px dashed #E2E8F0', paddingTop: '16px', marginBottom: '20px' }}>
+                      <div style={{ borderTop: '1.5px dashed #EAE8E3', paddingTop: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748B' }}>Total:</span>
-                          <span style={{ fontSize: '20px', fontWeight: '800', color: '#002B7F' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '500', color: '#6B7280' }}>Total:</span>
+                          <span style={{ fontSize: '18px', fontWeight: '700', color: '#0D0D0D' }}>
                             {formatCurrency(getBasketTotal())}
                           </span>
                         </div>
@@ -780,23 +662,14 @@ export default function CustomerDashboard() {
                         <button
                           onClick={() => setBookingStep('SCHEDULE')}
                           style={{
-                            width: '100%',
-                            padding: '14px',
-                            backgroundColor: '#0066FF',
-                            color: '#FFFFFF',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '15px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
+                            width: '100%', padding: '14px', backgroundColor: '#0D0D0D',
+                            color: '#FAF9F7', border: 'none', borderRadius: '12px',
+                            fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            justifyContent: 'center', fontFamily: 'DM Sans'
                           }}
                         >
-                          Checkout
-                          <ChevronRight size={16} />
+                          Checkout <ChevronRight size={15} />
                         </button>
                       </div>
                     </>
@@ -806,43 +679,29 @@ export default function CustomerDashboard() {
             </div>
           )}
 
-          {/* TAB 2: ACTIVE TRACKINGS VIEW */}
+          {/* ═══════════════════════════════════════
+              TAB 2: ACTIVE ORDER TRACKING
+          ═══════════════════════════════════════ */}
           {activeTab === 'ACTIVE' && (
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0F172A', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.5px' }}>
                 Active Bookings
               </h2>
 
               {ordersLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                  <Loader2 size={32} className="animate-spin" style={{ color: '#002B7F' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+                  <Loader2 size={28} style={{ animation: 'spin 0.8s linear infinite', color: '#0D0D0D' }} />
                 </div>
               ) : activeOrders.length === 0 ? (
                 <div style={{
-                  textAlign: 'center',
-                  padding: '60px 40px',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1px solid #E2E8F0',
-                  color: '#64748B'
+                  textAlign: 'center', padding: '56px 24px',
+                  backgroundColor: '#FFFFFF', borderRadius: '16px',
+                  border: '1px solid #EAE8E3', color: '#6B7280'
                 }}>
-                  <ShoppingBag size={48} style={{ color: '#94A3B8', marginBottom: '16px' }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0' }}>No Active Orders</h3>
-                  <p style={{ margin: 0, fontSize: '14px' }}>You do not have any laundry orders being processed right now.</p>
-                  <button
-                    onClick={() => setActiveTab('BOOK')}
-                    style={{
-                      marginTop: '20px',
-                      padding: '10px 20px',
-                      backgroundColor: '#002B7F',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <ShoppingBag size={40} style={{ color: '#C4C1BA', marginBottom: '16px' }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#0D0D0D', marginBottom: '6px' }}>No Active Orders</h3>
+                  <p style={{ fontSize: '13px', maxWidth: '300px', margin: '0 auto 20px' }}>You don't have any pending or ongoing laundry bookings right now.</p>
+                  <button onClick={() => setActiveTab('BOOK')} className="btn-action-sm" style={{ padding: '10px 20px', borderRadius: '100px' }}>
                     Schedule a Pickup
                   </button>
                 </div>
@@ -853,100 +712,83 @@ export default function CustomerDashboard() {
 
                     return (
                       <div key={order.id} style={{
-                        backgroundColor: '#FFFFFF',
-                        borderRadius: '12px',
-                        border: '1px solid #E2E8F0',
-                        padding: '24px'
+                        backgroundColor: '#FFFFFF', borderRadius: '16px',
+                        border: '1px solid #EAE8E3', padding: '24px'
                       }}>
-                        {/* Order info summary line */}
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          borderBottom: '1px solid #F1F5F9',
-                          paddingBottom: '16px',
-                          marginBottom: '20px',
-                          flexWrap: 'wrap',
-                          gap: '16px'
+                        
+                        <div className="order-card-inner" style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                          borderBottom: '1px solid #F3F1ED', paddingBottom: '16px', marginBottom: '20px'
                         }}>
                           <div>
-                            <div style={{ fontSize: '16px', fontWeight: '800', color: '#002B7F' }}>
+                            <span style={{ fontSize: '15px', fontWeight: '700', color: '#0D0D0D' }}>
                               {order.orderNumber}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#9CA3AF', display: 'block', marginTop: '2px' }}>
                               Placed on {new Date(order.createdAt).toLocaleDateString()}
-                            </div>
+                            </span>
                           </div>
 
-                          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                             <div>
-                              <div style={{ fontSize: '12px', color: '#64748B' }}>Total Cost</div>
-                              <div style={{ fontSize: '15px', fontWeight: '700', color: '#0F172A' }}>
+                              <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Total</div>
+                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#0D0D0D', marginTop: '1px' }}>
                                 {formatCurrency(order.totalAmount)}
                               </div>
                             </div>
                             <div>
-                              <div style={{ fontSize: '12px', color: '#64748B' }}>Current Status</div>
-                              <div style={{
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                color: order.status === 'CANCELLED' ? '#EF4444' : '#0066FF',
+                              <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Status</div>
+                              <span style={{
+                                fontSize: '11px', fontWeight: '600',
+                                color: order.status === 'CANCELLED' ? '#EF4444' : '#0055FF',
                                 backgroundColor: order.status === 'CANCELLED' ? '#FEF2F2' : '#F0F5FF',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                display: 'inline-block',
-                                marginTop: '2px'
+                                padding: '3px 8px', borderRadius: '6px', display: 'inline-block', marginTop: '1px'
                               }}>
                                 {getStatusLabel(order.status)}
-                              </div>
+                              </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Middle section: items list & OTP keys side-by-side */}
+                        {/* Garment list & verification code */}
                         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '24px' }}>
-                          <div style={{ flex: 1, minWidth: '260px' }}>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569', marginBottom: '12px' }}>
+                          <div style={{ flex: 1, minWidth: '220px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
                               Garments List
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               {order.items.map((item: any) => (
                                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                  <span style={{ color: '#0F172A' }}>{item.serviceName}</span>
-                                  <span style={{ color: '#64748B', fontWeight: '600' }}>Qty: {item.quantity}</span>
+                                  <span style={{ color: '#374151' }}>{item.serviceName}</span>
+                                  <span style={{ color: '#0D0D0D', fontWeight: '500' }}>Qty: {item.quantity}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
 
-                          {/* Security OTP codes display */}
+                          {/* Verification OTP */}
                           {order.status !== 'CANCELLED' && (
                             <div style={{
-                              width: '280px',
-                              backgroundColor: '#F8FAFC',
-                              border: '1px dashed #E2E8F0',
-                              borderRadius: '8px',
-                              padding: '16px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '12px'
+                              width: '260px', backgroundColor: '#FAFAF9',
+                              border: '1.5px solid #F1F0ED', borderRadius: '12px',
+                              padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px'
                             }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontSize: '12px', fontWeight: '600' }}>
-                                <Info size={14} />
-                                Driver Verification Codes
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6B7280', fontSize: '12px', fontWeight: '600' }}>
+                                <Info size={13} />
+                                Driver Verification Code
                               </div>
 
                               {currentStep <= 2 ? (
                                 <div>
-                                  <div style={{ fontSize: '11px', color: '#64748B' }}>Give code to driver at PICKUP:</div>
-                                  <div style={{ fontSize: '24px', fontWeight: '800', color: '#002B7F', letterSpacing: '2px', marginTop: '4px' }}>
+                                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Provide code to driver at PICKUP:</div>
+                                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#0D0D0D', letterSpacing: '1.5px', marginTop: '2px' }}>
                                     {order.pickupOTP || '----'}
                                   </div>
                                 </div>
                               ) : (
                                 <div>
-                                  <div style={{ fontSize: '11px', color: '#64748B' }}>Give code to driver at DELIVERY:</div>
-                                  <div style={{ fontSize: '24px', fontWeight: '800', color: '#0066FF', letterSpacing: '2px', marginTop: '4px' }}>
+                                  <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Provide code to driver at DELIVERY:</div>
+                                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#0055FF', letterSpacing: '1.5px', marginTop: '2px' }}>
                                     {order.deliveryOTP || '----'}
                                   </div>
                                 </div>
@@ -955,76 +797,40 @@ export default function CustomerDashboard() {
                           )}
                         </div>
 
-                        {/* Bottom Section: Sleek step progress bar */}
+                        {/* DESKTOP TIMELINE */}
                         {order.status !== 'CANCELLED' && (
-                          <div style={{ marginTop: '32px' }}>
+                          <div className="order-tracker-h" style={{ marginTop: '28px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', marginBottom: '8px' }}>
                               
-                              {/* Background Bar */}
-                              <div style={{
-                                position: 'absolute',
-                                top: '12px',
-                                left: '16px',
-                                right: '16px',
-                                height: '4px',
-                                backgroundColor: '#E2E8F0',
-                                zIndex: 0
-                              }} />
-                              
-                              {/* Filled Progress Bar */}
-                              <div style={{
-                                position: 'absolute',
-                                top: '12px',
-                                left: '16px',
-                                width: `${((currentStep - 1) / 5) * 100}%`,
-                                height: '4px',
-                                backgroundColor: '#0066FF',
-                                zIndex: 0,
-                                transition: 'width 0.4s ease'
-                              }} />
+                              <div style={{ position: 'absolute', top: '10px', left: '16px', right: '16px', height: '2px', backgroundColor: '#EAE8E3', zIndex: 0 }} />
+                              <div style={{ position: 'absolute', top: '10px', left: '16px', width: `${((currentStep - 1) / 5) * 100}%`, height: '2px', backgroundColor: '#0055FF', zIndex: 0, transition: 'width 0.4s ease' }} />
 
-                              {/* Progress Nodes */}
                               {[
-                                { label: 'Submitted', step: 1 },
+                                { label: 'Booked', step: 1 },
                                 { label: 'Assigned', step: 2 },
                                 { label: 'Collected', step: 3 },
                                 { label: 'Cleaning', step: 4 },
-                                { label: 'Out for Delivery', step: 5 },
+                                { label: 'Out to Deliver', step: 5 },
                                 { label: 'Delivered', step: 6 }
                               ].map((node) => {
                                 const isPassed = currentStep >= node.step;
                                 const isCurrent = currentStep === node.step;
 
                                 return (
-                                  <div key={node.step} style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    zIndex: 10,
-                                    width: '60px'
-                                  }}>
+                                  <div key={node.step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10, width: '70px' }}>
                                     <div style={{
-                                      width: '24px',
-                                      height: '24px',
-                                      borderRadius: '12px',
-                                      backgroundColor: isPassed ? '#0066FF' : '#E2E8F0',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: '#FFFFFF',
-                                      fontSize: '11px',
-                                      fontWeight: 'bold',
-                                      border: isCurrent ? '4px solid #F0F5FF' : 'none'
+                                      width: '20px', height: '20px', borderRadius: '50%',
+                                      backgroundColor: isPassed ? '#0055FF' : '#EAE8E3',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      color: '#FFFFFF', fontSize: '9px', fontWeight: '700',
+                                      boxShadow: isCurrent ? '0 0 0 3px rgba(0,85,255,0.18)' : 'none'
                                     }}>
                                       {isPassed && node.step < currentStep ? '✓' : node.step}
                                     </div>
                                     <span style={{
-                                      fontSize: '10px',
-                                      fontWeight: isPassed ? 'bold' : 'normal',
-                                      color: isPassed ? '#002B7F' : '#64748B',
-                                      textAlign: 'center',
-                                      marginTop: '8px',
-                                      lineHeight: '1.2'
+                                      fontSize: '10px', fontWeight: isPassed ? '600' : '400',
+                                      color: isPassed ? '#0D0D0D' : '#9CA3AF', textAlign: 'center',
+                                      marginTop: '6px', lineHeight: '1.2'
                                     }}>
                                       {node.label}
                                     </span>
@@ -1034,6 +840,42 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
                         )}
+
+                        {/* MOBILE TIMELINE */}
+                        {order.status !== 'CANCELLED' && (
+                          <div className="order-tracker-v" style={{ marginTop: '16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+                              Tracking Status
+                            </div>
+                            <div className="timeline-vertical">
+                              <div className="timeline-vertical-line" />
+                              <div className="timeline-vertical-progress" style={{ height: `${((currentStep - 1) / 5) * 100}%` }} />
+                              
+                              {[
+                                { label: 'Laundry order placed successfully', step: 1 },
+                                { label: 'Pickup driver assigned & en route', step: 2 },
+                                { label: 'Garments collected by driver', step: 3 },
+                                { label: 'Garments inside our cleaning facility', step: 4 },
+                                { label: 'Cleaned laundry out for delivery', step: 5 },
+                                { label: 'Delivered back to your address', step: 6 }
+                              ].map((node) => {
+                                const isPassed = currentStep >= node.step;
+                                const isCurrent = currentStep === node.step;
+                                return (
+                                  <div key={node.step} className="timeline-node-v">
+                                    <div className={`timeline-dot-v ${isPassed && node.step < currentStep ? 'passed' : isCurrent ? 'current' : ''}`} />
+                                    <div>
+                                      <p style={{ fontSize: '13px', fontWeight: isCurrent ? '600' : '400', color: isCurrent ? '#0D0D0D' : isPassed ? '#4B5563' : '#9CA3AF' }}>
+                                        {node.label}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     );
                   })}
@@ -1042,74 +884,65 @@ export default function CustomerDashboard() {
             </div>
           )}
 
-          {/* TAB 3: ORDER HISTORY VIEW */}
+          {/* ═══════════════════════════════════════
+              TAB 3: ORDER HISTORY
+          ═══════════════════════════════════════ */}
           {activeTab === 'HISTORY' && (
             <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0F172A', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.5px' }}>
                 Completed Bookings
               </h2>
 
               {ordersLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                  <Loader2 size={32} className="animate-spin" style={{ color: '#002B7F' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+                  <Loader2 size={28} style={{ animation: 'spin 0.8s linear infinite', color: '#0D0D0D' }} />
                 </div>
               ) : historyOrders.length === 0 ? (
                 <div style={{
-                  textAlign: 'center',
-                  padding: '60px 40px',
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '12px',
-                  border: '1px solid #E2E8F0',
-                  color: '#64748B'
+                  textAlign: 'center', padding: '56px 24px',
+                  backgroundColor: '#FFFFFF', borderRadius: '16px',
+                  border: '1px solid #EAE8E3', color: '#6B7280'
                 }}>
-                  <History size={48} style={{ color: '#94A3B8', marginBottom: '16px' }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0' }}>No Order History</h3>
-                  <p style={{ margin: 0, fontSize: '14px' }}>You have not completed any bookings yet.</p>
+                  <History size={40} style={{ color: '#C4C1BA', marginBottom: '16px' }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#0D0D0D', marginBottom: '6px' }}>No Order History</h3>
+                  <p style={{ fontSize: '13px' }}>You haven't completed any bookings yet.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {historyOrders.map((order) => (
                     <div key={order.id} style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: '12px',
-                      border: '1px solid #E2E8F0',
-                      padding: '20px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '16px'
+                      backgroundColor: '#FFFFFF', borderRadius: '16px',
+                      border: '1px solid #EAE8E3', padding: '20px',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      flexWrap: 'wrap', gap: '16px'
                     }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '700', color: '#002B7F' }}>{order.orderNumber}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '700', color: '#0D0D0D' }}>{order.orderNumber}</span>
                           <span style={{
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            backgroundColor: '#F0FDF4',
-                            color: '#166534',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
+                            fontSize: '10px', fontWeight: '600',
+                            backgroundColor: '#F0FDF4', color: '#166534',
+                            padding: '2px 6px', borderRadius: '4px'
                           }}>
                             Delivered
                           </span>
                         </div>
-                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
                           Completed on {new Date(order.updatedAt).toLocaleDateString()}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         {order.items.map((item: any) => (
-                          <div key={item.id} style={{ fontSize: '12px', color: '#475569' }}>
+                          <div key={item.id} style={{ fontSize: '12px', color: '#4B5563' }}>
                             {item.serviceName} × {item.quantity}
                           </div>
                         ))}
                       </div>
 
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>Total Amount Paid</div>
-                        <div style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', marginTop: '2px' }}>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Total paid</div>
+                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#0D0D0D', marginTop: '1px' }}>
                           {formatCurrency(order.totalAmount)}
                         </div>
                       </div>
@@ -1119,8 +952,145 @@ export default function CustomerDashboard() {
               )}
             </div>
           )}
+
         </main>
       </div>
+
+      {/* ═══════════════════════════════════════
+          MOBILE BASKET STICKY BAR
+      ═══════════════════════════════════════ */}
+      {activeTab === 'BOOK' && bookingStep === 'SELECT' && getBasketCount() > 0 && (
+        <div
+          className={`mobile-basket-bar ${getBasketCount() > 0 ? 'show' : ''}`}
+          onClick={() => setMobileBasketOpen(true)}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              backgroundColor: '#FAF9F7', color: '#0D0D0D',
+              borderRadius: '50%', width: '22px', height: '22px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '11px', fontWeight: '700'
+            }}>
+              {getBasketCount()}
+            </div>
+            <span style={{ fontSize: '14px', fontWeight: '600' }}>View Basket</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '700' }}>{formatCurrency(getBasketTotal())}</span>
+            <ChevronRight size={16} />
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════
+          MOBILE BOTTOM NAVIGATION TAB BAR
+      ═══════════════════════════════════════ */}
+      <div className="mobile-bottom-nav">
+        <button
+          onClick={() => { setActiveTab('BOOK'); setSuccess(''); setError(''); }}
+          className={`mobile-nav-item ${activeTab === 'BOOK' ? 'active' : ''}`}
+        >
+          <ShoppingBag size={20} />
+          <span className="mobile-nav-label">Book</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('ACTIVE'); setSuccess(''); setError(''); refreshOrders(); }}
+          className={`mobile-nav-item ${activeTab === 'ACTIVE' ? 'active' : ''}`}
+        >
+          <div style={{ position: 'relative' }}>
+            <Activity size={20} />
+            {activeOrders.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '-4px', right: '-8px',
+                width: '6px', height: '6px', borderRadius: '50%',
+                backgroundColor: '#0055FF'
+              }} />
+            )}
+          </div>
+          <span className="mobile-nav-label">Active</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('HISTORY'); setSuccess(''); setError(''); refreshOrders(); }}
+          className={`mobile-nav-item ${activeTab === 'HISTORY' ? 'active' : ''}`}
+        >
+          <History size={20} />
+          <span className="mobile-nav-label">History</span>
+        </button>
+      </div>
+
+      {/* ═══════════════════════════════════════
+          MOBILE SLIDE-UP BASKET DRAWER
+      ═══════════════════════════════════════ */}
+      {mobileBasketOpen && (
+        <>
+          <div className="drawer-overlay" style={{ display: 'block' }} onClick={() => setMobileBasketOpen(false)} />
+          <div className={`drawer-container ${mobileBasketOpen ? 'open' : ''}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0D0D0D', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShoppingBag size={18} />
+                Selected Items
+              </h3>
+              <button
+                onClick={() => setMobileBasketOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+              {Object.values(basket).map((item) => (
+                <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F3F1ED', paddingBottom: '14px' }}>
+                  <div style={{ flex: 1, paddingRight: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#0D0D0D' }}>{item.serviceName}</div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      {item.quantity} × {formatCurrency(item.price)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0D0D0D', marginBottom: '8px' }}>
+                      {formatCurrency(item.price * item.quantity)}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" style={{ width: '22px', height: '22px' }}>
+                        <Minus size={10} />
+                      </button>
+                      <button onClick={() => handleAddToBasket(item.serviceName.split(' - ')[0], item.serviceName.split(' - ')[1], item.price)} className="btn-round-adjust" style={{ width: '22px', height: '22px' }}>
+                        <Plus size={10} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ borderTop: '1.5px dashed #EAE8E3', paddingTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <span style={{ fontSize: '14px', fontWeight: '500', color: '#6B7280' }}>Total Amount:</span>
+                <span style={{ fontSize: '20px', fontWeight: '700', color: '#0D0D0D' }}>
+                  {formatCurrency(getBasketTotal())}
+                </span>
+              </div>
+
+              <button
+                onClick={() => { setBookingStep('SCHEDULE'); setMobileBasketOpen(false); }}
+                style={{
+                  width: '100%', padding: '16px', backgroundColor: '#0D0D0D',
+                  color: '#FAF9F7', border: 'none', borderRadius: '100px',
+                  fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  fontFamily: 'DM Sans'
+                }}
+              >
+                Checkout <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   );
 }
