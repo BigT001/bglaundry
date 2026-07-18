@@ -3,16 +3,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Shirt, 
-  Clock, 
   ArrowRight, 
   PhoneCall, 
   Sparkles, 
-  CheckCircle, 
+  Smartphone,
+  MapPin,
   Zap, 
   ShieldCheck, 
-  MapPin, 
-  Smartphone,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react';
 
 // Custom Scroll Reveal Component
@@ -28,7 +27,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
           observer.unobserve(entry.target);
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+      { threshold: 0.05, rootMargin: '0px 0px -40px 0px' }
     );
 
     if (ref.current) {
@@ -47,8 +46,8 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
       ref={ref}
       style={{
         opacity: isVisible ? 1 : 0,
-        transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
-        transition: `opacity 1s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 1s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`
+        transform: isVisible ? 'translateY(0)' : 'translateY(25px)',
+        transition: `opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`
       }}
     >
       {children}
@@ -94,21 +93,18 @@ export default function MarketingPage() {
       <style dangerouslySetInnerHTML={{ __html: `
         * {
           font-family: 'Plus Jakarta Sans', sans-serif !important;
+          box-sizing: border-box;
         }
         html {
           scroll-behavior: smooth;
         }
         @keyframes float {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-12px) rotate(1deg); }
+          50% { transform: translateY(-10px) rotate(1deg); }
         }
         @keyframes pulse-slow {
           0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.25; transform: scale(1.1); }
-        }
-        @keyframes spin-slow {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+          50% { opacity: 0.25; transform: scale(1.08); }
         }
         .animate-float {
           animation: float 6s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite;
@@ -120,7 +116,7 @@ export default function MarketingPage() {
           transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .service-card:hover {
-          transform: translateY(-8px);
+          transform: translateY(-6px);
           box-shadow: 0 20px 25px -5px rgba(0, 102, 255, 0.06), 0 8px 10px -6px rgba(0, 102, 255, 0.06);
           border-color: #0066FF !important;
         }
@@ -129,12 +125,84 @@ export default function MarketingPage() {
         }
         .hover-lift:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(0, 102, 255, 0.2);
+          box-shadow: 0 8px 20px rgba(0, 102, 255, 0.15);
+        }
+
+        /* 📱 RESPONSIVE MEDIA QUERIES */
+        @media (max-width: 991px) {
+          .hero-flex-layout {
+            flex-direction: column !important;
+            text-align: center !important;
+            gap: 48px !important;
+          }
+          .hero-text-align {
+            text-align: center !important;
+          }
+          .hero-title {
+            font-size: 42px !important;
+          }
+          .hero-ctas {
+            justify-content: center !important;
+          }
+          .hero-card-container {
+            width: 100% !important;
+            max-width: 380px !important;
+            margin: 0 auto !important;
+          }
+        }
+
+        @media (max-width: 767px) {
+          .header-nav-links {
+            display: none !important;
+          }
+          .header-container {
+            padding: 12px 20px !important;
+          }
+          .hero-section {
+            padding: 80px 20px 100px 20px !important;
+          }
+          .hero-title {
+            font-size: 34px !important;
+          }
+          .hero-subtitle {
+            font-size: 15px !important;
+          }
+          .hero-ctas {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .hero-ctas button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+          .section-padding {
+            padding: 60px 20px !important;
+          }
+          .section-title {
+            font-size: 28px !important;
+          }
+          .timeline-container {
+            flex-direction: column !important;
+            gap: 32px !important;
+          }
+          .timeline-node {
+            flex: 1 1 100% !important;
+          }
+          .footer-container {
+            flex-direction: column !important;
+            gap: 40px !important;
+            text-align: center !important;
+          }
+          .footer-logo-section {
+            align-items: center !important;
+            text-align: center !important;
+          }
         }
       `}} />
 
-      {/* Sticky Premium Glassmorphic Header */}
-      <header style={{
+      {/* Responsive Glassmorphic Header */}
+      <header className="header-container" style={{
         position: 'sticky',
         top: 0,
         zIndex: 100,
@@ -147,25 +215,27 @@ export default function MarketingPage() {
         alignItems: 'center',
         boxShadow: '0 4px 30px rgba(0, 0, 0, 0.01)'
       }}>
-        <div style={{ fontSize: '20px', fontWeight: '800', color: '#002B7F', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#002B7F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
-            <Shirt size={18} />
+        <div style={{ fontSize: '18px', fontWeight: '800', color: '#002B7F', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: '#002B7F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
+            <Shirt size={15} />
           </div>
           BG Laundry
         </div>
         
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '32px', fontSize: '14px', fontWeight: '600' }}>
-          <a href="#services" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#0066FF'} onMouseLeave={(e) => e.currentTarget.style.color = '#334155'}>Services</a>
-          <a href="#how-it-works" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#0066FF'} onMouseLeave={(e) => e.currentTarget.style.color = '#334155'}>How It Works</a>
-          <a href="#faqs" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#0066FF'} onMouseLeave={(e) => e.currentTarget.style.color = '#334155'}>FAQs</a>
-          <a href="/admin" style={{ color: '#64748B', textDecoration: 'none', fontSize: '13px', borderRight: '1px solid #E2E8F0', paddingRight: '20px' }}>Admin</a>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div className="header-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '24px', fontSize: '14px', fontWeight: '600' }}>
+            <a href="#services" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }}>Services</a>
+            <a href="#how-it-works" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }}>How It Works</a>
+            <a href="#faqs" style={{ color: '#334155', textDecoration: 'none', transition: 'color 0.2s' }}>FAQs</a>
+            <a href="/admin" style={{ color: '#64748B', textDecoration: 'none', fontSize: '13px', borderRight: '1px solid #E2E8F0', paddingRight: '16px' }}>Admin</a>
+          </div>
           
           {isLoggedIn ? (
             <button
               onClick={() => router.push('/dashboard')}
               className="hover-lift"
               style={{
-                padding: '10px 22px',
+                padding: '8px 18px',
                 backgroundColor: '#002B7F',
                 color: '#FFFFFF',
                 border: 'none',
@@ -175,14 +245,14 @@ export default function MarketingPage() {
                 fontSize: '13px'
               }}
             >
-              Go to Dashboard
+              Dashboard
             </button>
           ) : (
             <button
               onClick={() => router.push('/login')}
               className="hover-lift"
               style={{
-                padding: '10px 22px',
+                padding: '8px 18px',
                 backgroundColor: '#0066FF',
                 color: '#FFFFFF',
                 border: 'none',
@@ -192,55 +262,55 @@ export default function MarketingPage() {
                 fontSize: '13px'
               }}
             >
-              Portal Login
+              Login
             </button>
           )}
         </nav>
       </header>
 
-      {/* Cosmic Dark Mode Hero Section */}
-      <section style={{
+      {/* Hero Section */}
+      <section className="hero-section" style={{
         position: 'relative',
         backgroundColor: '#030712',
         color: '#FFFFFF',
-        padding: '120px 40px 140px 40px',
+        padding: '100px 40px 120px 40px',
         overflow: 'hidden',
         backgroundImage: 'radial-gradient(circle at 80% 20%, #1e1b4b 0%, transparent 60%), radial-gradient(circle at 15% 85%, #0c4a6e 0%, transparent 50%)'
       }}>
-        {/* Pulsing Blur Blobs for cosmic overlay */}
-        <div className="animate-pulse-slow" style={{ position: 'absolute', width: '400px', height: '400px', borderRadius: '50%', backgroundColor: '#0066FF', filter: 'blur(130px)', top: '-100px', right: '-50px', zIndex: 0 }} />
-        <div className="animate-pulse-slow" style={{ position: 'absolute', width: '350px', height: '350px', borderRadius: '50%', backgroundColor: '#6366F1', filter: 'blur(120px)', bottom: '-80px', left: '-50px', zIndex: 0 }} />
+        {/* Pulsing Blur Blobs */}
+        <div className="animate-pulse-slow" style={{ position: 'absolute', width: '300px', height: '300px', borderRadius: '50%', backgroundColor: '#0066FF', filter: 'blur(120px)', top: '-100px', right: '-50px', zIndex: 0 }} />
+        <div className="animate-pulse-slow" style={{ position: 'absolute', width: '250px', height: '250px', borderRadius: '50%', backgroundColor: '#6366F1', filter: 'blur(110px)', bottom: '-80px', left: '-50px', zIndex: 0 }} />
 
-        {/* Content container */}
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '60px', position: 'relative', zIndex: 10, flexWrap: 'wrap' }}>
+        {/* Content wrapper */}
+        <div className="hero-flex-layout" style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '40px', position: 'relative', zIndex: 10 }}>
           
-          {/* Left Hero Text Column */}
-          <div style={{ flex: '1 1 500px', textAlign: 'left' }}>
+          {/* Left Column */}
+          <div className="hero-text-align" style={{ flex: '1 1 500px' }}>
             <span style={{
               backgroundColor: 'rgba(99, 102, 241, 0.15)',
               color: '#818CF8',
               border: '1px solid rgba(99, 102, 241, 0.3)',
               padding: '6px 14px',
               borderRadius: '20px',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: '700',
               textTransform: 'uppercase',
               letterSpacing: '1.2px',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              marginBottom: '28px'
+              marginBottom: '24px'
             }}>
-              <Sparkles size={14} />
+              <Sparkles size={13} />
               Lagos' Premium Express Laundry
             </span>
 
-            <h1 style={{
-              fontSize: '62px',
+            <h1 className="hero-title" style={{
+              fontSize: '54px',
               fontWeight: '800',
               lineHeight: '1.15',
               letterSpacing: '-1.5px',
-              margin: '0 0 24px 0',
+              margin: '0 0 20px 0',
               background: 'linear-gradient(to right, #FFFFFF, #93C5FD)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
@@ -248,21 +318,21 @@ export default function MarketingPage() {
               Clean Today,<br />Ready Tomorrow!
             </h1>
 
-            <p style={{ fontSize: '18px', color: '#94A3B8', lineHeight: '1.6', marginBottom: '40px', maxWidth: '540px' }}>
+            <p className="hero-subtitle" style={{ fontSize: '17px', color: '#94A3B8', lineHeight: '1.6', marginBottom: '32px', maxWidth: '500px' }}>
               Premium door-to-door laundry & dry cleaning services. Schedule pickups in under 60 seconds and track active cleaning pipelines live on our web portal.
             </p>
 
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <div className="hero-ctas" style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => router.push(isLoggedIn ? '/dashboard' : '/login')}
                 className="hover-lift"
                 style={{
-                  padding: '16px 36px',
+                  padding: '14px 28px',
                   backgroundColor: '#0066FF',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '8px',
-                  fontSize: '15px',
+                  fontSize: '14px',
                   fontWeight: '700',
                   cursor: 'pointer',
                   display: 'flex',
@@ -271,18 +341,18 @@ export default function MarketingPage() {
                 }}
               >
                 {isLoggedIn ? 'Go to Web Portal' : 'Book Laundry Now'}
-                <ArrowRight size={18} />
+                <ArrowRight size={16} />
               </button>
 
               <button
                 onClick={() => window.open('https://wa.me/2347058155555', '_blank')}
                 style={{
-                  padding: '16px 36px',
+                  padding: '14px 28px',
                   backgroundColor: 'rgba(255,255,255,0.05)',
                   color: '#FFFFFF',
                   border: '1px solid rgba(255,255,255,0.15)',
                   borderRadius: '8px',
-                  fontSize: '15px',
+                  fontSize: '14px',
                   fontWeight: '700',
                   cursor: 'pointer',
                   display: 'flex',
@@ -293,29 +363,30 @@ export default function MarketingPage() {
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
               >
-                <PhoneCall size={18} />
+                <PhoneCall size={16} />
                 Chat on WhatsApp
               </button>
             </div>
           </div>
 
-          {/* Right Hero Interactive Mock Card Column */}
-          <div style={{ flex: '1 1 400px', display: 'flex', justifyContent: 'center' }} className="animate-float">
+          {/* Right Column (Interactive Mock Card) */}
+          <div className="hero-card-container animate-float" style={{ flex: '1 1 380px', display: 'flex', justifyContent: 'center' }}>
             <div style={{
-              width: '380px',
-              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              width: '100%',
+              maxWidth: '360px',
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
               backdropFilter: 'blur(20px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '20px',
-              padding: '28px',
+              padding: '24px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#6366F1', letterSpacing: '1px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <span style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', color: '#6366F1', letterSpacing: '1px' }}>
                   ACTIVE TRACKER
                 </span>
                 <span style={{
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fontWeight: '700',
                   color: '#10B981',
                   backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -331,15 +402,15 @@ export default function MarketingPage() {
               </div>
 
               {/* Order number */}
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#FFFFFF', marginBottom: '4px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: '#FFFFFF', marginBottom: '4px' }}>
                 Order #BG-8902
               </div>
-              <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '24px' }}>
+              <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '20px' }}>
                 Lagos Delivery Area
               </div>
 
               {/* Garment list items */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: '6px' }}><Check size={12} style={{ color: '#6366F1' }} /> Shirts (Iron Only)</span>
                   <span style={{ color: '#94A3B8' }}>Qty: 4</span>
@@ -351,10 +422,10 @@ export default function MarketingPage() {
               </div>
 
               {/* Progress visualizer */}
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94A3B8', marginBottom: '8px' }}>
-                  <span>Progress</span>
-                  <span style={{ color: '#6366F1', fontWeight: '700' }}>Cleaning Step 4/6</span>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94A3B8', marginBottom: '8px' }}>
+                  <span>Progress Status</span>
+                  <span style={{ color: '#6366F1', fontWeight: '700' }}>Cleaning 4/6</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', position: 'relative' }}>
                   <div style={{ width: '66%', height: '100%', backgroundColor: '#0066FF', borderRadius: '3px' }} />
@@ -366,32 +437,32 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Services Grid Section with Scroll Reveal */}
-      <section id="services" style={{ padding: '100px 40px', backgroundColor: '#FFFFFF' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Services Grid Section */}
+      <section id="services" className="section-padding" style={{ padding: '80px 40px', backgroundColor: '#FFFFFF' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           
           <ScrollReveal>
-            <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '12px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '10px' }}>
                 OUR CATALOG
               </span>
-              <h2 style={{ fontSize: '38px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
+              <h2 className="section-title" style={{ fontSize: '34px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
                 Services We Provide
               </h2>
-              <p style={{ color: '#64748B', marginTop: '12px', fontSize: '16px', maxWidth: '580px', margin: '12px auto 0 auto' }}>
+              <p style={{ color: '#64748B', marginTop: '10px', fontSize: '15px', maxWidth: '540px', margin: '10px auto 0 auto' }}>
                 Enjoy premium fabric treatments and express collections, optimized for both daily garments and fine wear.
               </p>
             </div>
           </ScrollReveal>
 
           {/* Cards grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px' }}>
+          <div className="services-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
             {services.map((svc, idx) => (
-              <ScrollReveal key={idx} delay={idx * 80}>
+              <ScrollReveal key={idx} delay={idx * 60}>
                 <div 
                   className="service-card"
                   style={{
-                    padding: '36px',
+                    padding: '28px',
                     borderRadius: '16px',
                     border: '1px solid #E2E8F0',
                     backgroundColor: '#FAFBFC',
@@ -399,19 +470,19 @@ export default function MarketingPage() {
                   }}
                 >
                   <div style={{
-                    width: '48px',
-                    height: '48px',
+                    width: '44px',
+                    height: '44px',
                     borderRadius: '10px',
                     backgroundColor: '#F0F5FF',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: '24px',
+                    marginBottom: '20px',
                     color: '#0066FF'
                   }}>
-                    <Shirt size={22} />
+                    <Shirt size={20} />
                   </div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#002B7F', margin: '0 0 12px 0' }}>
+                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#002B7F', margin: '0 0 10px 0' }}>
                     {svc.title}
                   </h3>
                   <p style={{ color: '#64748B', margin: 0, fontSize: '14px', lineHeight: '1.6' }}>
@@ -425,52 +496,50 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* How It Works Timeline with Scroll Reveal */}
-      <section id="how-it-works" style={{ padding: '100px 40px', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      {/* How It Works Timeline */}
+      <section id="how-it-works" className="section-padding" style={{ padding: '80px 40px', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           
           <ScrollReveal>
-            <div style={{ textAlign: 'center', marginBottom: '80px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '12px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '10px' }}>
                 THE PIPELINE
               </span>
-              <h2 style={{ fontSize: '38px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
+              <h2 className="section-title" style={{ fontSize: '34px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
                 How It Works
               </h2>
             </div>
           </ScrollReveal>
 
           {/* Timeline Nodes */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap', position: 'relative' }}>
+          <div className="timeline-container" style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
             {[
               { step: '1', title: 'Schedule on Web', desc: 'Select laundry items, enter addresses, and schedule pickup.', icon: <Smartphone size={18} /> },
               { step: '2', title: 'Driver Collects', desc: 'A dispatch driver arrives at your door and collects laundry bags.', icon: <MapPin size={18} /> },
               { step: '3', title: 'Premium Clean', desc: 'Garments undergo washing, dry cleaning, or pressing care.', icon: <Zap size={18} /> },
               { step: '4', title: 'Fresh Delivery', desc: 'We deliver fresh, clean, and folded clothing back to you.', icon: <ShieldCheck size={18} /> }
             ].map((node, idx) => (
-              <ScrollReveal key={idx} delay={idx * 120}>
-                <div style={{
+              <ScrollReveal key={idx} delay={idx * 80}>
+                <div className="timeline-node" style={{
                   flex: '1 1 200px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   textAlign: 'center',
-                  padding: '20px'
+                  padding: '16px'
                 }}>
                   <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '32px',
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '28px',
                     backgroundColor: '#FFFFFF',
                     border: '1.5px solid #E2E8F0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#0066FF',
-                    fontWeight: '800',
-                    fontSize: '18px',
-                    marginBottom: '24px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.02)',
+                    marginBottom: '20px',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.01)',
                     position: 'relative'
                   }}>
                     {node.icon}
@@ -480,21 +549,22 @@ export default function MarketingPage() {
                       right: '-4px',
                       backgroundColor: '#002B7F',
                       color: '#FFFFFF',
-                      fontSize: '10px',
+                      fontSize: '9px',
                       width: '18px',
                       height: '18px',
                       borderRadius: '9px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      fontWeight: 'bold'
                     }}>
                       {node.step}
                     </span>
                   </div>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#0F172A', fontSize: '16px', fontWeight: '700' }}>
+                  <h4 style={{ margin: '0 0 8px 0', color: '#0F172A', fontSize: '15px', fontWeight: '700' }}>
                     {node.title}
                   </h4>
-                  <p style={{ color: '#64748B', fontSize: '13px', margin: 0, lineHeight: '1.6', maxWidth: '180px' }}>
+                  <p style={{ color: '#64748B', fontSize: '13px', margin: 0, lineHeight: '1.6', maxWidth: '170px' }}>
                     {node.desc}
                   </p>
                 </div>
@@ -505,36 +575,35 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Accordion FAQ Section */}
-      <section id="faqs" style={{ padding: '100px 40px', backgroundColor: '#FFFFFF' }}>
-        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+      {/* Accordion FAQs */}
+      <section id="faqs" className="section-padding" style={{ padding: '80px 40px', backgroundColor: '#FFFFFF' }}>
+        <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           
           <ScrollReveal>
-            <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '12px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '44px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '800', color: '#0066FF', textTransform: 'uppercase', letterSpacing: '1.5px', display: 'block', marginBottom: '10px' }}>
                 SUPPORT
               </span>
-              <h2 style={{ fontSize: '38px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
+              <h2 className="section-title" style={{ fontSize: '34px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.5px' }}>
                 Frequently Asked Questions
               </h2>
             </div>
           </ScrollReveal>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {faqs.map((faq, idx) => (
-              <ScrollReveal key={idx} delay={idx * 100}>
+              <ScrollReveal key={idx} delay={idx * 60}>
                 <div style={{
                   border: '1px solid #E2E8F0',
                   borderRadius: '12px',
                   backgroundColor: '#FAFBFC',
-                  overflow: 'hidden',
-                  transition: 'border-color 0.2s'
+                  overflow: 'hidden'
                 }}>
                   <button
                     onClick={() => setActiveAccordion(activeAccordion === idx ? null : idx)}
                     style={{
                       width: '100%',
-                      padding: '20px 24px',
+                      padding: '16px 20px',
                       backgroundColor: 'transparent',
                       border: 'none',
                       display: 'flex',
@@ -543,25 +612,24 @@ export default function MarketingPage() {
                       textAlign: 'left',
                       cursor: 'pointer',
                       fontWeight: '700',
-                      fontSize: '15px',
+                      fontSize: '14px',
                       color: '#002B7F'
                     }}
                   >
                     {faq.q}
-                    <span style={{ fontSize: '20px', lineHeight: '0', color: '#64748B' }}>
+                    <span style={{ fontSize: '18px', lineHeight: '0', color: '#64748B' }}>
                       {activeAccordion === idx ? '−' : '+'}
                     </span>
                   </button>
 
                   {activeAccordion === idx && (
                     <div style={{
-                      padding: '0 24px 20px 24px',
+                      padding: '0 20px 16px 20px',
                       color: '#475569',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       lineHeight: '1.6',
                       borderTop: '1px solid #F1F5F9',
-                      marginTop: '0px',
-                      paddingTop: '16px'
+                      paddingTop: '12px'
                     }}>
                       {faq.a}
                     </div>
@@ -574,36 +642,36 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Footer Design */}
-      <footer id="contact" style={{ backgroundColor: '#090D16', color: '#FFFFFF', padding: '80px 40px', borderTop: '1px solid #1E293B' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '60px' }}>
+      {/* Responsive Footer */}
+      <footer id="contact" className="section-padding" style={{ backgroundColor: '#090D16', color: '#FFFFFF', padding: '60px 40px', borderTop: '1px solid #1E293B' }}>
+        <div className="footer-container" style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
           
-          <div style={{ flex: '1 1 300px' }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#FFFFFF', fontSize: '20px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#0066FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
-                <Shirt size={14} />
+          <div className="footer-logo-section" style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#FFFFFF', fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#0066FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
+                <Shirt size={12} />
               </div>
               BG Laundry & Dry Cleaning
             </h3>
-            <p style={{ color: '#94A3B8', fontSize: '14px', maxWidth: '320px', lineHeight: '1.6', margin: 0 }}>
+            <p style={{ color: '#94A3B8', fontSize: '13px', maxWidth: '300px', lineHeight: '1.6', margin: 0 }}>
               Premium laundry service and express deliveries. Clean today, ready tomorrow!
             </p>
           </div>
 
           <div>
-            <h4 style={{ margin: '0 0 16px 0', color: '#94A3B8', fontSize: '12px', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '1px' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '1px' }}>
               Our Address
             </h4>
-            <p style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
+            <p style={{ color: '#E2E8F0', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
               16B Maria Okor Street,<br />Ejibo, Lagos, Nigeria
             </p>
           </div>
 
           <div>
-            <h4 style={{ margin: '0 0 16px 0', color: '#94A3B8', fontSize: '12px', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '1px' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '1px' }}>
               Get In Touch
             </h4>
-            <p style={{ color: '#E2E8F0', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
+            <p style={{ color: '#E2E8F0', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
               Call / WhatsApp: 07058155555<br />
               Email: support@bglaundry.com
             </p>
@@ -611,7 +679,7 @@ export default function MarketingPage() {
 
         </div>
 
-        <div style={{ textAlign: 'center', borderTop: '1px solid #1E293B', marginTop: '60px', paddingTop: '24px', fontSize: '13px', color: '#64748B' }}>
+        <div style={{ textAlign: 'center', borderTop: '1px solid #1E293B', marginTop: '48px', paddingTop: '20px', fontSize: '12px', color: '#64748B' }}>
           © 2026 BG Laundry & Dry Cleaning. All rights reserved.
         </div>
       </footer>
