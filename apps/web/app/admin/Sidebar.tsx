@@ -2,16 +2,54 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  Sliders,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  UserCheck,
-  Users,
-} from 'lucide-react';
+
+// Inline SVG icons — avoids lucide-react @types/react peer conflict in monorepo
+type IconProps = { size?: number; style?: React.CSSProperties; className?: string };
+
+const IconDashboard = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+  </svg>
+);
+const IconOrders = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+    <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" />
+  </svg>
+);
+const IconUsers = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
+  </svg>
+);
+const IconPricing = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
+  </svg>
+);
+const IconLogOut = ({ size = 16, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+const IconChevronRight = ({ size = 14, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+const IconChevronLeft = ({ size = 14, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -54,25 +92,25 @@ export default function Sidebar() {
     {
       name: 'Dashboard',
       href: '/admin/dashboard',
-      icon: LayoutDashboard,
+      icon: IconDashboard,
       desc: 'Overview & metrics',
     },
     {
       name: 'Orders',
       href: '/admin/orders',
-      icon: ShoppingBag,
+      icon: IconOrders,
       desc: 'Active orders registry',
     },
     {
       name: 'Users',
       href: '/admin/users',
-      icon: Users,
+      icon: IconUsers,
       desc: 'Registered customers list',
     },
     {
       name: 'Pricing Setup',
       href: '/admin/pricing',
-      icon: Sliders,
+      icon: IconPricing,
       desc: 'Dynamic rate controller',
     },
   ];
@@ -121,7 +159,7 @@ export default function Sidebar() {
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0052CC')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0066FF')}
       >
-        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
       </button>
 
       {/* Brand Header */}
@@ -319,7 +357,7 @@ export default function Sidebar() {
             e.currentTarget.style.color = '#FDA4AF';
           }}
         >
-          <LogOut size={16} style={{ flexShrink: 0 }} />
+          <IconLogOut size={16} />
           {!isCollapsed && <span>Log Out</span>}
         </a>
       </div>
