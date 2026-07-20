@@ -6,34 +6,63 @@ import { ArrowRight, Check } from '@/lib/icons';
 
 type View = 'home' | 'services' | 'pricing' | 'how-it-works';
 
-const services = [
-  { icon: '👕', title: 'Wash & Fold',      desc: 'Expert laundering with premium detergents, returned neatly folded.',  tags: ['Same Day', 'Delicate Care'],      color: '#EFF6FF' },
-  { icon: '🥼', title: 'Dry Cleaning',     desc: 'Professional care for suits, dresses & delicate fabrics.',            tags: ['Specialist', '48h Turnaround'],   color: '#F0FDF4' },
-  { icon: '👔', title: 'Iron & Press',     desc: 'Steam pressing for crisp shirts and formal wear.',                    tags: ['24h', 'Steam Pressed'],           color: '#FFF7ED' },
-  { icon: '👟', title: 'Shoe Cleaning',    desc: 'Deep cleaning & restoration for sneakers and leather shoes.',         tags: ['Restoration', 'All Materials'],   color: '#FDF4FF' },
-  { icon: '🛏️', title: 'Bedding & Linen', desc: 'Hygienic washing of duvets, sheets and pillow cases.',               tags: ['Bulk Orders', 'Fresh Scent'],     color: '#F0FDF4' },
-  { icon: '🧥', title: 'Stain Removal',   desc: 'Pre-treatment for stubborn stains — oil, wine, ink and more.',       tags: ['Guaranteed', 'Safe Removal'],    color: '#FFF1F2' },
+interface ServiceItem {
+  name: string;
+  category: 'Clothing' | 'Household' | 'Additional';
+  washPrice: number;
+  ironPrice: number;
+  washIronPrice: number;
+  hasWash: boolean;
+  hasIron: boolean;
+  hasWashIron: boolean;
+}
+
+const fallbackServices: ServiceItem[] = [
+  // Clothing
+  { name: 'T-Shirt / Polo', category: 'Clothing', washPrice: 500, ironPrice: 300, washIronPrice: 700, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Dress Shirt', category: 'Clothing', washPrice: 700, ironPrice: 400, washIronPrice: 1000, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Trouser', category: 'Clothing', washPrice: 500, ironPrice: 300, washIronPrice: 700, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Jeans', category: 'Clothing', washPrice: 700, ironPrice: 400, washIronPrice: 1000, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Shorts', category: 'Clothing', washPrice: 300, ironPrice: 200, washIronPrice: 500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Casual/Formal Shirt', category: 'Clothing', washPrice: 500, ironPrice: 300, washIronPrice: 800, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Blouse', category: 'Clothing', washPrice: 500, ironPrice: 300, washIronPrice: 800, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Dress', category: 'Clothing', washPrice: 1300, ironPrice: 700, washIronPrice: 2000, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Two-Piece Suit', category: 'Clothing', washPrice: 2500, ironPrice: 1200, washIronPrice: 3500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Blazer', category: 'Clothing', washPrice: 1000, ironPrice: 600, washIronPrice: 1500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Senator Wear (2 pcs)', category: 'Clothing', washPrice: 1000, ironPrice: 500, washIronPrice: 1500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Agbada (Complete Set)', category: 'Clothing', washPrice: 2500, ironPrice: 1200, washIronPrice: 3500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Kaftan', category: 'Clothing', washPrice: 1300, ironPrice: 700, washIronPrice: 2000, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Jacket', category: 'Clothing', washPrice: 1000, ironPrice: 600, washIronPrice: 1500, hasWash: true, hasIron: true, hasWashIron: true },
+  { name: 'Tie', category: 'Clothing', washPrice: 0, ironPrice: 300, washIronPrice: 300, hasWash: false, hasIron: true, hasWashIron: true },
+
+  // Household
+  { name: 'Bed Sheet', category: 'Household', washPrice: 1000, ironPrice: 0, washIronPrice: 1500, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Duvet (Small)', category: 'Household', washPrice: 2500, ironPrice: 0, washIronPrice: 3000, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Duvet (Medium)', category: 'Household', washPrice: 3500, ironPrice: 0, washIronPrice: 4000, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Duvet (Large/King)', category: 'Household', washPrice: 3500, ironPrice: 0, washIronPrice: 4000, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Blanket', category: 'Household', washPrice: 3000, ironPrice: 0, washIronPrice: 3500, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Pillow', category: 'Household', washPrice: 600, ironPrice: 0, washIronPrice: 800, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Curtain (Per Panel)', category: 'Household', washPrice: 1500, ironPrice: 0, washIronPrice: 2000, hasWash: true, hasIron: false, hasWashIron: true },
+  { name: 'Bath Towel', category: 'Household', washPrice: 600, ironPrice: 0, washIronPrice: 800, hasWash: true, hasIron: false, hasWashIron: true },
+
+  // Additional
+  { name: 'Stain Removal', category: 'Additional', washPrice: 1000, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Spot Cleaning', category: 'Additional', washPrice: 500, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Fabric Softener Treatment', category: 'Additional', washPrice: 200, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Premium Fragrance Finish', category: 'Additional', washPrice: 200, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Folding Only', category: 'Additional', washPrice: 200, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Shoe Cleaning', category: 'Additional', washPrice: 4000, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Bag Cleaning', category: 'Additional', washPrice: 4000, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
+  { name: 'Wedding Gown Care', category: 'Additional', washPrice: 15000, ironPrice: 0, washIronPrice: 0, hasWash: true, hasIron: false, hasWashIron: false },
 ];
 
-const plans = [
-  {
-    name: 'Basic', price: '₦2,500', per: 'per visit',
-    desc: 'For individuals needing occasional laundry care.',
-    features: ['Up to 5kg', 'Wash & fold', '48h turnaround', 'Free pickup & delivery'],
-    highlight: false, cta: 'Get Started',
-  },
-  {
-    name: 'Premium', price: '₦5,500', per: 'per visit',
-    desc: 'Most popular — for families & professionals.',
-    features: ['Up to 15kg', 'Wash, fold & iron', '24h express', 'Free pickup & delivery', 'Priority slot', 'App tracking'],
-    highlight: true, cta: 'Get Started',
-  },
-  {
-    name: 'Business', price: 'Custom', per: 'monthly contract',
-    desc: 'For hotels, restaurants & growing businesses.',
-    features: ['Unlimited volume', 'All services', 'Dedicated manager', 'Same-day option', 'Bulk discount', 'Invoice billing'],
-    highlight: false, cta: 'Contact Us',
-  },
+const services = [
+  { icon: '👕', title: 'Wash & Fold',      desc: 'Expert laundering with premium detergents, returned neatly folded.',  color: '#EFF6FF' },
+  { icon: '🥼', title: 'Dry Cleaning',     desc: 'Professional care for suits, dresses & delicate fabrics.',            color: '#F0FDF4' },
+  { icon: '👔', title: 'Iron & Press',     desc: 'Steam pressing for crisp shirts and formal wear.',                    color: '#FFF7ED' },
+  { icon: '👟', title: 'Shoe Cleaning',    desc: 'Deep cleaning & restoration for sneakers and leather shoes.',         color: '#FDF4FF' },
+  { icon: '🛏️', title: 'Bedding & Linen', desc: 'Hygienic washing of duvets, sheets and pillow cases.',               color: '#F0FDF4' },
+  { icon: '🧥', title: 'Stain Removal',   desc: 'Pre-treatment for stubborn stains — oil, wine, ink and more.',       color: '#FFF1F2' },
 ];
 
 const steps = [
@@ -45,13 +74,24 @@ const steps = [
 
 export default function Home() {
   const router = useRouter();
-  const [loggedIn, setLoggedIn]       = useState(false);
-  const [activeView, setActiveView]   = useState<View>('home');
-  const [animating, setAnimating]     = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [activeView, setActiveView] = useState<View>('home');
+  const [animating, setAnimating] = useState(false);
   const [displayedView, setDisplayedView] = useState<View>('home');
+  const [dbServices, setDbServices] = useState<ServiceItem[]>(fallbackServices);
+  const [pricingCategory, setPricingCategory] = useState<'Clothing' | 'Household' | 'Additional'>('Clothing');
 
   useEffect(() => {
     setLoggedIn(!!localStorage.getItem('customerToken'));
+    // Fetch live service catalog from database
+    fetch('/api/v1/admin/services')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.services && data.services.length > 0) {
+          setDbServices(data.services);
+        }
+      })
+      .catch((err) => console.error('Failed to load services:', err));
   }, []);
 
   const switchView = useCallback((view: View) => {
@@ -74,6 +114,9 @@ export default function Home() {
   ];
 
   const isVisible = (v: View) => v === displayedView || v === activeView;
+
+  // Filter dbServices by currently active tab
+  const displayServices = dbServices.filter((s) => s.category === pricingCategory);
 
   return (
     <div className="shell">
@@ -119,10 +162,7 @@ export default function Home() {
         .top-nav {
           position: relative; z-index: 100; flex-shrink: 0;
           display: flex; flex-direction: column; align-items: center;
-          padding: 10px 5% 8px;
-          border-bottom: 1px solid rgba(0,0,0,0.05);
-          background: rgba(255,255,255,0.92);
-          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          padding: 16px 5% 8px;
           gap: 6px;
         }
         .nav-logo { display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -138,15 +178,6 @@ export default function Home() {
         }
         .nav-btn:hover { color: #0F172A; background: #F1F5F9; }
         .nav-btn.active { color: #0066FF; background: rgba(0,102,255,0.08); font-weight: 700; }
-        .nav-cta {
-          margin-left: 4px; padding: 7px 18px; border-radius: 100px; border: none;
-          font-size: 13px; font-weight: 700; color: #fff; cursor: pointer;
-          background: #0066FF; font-family: 'DM Sans', sans-serif;
-          box-shadow: 0 4px 14px rgba(0,102,255,0.28); transition: all 0.18s;
-        }
-        .nav-cta:hover { background: #005ce6; transform: translateY(-1px); }
-
-        /* drawer removed — nav always visible */
 
         /* ── MAIN PANEL ── */
         .panel {
@@ -159,7 +190,7 @@ export default function Home() {
         .view {
           position: absolute; inset: 0;
           display: flex; align-items: center; justify-content: center;
-          padding: 16px 5%;
+          padding: 16px 5% 24px;
           transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
         .view.entering { opacity: 1; transform: translateY(0); }
@@ -230,7 +261,6 @@ export default function Home() {
         }
 
         /* ── SERVICES GRID ── */
-        /* Always 2-column on mobile, 3-column on desktop */
         .services-grid {
           flex: 1; min-height: 0;
           display: grid;
@@ -259,64 +289,52 @@ export default function Home() {
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
         .s-name { font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.2; }
-        .s-desc { font-size: 13px; color: #475569; line-height: 1.55; flex: 1; margin-bottom: 8px; }
-        .s-tags { display: flex; gap: 5px; flex-wrap: wrap; }
-        .s-tag {
-          font-size: 10px; font-weight: 700; color: #0066FF;
-          background: rgba(0,102,255,0.08); padding: 2px 8px; border-radius: 100px;
+        .s-desc { font-size: 14px; color: #475569; line-height: 1.55; flex: 1; margin-bottom: 8px; }
+        
+        .s-card-btn {
+          width: 100%; height: 36px; border-radius: 100px;
+          border: 1.5px solid #E2E8F0; background: #FFF;
+          color: #475569; font-size: 11px; font-weight: 700;
+          cursor: pointer; font-family: 'DM Sans', sans-serif;
+          transition: all 0.18s; display: flex; align-items: center; justify-content: center;
+          margin-top: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .s-card-btn:hover {
+          border-color: #0066FF; color: #0066FF; background: rgba(0, 102, 255, 0.02);
         }
 
-        /* ── PRICING GRID ── */
-        .pricing-grid {
-          flex: 1; min-height: 0;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px; align-items: stretch;
+        /* ── PRICING INTERACTIVE BOARD ── */
+        .pricing-tabs {
+          display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-shrink: 0;
         }
-        @media (max-width: 600px) {
-          .pricing-grid { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
+        .pricing-tab-btn {
+          padding: 8px 18px; border-radius: 100px; border: 1.5px solid #E2E8F0;
+          background: transparent; color: #64748B; font-size: 12px; font-weight: 700;
+          cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
         }
-        .p-card {
-          border-radius: 16px; padding: 16px;
-          background: #FAFBFC; border: 1.5px solid #E2E8F0;
-          display: flex; flex-direction: column;
-          transition: all 0.2s;
+        .pricing-tab-btn:hover { background: #F8FAFC; color: #0F172A; border-color: #CBD5E1; }
+        .pricing-tab-btn.active { background: #0066FF; color: #fff; border-color: #0066FF; }
+
+        .pricing-table-container {
+          flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto;
+          border: 1px solid #F1F5F9; border-radius: 16px;
+          background: #FAFBFC;
         }
-        .p-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.08); }
-        .p-card.hl {
-          background: #0066FF; border-color: #0066FF;
-          box-shadow: 0 14px 40px rgba(0,102,255,0.3);
+        .pricing-table {
+          width: 100%; border-collapse: collapse; text-align: left;
+          font-size: 13px;
         }
-        .p-name {
-          font-size: 10px; font-weight: 800; letter-spacing: 2px;
-          text-transform: uppercase; color: #94A3B8; margin-bottom: 8px;
+        .pricing-table th, .pricing-table td {
+          padding: 10px 14px; border-bottom: 1px solid #F1F5F9;
         }
-        .p-card.hl .p-name { color: rgba(255,255,255,0.6); }
-        .p-price {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(24px, 3.5vw, 36px); font-weight: 900; color: #0F172A; line-height: 1;
+        .pricing-table th {
+          background: #F8FAFC; color: #475569; font-weight: 800;
+          position: sticky; top: 0; z-index: 5; font-size: 12px;
+          border-bottom: 1px solid #E2E8F0;
         }
-        .p-card.hl .p-price { color: #fff; }
-        .p-per { font-size: 11px; color: #94A3B8; margin-bottom: 8px; }
-        .p-card.hl .p-per { color: rgba(255,255,255,0.6); }
-        .p-desc { font-size: 13px; color: #64748B; line-height: 1.55; margin-bottom: 10px; }
-        .p-card.hl .p-desc { color: rgba(255,255,255,0.75); }
-        .p-features {
-          list-style: none; display: flex; flex-direction: column; gap: 5px;
-          margin-bottom: 14px; flex: 1;
-        }
-        .p-feat { font-size: 13px; color: #334155; display: flex; align-items: flex-start; gap: 6px; }
-        .p-card.hl .p-feat { color: rgba(255,255,255,0.85); }
-        .p-check { color: #0066FF; flex-shrink: 0; margin-top: 1px; }
-        .p-card.hl .p-check { color: rgba(255,255,255,0.8); }
-        .p-btn {
-          width: 100%; height: 40px; border-radius: 100px; border: none;
-          font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif;
-          cursor: pointer; background: #0F172A; color: #fff; transition: all 0.2s;
-        }
-        .p-btn:hover { background: #1E293B; }
-        .p-card.hl .p-btn { background: #fff; color: #0066FF; }
-        .p-card.hl .p-btn:hover { background: #F0F4FF; }
+        .pricing-table tr:hover { background: rgba(0, 102, 255, 0.02); }
+        .item-name-cell { font-weight: 700; color: #0F172A; }
+        .price-text { font-family: 'DM Sans', sans-serif; font-weight: 600; color: #0066FF; }
 
         /* ── HOW IT WORKS GRID ── */
         .steps-grid {
@@ -347,23 +365,6 @@ export default function Home() {
         }
         .step-title { font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
         .step-desc { font-size: 13px; color: #475569; line-height: 1.6; }
-
-        /* ── FOOTER BAR ── */
-        .foot {
-          flex-shrink: 0; z-index: 50; position: relative;
-          padding: 10px 5%;
-          border-top: 1px solid rgba(0,0,0,0.04);
-          display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;
-          background: rgba(255,255,255,0.85);
-          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-        }
-        .foot-copy { font-size: 11px; color: #94A3B8; }
-        .foot-links { display: flex; gap: 16px; }
-        .foot-link {
-          font-size: 11px; color: #CBD5E1; text-decoration: none; cursor: pointer;
-          background: none; border: none; font-family: 'DM Sans', sans-serif; transition: color 0.2s;
-        }
-        .foot-link:hover { color: #64748B; }
       `}} />
 
       {/* Orbs */}
@@ -373,7 +374,7 @@ export default function Home() {
       {/* ── NAV ── */}
       <header className="top-nav">
         <div className="nav-logo" onClick={() => switchView('home')}>
-          <Image src="/bglogo.png" alt="BG Laundry" width={76} height={76} style={{ objectFit: 'contain' }} priority />
+          <Image src="/bglogo.png" alt="BG Laundry" width={82} height={82} style={{ objectFit: 'contain' }} priority />
         </div>
         <ul className="nav-links">
           {navItems.map(({ key, label }) => (
@@ -383,7 +384,6 @@ export default function Home() {
               </button>
             </li>
           ))}
-          <li><button className="nav-cta" onClick={handleStart}>Get Started</button></li>
         </ul>
       </header>
 
@@ -434,9 +434,18 @@ export default function Home() {
                     </div>
                     <p className="s-desc">{s.desc}</p>
                   </div>
-                  <div className="s-tags">
-                    {s.tags.map((t) => <span key={t} className="s-tag">{t}</span>)}
-                  </div>
+                  <button className="s-card-btn" onClick={() => {
+                    if (s.title.includes('Dry Cleaning')) {
+                      setPricingCategory('Clothing');
+                    } else if (s.title.includes('Bedding') || s.title.includes('Linen')) {
+                      setPricingCategory('Household');
+                    } else if (s.title.includes('Shoe') || s.title.includes('Stain')) {
+                      setPricingCategory('Additional');
+                    }
+                    switchView('pricing');
+                  }}>
+                    View Rates →
+                  </button>
                 </div>
               ))}
             </div>
@@ -448,27 +457,43 @@ export default function Home() {
           style={{ display: isVisible('pricing') ? 'flex' : 'none', alignItems: 'stretch' }}>
           <div className="sec-wrap">
             <div className="sec-head">
-              <p className="sec-label">Simple Pricing</p>
-              <h2 className="sec-title">Honest Pricing. No Surprises.</h2>
+              <p className="sec-label">Pricing Catalog</p>
+              <h2 className="sec-title">Standard Rates</h2>
             </div>
-            <div className="pricing-grid">
-              {plans.map((p) => (
-                <div key={p.name} className={`p-card${p.highlight ? ' hl' : ''}`}>
-                  <p className="p-name">{p.name}</p>
-                  <p className="p-price">{p.price}</p>
-                  <p className="p-per">{p.per}</p>
-                  <p className="p-desc">{p.desc}</p>
-                  <ul className="p-features">
-                    {p.features.map((f) => (
-                      <li key={f} className="p-feat">
-                        <span className="p-check"><Check size={12} strokeWidth={3} /></span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button className="p-btn" onClick={handleStart}>{p.cta}</button>
-                </div>
+            
+            <div className="pricing-tabs">
+              {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (
+                <button
+                  key={cat}
+                  className={`pricing-tab-btn${pricingCategory === cat ? ' active' : ''}`}
+                  onClick={() => setPricingCategory(cat)}
+                >
+                  {cat}
+                </button>
               ))}
+            </div>
+
+            <div className="pricing-table-container">
+              <table className="pricing-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Wash Only</th>
+                    <th>Iron Only</th>
+                    <th>Wash & Iron</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayServices.map((item) => (
+                    <tr key={item.name}>
+                      <td className="item-name-cell">{item.name}</td>
+                      <td className="price-text">{item.hasWash && item.washPrice > 0 ? `₦${item.washPrice.toLocaleString()}` : '—'}</td>
+                      <td className="price-text">{item.hasIron && item.ironPrice > 0 ? `₦${item.ironPrice.toLocaleString()}` : '—'}</td>
+                      <td className="price-text">{item.hasWashIron && item.washIronPrice > 0 ? `₦${item.washIronPrice.toLocaleString()}` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -498,17 +523,6 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      {/* ── FOOTER BAR ── */}
-      <footer className="foot">
-        <p className="foot-copy">© {new Date().getFullYear()} BG Laundry · Lagos, Nigeria</p>
-        <nav className="foot-links">
-          <button className="foot-link" onClick={() => switchView('services')}>Services</button>
-          <button className="foot-link" onClick={() => switchView('pricing')}>Pricing</button>
-          <button className="foot-link" onClick={() => switchView('how-it-works')}>How It Works</button>
-          <a href="/login" className="foot-link">Login</a>
-        </nav>
-      </footer>
     </div>
   );
 }
