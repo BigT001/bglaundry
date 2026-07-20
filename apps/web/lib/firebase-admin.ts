@@ -4,10 +4,23 @@ import { getAuth } from 'firebase-admin/auth';
 let isFirebaseAdminInitialized = false;
 let authInstance: any = null;
 
+const clean = (val: string | undefined) => {
+  if (!val) return undefined;
+  let cleaned = val.trim();
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  return cleaned;
+};
+
 if (getApps().length === 0) {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const projectId = clean(process.env.FIREBASE_PROJECT_ID);
+  const clientEmail = clean(process.env.FIREBASE_CLIENT_EMAIL);
+  const privateKeyRaw = clean(process.env.FIREBASE_PRIVATE_KEY);
+  const privateKey = privateKeyRaw ? privateKeyRaw.replace(/\\n/g, '\n') : undefined;
 
   if (projectId && clientEmail && privateKey) {
     try {
@@ -15,7 +28,7 @@ if (getApps().length === 0) {
         credential: cert({
           projectId,
           clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n'),
+          privateKey,
         }),
       });
       isFirebaseAdminInitialized = true;
@@ -25,7 +38,7 @@ if (getApps().length === 0) {
       console.error('[Firebase Admin] Initialization failed:', error);
     }
   } else {
-    console.log('[Firebase Admin] Credentials missing. Running in mock verification bypass mode.');
+    console.log('[Firebase Admin] Credentials missing or incomplete. Running in mock verification bypass mode.');
   }
 } else {
   isFirebaseAdminInitialized = true;

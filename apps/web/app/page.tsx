@@ -677,6 +677,10 @@ export default function Home() {
           width: 100%; max-width: 400px; position: relative;
           box-shadow: 0 20px 50px rgba(0,0,0,0.15);
           animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+          min-height: 290px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
         .modal-close {
           position: absolute; top: 20px; right: 20px;
@@ -686,7 +690,7 @@ export default function Home() {
         }
         .modal-close:hover { background: #F1F5F9; color: #0F172A; }
         
-        .modal-header { margin-bottom: 24px; }
+        .modal-header { margin-bottom: 16px; }
         .modal-header h3 {
           font-family: 'Playfair Display', serif; font-size: 24px;
           font-weight: 900; color: #0F172A; margin-bottom: 8px;
@@ -695,14 +699,14 @@ export default function Home() {
         
         .modal-error {
           padding: 10px 14px; background: #FEF2F2; border: 1px solid #FEE2E2;
-          color: #DC2626; border-radius: 10px; font-size: 12px; margin-bottom: 16px;
+          color: #DC2626; border-radius: 10px; font-size: 12px; margin-bottom: 12px;
         }
         .modal-info {
           padding: 10px 14px; background: #ECFDF5; border: 1px solid #D1FAE5;
-          color: #059669; border-radius: 10px; font-size: 12px; margin-bottom: 16px;
+          color: #059669; border-radius: 10px; font-size: 12px; margin-bottom: 12px;
         }
         
-        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
         .form-group label { font-size: 12px; font-weight: 700; color: #475569; }
         .modal-input {
           height: 48px; border-radius: 12px; border: 1.5px solid #E2E8F0;
@@ -718,6 +722,15 @@ export default function Home() {
         }
         .modal-submit-btn:hover { background: #005ce6; }
         .modal-submit-btn:disabled { background: #94A3B8; cursor: not-allowed; }
+        
+        /* Hide recaptcha container from page flow to prevent shifts */
+        #recaptcha-container {
+          position: absolute !important;
+          visibility: hidden !important;
+          width: 0 !important;
+          height: 0 !important;
+          overflow: hidden !important;
+        }
       `}} />
 
       {/* Orbs */}
