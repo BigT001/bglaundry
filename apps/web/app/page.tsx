@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowRight, Menu, X, Check } from '@/lib/icons';
+import { ArrowRight, Check } from '@/lib/icons';
 
 type View = 'home' | 'services' | 'pricing' | 'how-it-works';
 
@@ -46,7 +46,6 @@ const steps = [
 export default function Home() {
   const router = useRouter();
   const [loggedIn, setLoggedIn]       = useState(false);
-  const [isMenuOpen, setIsMenuOpen]   = useState(false);
   const [activeView, setActiveView]   = useState<View>('home');
   const [animating, setAnimating]     = useState(false);
   const [displayedView, setDisplayedView] = useState<View>('home');
@@ -57,7 +56,6 @@ export default function Home() {
 
   const switchView = useCallback((view: View) => {
     if (view === activeView || animating) return;
-    setIsMenuOpen(false);
     setAnimating(true);
     setTimeout(() => {
       setDisplayedView(view);
@@ -117,79 +115,38 @@ export default function Home() {
           animation: floatB 18s ease-in-out infinite;
         }
 
-        /* ── NAV ── */
+        /* ── NAV — centered logo + links below ── */
         .top-nav {
           position: relative; z-index: 100; flex-shrink: 0;
-          display: flex; justify-content: space-between; align-items: center;
-          padding: 8px 5%;
+          display: flex; flex-direction: column; align-items: center;
+          padding: 10px 5% 8px;
           border-bottom: 1px solid rgba(0,0,0,0.05);
-          background: rgba(255,255,255,0.9);
+          background: rgba(255,255,255,0.92);
           backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          gap: 6px;
         }
-        .nav-logo { display: flex; align-items: center; cursor: pointer; }
-        .nav-links { display: none; align-items: center; gap: 2px; list-style: none; }
+        .nav-logo { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .nav-links {
+          display: flex; align-items: center; justify-content: center;
+          gap: 2px; list-style: none; flex-wrap: wrap;
+        }
         .nav-btn {
-          padding: 7px 14px; border-radius: 100px; border: none;
-          font-size: 14px; font-weight: 500; color: #64748B; cursor: pointer;
+          padding: 6px 14px; border-radius: 100px; border: none;
+          font-size: 13px; font-weight: 500; color: #64748B; cursor: pointer;
           background: transparent; font-family: 'DM Sans', sans-serif;
-          transition: all 0.18s;
+          transition: all 0.18s; white-space: nowrap;
         }
         .nav-btn:hover { color: #0F172A; background: #F1F5F9; }
         .nav-btn.active { color: #0066FF; background: rgba(0,102,255,0.08); font-weight: 700; }
         .nav-cta {
-          margin-left: 10px; padding: 9px 20px; border-radius: 100px; border: none;
-          font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+          margin-left: 4px; padding: 7px 18px; border-radius: 100px; border: none;
+          font-size: 13px; font-weight: 700; color: #fff; cursor: pointer;
           background: #0066FF; font-family: 'DM Sans', sans-serif;
           box-shadow: 0 4px 14px rgba(0,102,255,0.28); transition: all 0.18s;
         }
         .nav-cta:hover { background: #005ce6; transform: translateY(-1px); }
-        .hamburger {
-          display: flex; background: transparent; border: 1.5px solid #E2E8F0;
-          color: #0F172A; cursor: pointer; padding: 7px 9px; border-radius: 10px;
-          transition: background 0.18s;
-        }
-        .hamburger:hover { background: #F1F5F9; }
-        @media (min-width: 768px) {
-          .nav-links { display: flex; }
-          .hamburger { display: none; }
-        }
 
-        /* ── DRAWER ── */
-        .overlay {
-          position: fixed; inset: 0; z-index: 999;
-          background: rgba(255,255,255,0.65);
-          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-          opacity: 0; pointer-events: none;
-          transition: opacity 0.35s cubic-bezier(0.16,1,0.3,1);
-        }
-        .overlay.open { opacity: 1; pointer-events: auto; }
-        .drawer {
-          position: fixed; top: 0; right: 0; bottom: 0;
-          width: 100%; max-width: 300px;
-          background: #fff; z-index: 1000; padding: 24px;
-          border-left: 1px solid rgba(0,0,0,0.05);
-          box-shadow: -12px 0 40px rgba(0,0,0,0.08);
-          display: flex; flex-direction: column;
-          transform: translateX(100%);
-          transition: transform 0.42s cubic-bezier(0.16,1,0.3,1);
-        }
-        .drawer.open { transform: translateX(0); }
-        .drawer-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-        .drawer-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
-        .drawer-item {
-          font-size: 17px; font-weight: 600; color: #475569;
-          padding: 12px 0; border-bottom: 1px solid #F1F5F9;
-          cursor: pointer; background: none; border-top: none; border-left: none; border-right: none;
-          width: 100%; text-align: left; font-family: 'DM Sans', sans-serif;
-          transition: all 0.18s;
-        }
-        .drawer-item:hover, .drawer-item.active { color: #0066FF; padding-left: 6px; }
-        .drawer-cta {
-          margin-top: 20px; padding: 13px; border-radius: 100px; border: none;
-          background: #0066FF; color: #fff; font-size: 15px; font-weight: 700;
-          cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.18s;
-        }
-        .drawer-cta:hover { background: #005ce6; }
+        /* drawer removed — nav always visible */
 
         /* ── MAIN PANEL ── */
         .panel {
@@ -301,8 +258,8 @@ export default function Home() {
           font-size: 18px; flex-shrink: 0;
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
-        .s-name { font-size: 13px; font-weight: 800; color: #0F172A; line-height: 1.2; }
-        .s-desc { font-size: 11px; color: #475569; line-height: 1.5; flex: 1; margin-bottom: 8px; }
+        .s-name { font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.2; }
+        .s-desc { font-size: 13px; color: #475569; line-height: 1.55; flex: 1; margin-bottom: 8px; }
         .s-tags { display: flex; gap: 5px; flex-wrap: wrap; }
         .s-tag {
           font-size: 10px; font-weight: 700; color: #0066FF;
@@ -342,13 +299,13 @@ export default function Home() {
         .p-card.hl .p-price { color: #fff; }
         .p-per { font-size: 11px; color: #94A3B8; margin-bottom: 8px; }
         .p-card.hl .p-per { color: rgba(255,255,255,0.6); }
-        .p-desc { font-size: 12px; color: #64748B; line-height: 1.5; margin-bottom: 10px; }
+        .p-desc { font-size: 13px; color: #64748B; line-height: 1.55; margin-bottom: 10px; }
         .p-card.hl .p-desc { color: rgba(255,255,255,0.75); }
         .p-features {
           list-style: none; display: flex; flex-direction: column; gap: 5px;
           margin-bottom: 14px; flex: 1;
         }
-        .p-feat { font-size: 12px; color: #334155; display: flex; align-items: flex-start; gap: 6px; }
+        .p-feat { font-size: 13px; color: #334155; display: flex; align-items: flex-start; gap: 6px; }
         .p-card.hl .p-feat { color: rgba(255,255,255,0.85); }
         .p-check { color: #0066FF; flex-shrink: 0; margin-top: 1px; }
         .p-card.hl .p-check { color: rgba(255,255,255,0.8); }
@@ -388,8 +345,8 @@ export default function Home() {
           font-family: 'Playfair Display', serif;
           font-size: 28px; font-weight: 900; line-height: 1;
         }
-        .step-title { font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
-        .step-desc { font-size: 12px; color: #475569; line-height: 1.6; }
+        .step-title { font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
+        .step-desc { font-size: 13px; color: #475569; line-height: 1.6; }
 
         /* ── FOOTER BAR ── */
         .foot {
@@ -416,7 +373,7 @@ export default function Home() {
       {/* ── NAV ── */}
       <header className="top-nav">
         <div className="nav-logo" onClick={() => switchView('home')}>
-          <Image src="/bglogo.png" alt="BG Laundry" width={68} height={68} style={{ objectFit: 'contain' }} priority />
+          <Image src="/bglogo.png" alt="BG Laundry" width={76} height={76} style={{ objectFit: 'contain' }} priority />
         </div>
         <ul className="nav-links">
           {navItems.map(({ key, label }) => (
@@ -428,31 +385,7 @@ export default function Home() {
           ))}
           <li><button className="nav-cta" onClick={handleStart}>Get Started</button></li>
         </ul>
-        <button className="hamburger" onClick={() => setIsMenuOpen(true)} aria-label="Menu">
-          <Menu size={20} />
-        </button>
       </header>
-
-      {/* ── DRAWER ── */}
-      <div className={`overlay${isMenuOpen ? ' open' : ''}`} onClick={() => setIsMenuOpen(false)} />
-      <aside className={`drawer${isMenuOpen ? ' open' : ''}`}>
-        <div className="drawer-head">
-          <Image src="/bglogo.png" alt="BG Laundry" width={50} height={50} style={{ objectFit: 'contain' }} />
-          <button className="hamburger" onClick={() => setIsMenuOpen(false)} aria-label="Close"><X size={20} /></button>
-        </div>
-        <ul className="drawer-list">
-          {navItems.map(({ key, label }) => (
-            <li key={key}>
-              <button className={`drawer-item${activeView === key ? ' active' : ''}`} onClick={() => switchView(key)}>
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button className="drawer-cta" onClick={() => { setIsMenuOpen(false); handleStart(); }}>
-          Get Started →
-        </button>
-      </aside>
 
       {/* ── MAIN PANEL ── */}
       <main className="panel">
