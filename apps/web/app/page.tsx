@@ -60,12 +60,12 @@ const fallbackServices: ServiceItem[] = [
 ];
 
 const services = [
-  { icon: '👕', title: 'Wash & Fold',      desc: 'Expert laundering with premium detergents, returned neatly folded.',  color: '#EFF6FF' },
-  { icon: '🥼', title: 'Dry Cleaning',     desc: 'Professional care for suits, dresses & delicate fabrics.',            color: '#F0FDF4' },
-  { icon: '👔', title: 'Iron & Press',     desc: 'Steam pressing for crisp shirts and formal wear.',                    color: '#FFF7ED' },
-  { icon: '👟', title: 'Shoe Cleaning',    desc: 'Deep cleaning & restoration for sneakers and leather shoes.',         color: '#FDF4FF' },
-  { icon: '🛏️', title: 'Bedding & Linen', desc: 'Hygienic washing of duvets, sheets and pillow cases.',               color: '#F0FDF4' },
-  { icon: '🧥', title: 'Stain Removal',   desc: 'Pre-treatment for stubborn stains — oil, wine, ink and more.',       color: '#FFF1F2' },
+  { icon: '👕', title: 'Wash & Fold',      desc: 'Professional washing & folding. From ₦300 (Shorts) to ₦2,500 (Agbada).',  color: '#EFF6FF' },
+  { icon: '🥼', title: 'Dry Cleaning',     desc: 'Delicate care for Agbadas, Senator wear, suits & gowns. From ₦1,000 to ₦3,500.', color: '#F0FDF4' },
+  { icon: '👔', title: 'Iron & Press',     desc: 'Steam pressing for shirts, trousers & blazers. Flat rate from ₦200 to ₦1,200.', color: '#FFF7ED' },
+  { icon: '👟', title: 'Shoe & Bag Care',  desc: 'Deep cleaning, stain removal & restoration for premium shoes & bags. From ₦4,000.', color: '#FDF4FF' },
+  { icon: '🛏️', title: 'Household Items',  desc: 'Washing duvets, blankets, pillows, sheets, and curtains. From ₦600.', color: '#F0FDF4' },
+  { icon: '✨', title: 'Specialty Add-ons', desc: 'Stain removal (from ₦1,000), fabric softener (₦200), fragrance (₦200).', color: '#FFF1F2' },
 ];
 
 const steps = [
@@ -512,6 +512,47 @@ export default function Home() {
           border-color: #0066FF; color: #0066FF; background: rgba(0, 102, 255, 0.02);
         }
 
+        .services-note-banner {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+          margin-top: 14px;
+          padding: 12px 16px;
+          background: rgba(255, 179, 0, 0.05);
+          border: 1px dashed rgba(255, 179, 0, 0.3);
+          border-radius: 14px;
+          flex-shrink: 0;
+        }
+        .note-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 11px;
+          line-height: 1.4;
+          color: #475569;
+        }
+        .note-icon {
+          font-size: 16px;
+          flex-shrink: 0;
+          line-height: 1;
+        }
+        .note-item strong {
+          color: #0F172A;
+          font-weight: 700;
+        }
+        
+        @media (max-width: 600px) {
+          .services-note-banner {
+            grid-template-columns: 1fr;
+            gap: 8px;
+            padding: 10px 12px;
+            margin-top: 10px;
+          }
+          .note-item {
+            font-size: 10px;
+          }
+        }
+
         /* ── PRICING INTERACTIVE BOARD ── */
         .pricing-tabs {
           display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-shrink: 0;
@@ -750,15 +791,15 @@ export default function Home() {
           </div>
           
           <div className="nav-logo" onClick={() => switchView('home')}>
-            <Image src="/bglogo.png" alt="BG Laundry" width={82} height={82} style={{ objectFit: 'contain' }} priority />
+            <Image src="/bglogo.png" alt="BG Laundry" width={110} height={110} style={{ objectFit: 'contain' }} priority />
           </div>
           
           <div className="nav-group right">
-            <button className={`nav-btn${activeView === 'pricing' ? ' active' : ''}`} onClick={() => switchView('pricing')}>
-              Pricing
-            </button>
             <button className={`nav-btn${activeView === 'how-it-works' ? ' active' : ''}`} onClick={() => switchView('how-it-works')}>
               How It Works
+            </button>
+            <button className="nav-btn" onClick={handleStart}>
+              {loggedIn ? 'Dashboard' : 'Sign In'}
             </button>
           </div>
         </div>
@@ -851,11 +892,11 @@ export default function Home() {
                     <p className="s-desc">{s.desc}</p>
                   </div>
                   <button className="s-card-btn" onClick={() => {
-                    if (s.title.includes('Dry Cleaning')) {
+                    if (s.title.includes('Dry Cleaning') || s.title.includes('Fold') || s.title.includes('Press')) {
                       setPricingCategory('Clothing');
-                    } else if (s.title.includes('Bedding') || s.title.includes('Linen')) {
+                    } else if (s.title.includes('Bedding') || s.title.includes('Linen') || s.title.includes('Household')) {
                       setPricingCategory('Household');
-                    } else if (s.title.includes('Shoe') || s.title.includes('Stain')) {
+                    } else if (s.title.includes('Shoe') || s.title.includes('Stain') || s.title.includes('Specialty')) {
                       setPricingCategory('Additional');
                     }
                     switchView('pricing');
@@ -864,6 +905,18 @@ export default function Home() {
                   </button>
                 </div>
               ))}
+            </div>
+
+            {/* Price list note details banner */}
+            <div className="services-note-banner">
+              <div className="note-item">
+                <span className="note-icon">🚚</span>
+                <span><strong>Free Delivery & Pickup:</strong> Starts from 10 items & above. Under 10 items attracts a delivery fee based on location.</span>
+              </div>
+              <div className="note-item">
+                <span className="note-icon">⏱️</span>
+                <span><strong>Turnaround:</strong> 24–48 hours standard. <strong>Express 24h service</strong> is available at +50% service charge.</span>
+              </div>
             </div>
           </div>
         </div>
