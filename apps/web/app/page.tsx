@@ -71,7 +71,7 @@ export default function Home() {
           max-width: 420px; width: 100%;
           margin: auto; text-align: center;
           position: relative; z-index: 10;
-          display: flex; flexDirection: column; align-items: center;
+          display: flex; flex-direction: column; align-items: center;
         }
 
         .logo-badge {
@@ -141,7 +141,7 @@ export default function Home() {
         }
         .nav-logo {
           font-size: 15px; font-weight: 600; color: #FAF9F7;
-          display: flex; alignItems: center; gap: 8px;
+          display: flex; align-items: center; gap: 8px;
         }
         .nav-admin {
           font-size: 13px; color: #64748B; text-decoration: none;
