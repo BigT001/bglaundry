@@ -552,6 +552,88 @@ export default function Home() {
         }
         .table-book-btn:hover { background: #005ce6; }
 
+        /* Mobile Card Grid styling */
+        .pricing-mobile-container {
+          display: none;
+          flex: 1; min-height: 0; overflow-y: auto;
+        }
+        .pricing-mobile-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+          padding: 2px;
+        }
+        
+        .p-item-card {
+          background: #FAFBFC;
+          border: 1px solid #F1F5F9;
+          border-radius: 14px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          transition: all 0.2s;
+        }
+        .p-item-card:hover {
+          border-color: #0066FF;
+          background: #FFFFFF;
+          box-shadow: 0 4px 12px rgba(0,102,255,0.04);
+        }
+        .p-item-title {
+          font-size: 13px;
+          font-weight: 800;
+          color: #0F172A;
+          margin-bottom: 8px;
+          border-bottom: 1px solid #F1F5F9;
+          padding-bottom: 4px;
+        }
+        .p-item-rates {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          margin-bottom: 8px;
+          flex: 1;
+        }
+        .p-item-rate-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #64748B;
+        }
+        .p-item-rate-row span.val {
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 600;
+          color: #0066FF;
+        }
+        
+        .p-item-book-btn {
+          width: 100%;
+          height: 32px;
+          border-radius: 100px;
+          border: none;
+          background: #0066FF;
+          color: #FFFFFF;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.18s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .p-item-book-btn:hover {
+          background: #005ce6;
+        }
+
+        @media (max-width: 767px) {
+          .pricing-table-container {
+            display: none;
+          }
+          .pricing-mobile-container {
+            display: block;
+          }
+        }
+
         /* ── HOW IT WORKS GRID ── */
         .steps-grid {
           flex: 1; min-height: 0;
@@ -777,12 +859,7 @@ export default function Home() {
         <div className={`view${displayedView === 'pricing' ? (animating ? ' exiting' : ' entering') : ' exiting'}`}
           style={{ display: isVisible('pricing') ? 'flex' : 'none', alignItems: 'stretch' }}>
           <div className="sec-wrap">
-            <div className="sec-head">
-              <p className="sec-label">Pricing Catalog</p>
-              <h2 className="sec-title">Standard Rates</h2>
-            </div>
-            
-            <div className="pricing-tabs">
+            <div className="pricing-tabs" style={{ marginTop: '10px' }}>
               {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (
                 <button
                   key={cat}
@@ -793,7 +870,8 @@ export default function Home() {
                 </button>
               ))}
             </div>
-
+ 
+            {/* Desktop Table View */}
             <div className="pricing-table-container">
               <table className="pricing-table">
                 <thead>
@@ -821,6 +899,42 @@ export default function Home() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card Grid View */}
+            <div className="pricing-mobile-container">
+              <div className="pricing-mobile-grid">
+                {displayServices.map((item) => (
+                  <div key={item.name} className="p-item-card">
+                    <div>
+                      <h4 className="p-item-title">{item.name}</h4>
+                      <div className="p-item-rates">
+                        {item.hasWash && item.washPrice > 0 && (
+                          <div className="p-item-rate-row">
+                            <span>Wash Only</span>
+                            <span className="val">₦{item.washPrice.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {item.hasIron && item.ironPrice > 0 && (
+                          <div className="p-item-rate-row">
+                            <span>Iron Only</span>
+                            <span className="val">₦{item.ironPrice.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {item.hasWashIron && item.washIronPrice > 0 && (
+                          <div className="p-item-rate-row highlight">
+                            <span>Wash & Iron</span>
+                            <span className="val">₦{item.washIronPrice.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <button className="p-item-book-btn" onClick={() => handleBookItem(item.name)}>
+                      Book
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
