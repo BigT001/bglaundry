@@ -201,7 +201,7 @@ export default function Home() {
       {/* Top Navigation */}
       <header className="top-nav">
         <div className="nav-logo">
-          <Image src="/logo.jpg" alt="BG Laundry Logo" width={40} height={40} style={{ borderRadius: '8px', objectFit: 'contain' }} />
+          <Image src="/bglogo.png" alt="BG Laundry Logo" width={40} height={40} style={{ objectFit: 'contain' }} />
           BG Laundry
         </div>
         <button className="menu-toggle" onClick={toggleMenu} aria-label="Open Menu">
@@ -214,7 +214,7 @@ export default function Home() {
       <aside className={`drawer-menu ${isMenuOpen ? 'open' : ''}`}>
         <div className="drawer-header">
           <div className="nav-logo">
-            <Image src="/logo.jpg" alt="BG Laundry Logo" width={40} height={40} style={{ borderRadius: '8px', objectFit: 'contain' }} />
+            <Image src="/bglogo.png" alt="BG Laundry Logo" width={40} height={40} style={{ objectFit: 'contain' }} />
             BG Laundry
           </div>
           <button className="menu-toggle" onClick={toggleMenu} aria-label="Close Menu">
@@ -236,9 +236,6 @@ export default function Home() {
 
       {/* Main Hero Section */}
       <main className="hero-section">
-        <div className="hero-logo-wrap">
-          <Image src="/logo.jpg" alt="BG Laundry Logo" width={120} height={120} style={{ borderRadius: '24px', objectFit: 'contain' }} />
-        </div>
         <div className="hero-badge">24H EXPRESS SERVICE</div>
         <h1 className="hero-title">
           Premium Laundry.<br/>Delivered to <span className="title-accent">Your Door.</span>
