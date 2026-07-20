@@ -8,7 +8,8 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "db:migrate": "pnpm --filter @bglaundry/database db:migrate",
-    "db:generate": "pnpm --filter @bglaundry/database db:generate"
+    "db:generate": "pnpm --filter @bglaundry/database db:generate",
+    "postinstall": "pnpm run db:generate"
   },
   "devDependencies": {
     "turbo": "^1.10.15",
