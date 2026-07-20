@@ -23,7 +23,11 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "react": ["./node_modules/react"],
+      "react/*": ["./node_modules/react/*"],
+      "@types/react": ["./node_modules/@types/react"],
+      "@types/react/*": ["./node_modules/@types/react/*"]
     }
   },
   "include": [
