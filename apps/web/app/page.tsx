@@ -2,7 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowRight, Check } from '@/lib/icons';
+import axios from 'axios';
+import { auth } from '@/lib/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { ArrowRight, Check, X } from '@/lib/icons';
 
 type View = 'home' | 'services' | 'pricing' | 'how-it-works';
 
@@ -81,6 +84,20 @@ export default function Home() {
   const [dbServices, setDbServices] = useState<ServiceItem[]>(fallbackServices);
   const [pricingCategory, setPricingCategory] = useState<'Clothing' | 'Household' | 'Additional'>('Clothing');
 
+  // Login Modal & Firebase verification states
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP' | 'ONBOARDING'>('PHONE');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginInfo, setLoginInfo] = useState('');
+  const [verifier, setVerifier] = useState<RecaptchaVerifier | null>(null);
+  const [confirmation, setConfirmation] = useState<any>(null);
+  const [tempToken, setTempToken] = useState('');
+  const [tempUser, setTempUser] = useState<any>(null);
+
   useEffect(() => {
     setLoggedIn(!!localStorage.getItem('customerToken'));
     // Fetch live service catalog from database
@@ -94,6 +111,29 @@ export default function Home() {
       .catch((err) => console.error('Failed to load services:', err));
   }, []);
 
+  // Initialize reCAPTCHA on modal show
+  useEffect(() => {
+    if (!showLoginModal) return;
+    
+    setTimeout(() => {
+      try {
+        const container = document.getElementById('recaptcha-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const v = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+          'expired-callback': () => {
+            setVerifier(null);
+          }
+        });
+        v.render().then(() => setVerifier(v)).catch(() => {});
+      } catch (e) {
+        console.error('[reCAPTCHA init error]', e);
+      }
+    }, 100);
+  }, [showLoginModal]);
+
   const switchView = useCallback((view: View) => {
     if (view === activeView || animating) return;
     setAnimating(true);
@@ -104,18 +144,117 @@ export default function Home() {
     }, 280);
   }, [activeView, animating]);
 
-  const handleStart = () => router.push(loggedIn ? '/dashboard' : '/login');
+  const handleStart = () => {
+    if (loggedIn) {
+      router.push('/dashboard');
+    } else {
+      setLoginStep('PHONE');
+      setLoginError('');
+      setLoginInfo('');
+      setShowLoginModal(true);
+    }
+  };
 
-  const navItems: { key: View; label: string }[] = [
-    { key: 'home',         label: 'Home' },
-    { key: 'services',     label: 'Services' },
-    { key: 'pricing',      label: 'Pricing' },
-    { key: 'how-it-works', label: 'How It Works' },
-  ];
+  const handleBookItem = (itemName: string) => {
+    if (loggedIn) {
+      router.push('/dashboard');
+    } else {
+      setLoginStep('PHONE');
+      setLoginError('');
+      setLoginInfo('');
+      setShowLoginModal(true);
+    }
+  };
+
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || loginLoading) return;
+    setLoginLoading(true); setLoginError(''); setLoginInfo('');
+    
+    const formatted = phone.startsWith('+') ? phone : `+234${phone.replace(/^0+/, '')}`;
+    
+    try {
+      let v = verifier;
+      if (!v) {
+        const container = document.getElementById('recaptcha-container');
+        if (container) container.innerHTML = '';
+        v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+        await v.render();
+        setVerifier(v);
+      }
+      
+      const result = await signInWithPhoneNumber(auth, formatted, v);
+      setConfirmation(result);
+      setLoginInfo(`OTP code sent to ${formatted}`);
+      setLoginStep('OTP');
+    } catch (err: any) {
+      console.error('[Phone Submit Error]', err);
+      setLoginError(err.message || 'Failed to send verification code.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length < 6 || !confirmation || loginLoading) return;
+    setLoginLoading(true); setLoginError('');
+    
+    const formatted = phone.startsWith('+') ? phone : `+234${phone.replace(/^0+/, '')}`;
+    
+    try {
+      const credential = await confirmation.confirm(otp);
+      const idToken = await credential.user.getIdToken();
+      
+      const { data } = await axios.post('/api/v1/auth/verify-otp', { phoneNumber: formatted, idToken });
+      const { token, user: loggedUser } = data;
+      
+      if (!loggedUser.fullName || loggedUser.fullName === 'Customer Account') {
+        setTempToken(token);
+        setTempUser(loggedUser);
+        setLoginStep('ONBOARDING');
+      } else {
+        localStorage.setItem('customerToken', token);
+        localStorage.setItem('customerUser', JSON.stringify(loggedUser));
+        setLoggedIn(true);
+        setShowLoginModal(false);
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      console.error('[OTP Submit Error]', err);
+      setLoginError(err.response?.data?.error || err.message || 'Invalid code.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim() || loginLoading) return;
+    setLoginLoading(true); setLoginError('');
+    
+    try {
+      const { data } = await axios.patch(
+        '/api/v1/users/profile',
+        { fullName: fullName.trim() },
+        { headers: { Authorization: `Bearer ${tempToken}` } }
+      );
+      localStorage.setItem('customerToken', tempToken);
+      localStorage.setItem('customerUser', JSON.stringify(data.user));
+      setLoggedIn(true);
+      setShowLoginModal(false);
+      router.push('/dashboard');
+    } catch (err: any) {
+      console.error('[Onboarding Error]', err);
+      setLoginError(err.response?.data?.error || 'Failed to complete registration.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   const isVisible = (v: View) => v === displayedView || v === activeView;
 
-  // Filter dbServices by currently active tab
+  // Filter dbServices by currently active category tab
   const displayServices = dbServices.filter((s) => s.category === pricingCategory);
 
   return (
@@ -158,18 +297,31 @@ export default function Home() {
           animation: floatB 18s ease-in-out infinite;
         }
 
-        /* ── NAV — centered logo + links below ── */
+        /* ── NAV — Centered splits (Logo in between Menu links) ── */
         .top-nav {
           position: relative; z-index: 100; flex-shrink: 0;
-          display: flex; flex-direction: column; align-items: center;
-          padding: 16px 5% 8px;
-          gap: 6px;
+          display: flex; justify-content: center;
+          padding: 18px 5% 10px;
         }
-        .nav-logo { display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .nav-links {
-          display: flex; align-items: center; justify-content: center;
-          gap: 2px; list-style: none; flex-wrap: wrap;
+        .nav-container-centered {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          width: 100%;
+          max-width: 800px;
         }
+        .nav-group {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          flex: 1;
+        }
+        .nav-group.left { justify-content: flex-end; }
+        .nav-group.right { justify-content: flex-start; }
+        
+        .nav-logo { display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        
         .nav-btn {
           padding: 6px 14px; border-radius: 100px; border: none;
           font-size: 13px; font-weight: 500; color: #64748B; cursor: pointer;
@@ -178,6 +330,13 @@ export default function Home() {
         }
         .nav-btn:hover { color: #0F172A; background: #F1F5F9; }
         .nav-btn.active { color: #0066FF; background: rgba(0,102,255,0.08); font-weight: 700; }
+
+        @media (max-width: 600px) {
+          .nav-container-centered { gap: 8px; }
+          .nav-group { gap: 6px; }
+          .nav-btn { font-size: 12px; padding: 5px 10px; }
+          .top-nav { padding: 12px 3% 6px; }
+        }
 
         /* ── MAIN PANEL ── */
         .panel {
@@ -190,7 +349,7 @@ export default function Home() {
         .view {
           position: absolute; inset: 0;
           display: flex; align-items: center; justify-content: center;
-          padding: 16px 5% 24px;
+          padding: 12px 5% 20px;
           transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
         }
         .view.entering { opacity: 1; transform: translateY(0); }
@@ -213,20 +372,21 @@ export default function Home() {
         .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #0066FF; flex-shrink: 0; }
         .hero-h1 {
           font-family: 'Playfair Display', Georgia, serif;
-          font-size: clamp(36px, 7vw, 78px); font-weight: 900;
+          font-size: clamp(34px, 7vw, 76px); font-weight: 900;
           color: #0F172A; letter-spacing: -2.5px; line-height: 1.04;
-          margin-bottom: 18px;
+          margin-bottom: 16px;
           animation: fadeUp 0.6s ease 0.08s both;
         }
         .hero-accent { color: #0066FF; font-style: italic; }
         .hero-sub {
-          font-size: clamp(14px, 1.8vw, 18px); color: #64748B; line-height: 1.7;
-          margin-bottom: 36px; max-width: 500px;
+          font-size: clamp(14px, 1.8vw, 17px); color: #64748B; line-height: 1.7;
+          margin-bottom: 28px; max-width: 480px;
           animation: fadeUp 0.6s ease 0.16s both;
         }
         .ctas {
           display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
           animation: fadeUp 0.6s ease 0.22s both;
+          margin-bottom: 24px;
         }
         .btn-p {
           height: 50px; padding: 0 26px; background: #0066FF; color: #fff;
@@ -243,6 +403,55 @@ export default function Home() {
           display: flex; align-items: center; gap: 8px; transition: all 0.2s;
         }
         .btn-s:hover { background: #F8FAFC; border-color: #CBD5E1; transform: translateY(-2px); }
+
+        /* Trust/Features Bar for empty Hero Section — transparent/headless style */
+        .hero-features {
+          display: flex; gap: 32px; width: 100%; max-width: 680px;
+          justify-content: center; animation: fadeUp 0.6s ease 0.3s both;
+          margin-bottom: 24px;
+        }
+        .hero-feature-item {
+          background: transparent; border: none;
+          padding: 8px 0; display: flex;
+          align-items: center; gap: 12px; text-align: left; transition: all 0.2s;
+        }
+        .hero-feature-item:hover {
+          transform: translateY(-2px);
+        }
+        .hf-icon { font-size: 24px; }
+        .hf-text h4 { font-size: 14px; font-weight: 700; color: #0F172A; }
+        .hf-text p { font-size: 12px; color: #64748B; margin-top: 1px; }
+
+        /* Testimonials Indicators */
+        .hero-testimonials {
+          display: flex; align-items: center; gap: 12px;
+          animation: fadeUp 0.6s ease 0.36s both;
+        }
+        .avatar-group {
+          display: flex; align-items: center;
+        }
+        .avatar {
+          width: 32px; height: 32px; border-radius: 50%;
+          background: #F1F5F9; border: 2px solid #fff;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 14px; margin-left: -8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .avatar:first-child { margin-left: 0; }
+        
+        .rating-info { text-align: left; }
+        .rating-stars { color: #F59E0B; font-size: 14px; letter-spacing: 1px; font-weight: 700; }
+        .rating-info p { font-size: 12px; color: #64748B; font-weight: 500; }
+
+        @media (max-width: 640px) {
+          .hero-features { gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+          .hero-feature-item { flex: 1 1 45%; padding: 4px 0; gap: 8px; }
+          .hero-h1 { margin-bottom: 12px; }
+          .hero-sub { margin-bottom: 24px; }
+          .ctas { margin-bottom: 20px; }
+          .hf-icon { font-size: 20px; }
+          .hf-text h4 { font-size: 13px; }
+          .hf-text p { font-size: 11px; }
+        }
 
         /* ── SHARED SECTION WRAPPER ── */
         .sec-wrap {
@@ -335,6 +544,13 @@ export default function Home() {
         .pricing-table tr:hover { background: rgba(0, 102, 255, 0.02); }
         .item-name-cell { font-weight: 700; color: #0F172A; }
         .price-text { font-family: 'DM Sans', sans-serif; font-weight: 600; color: #0066FF; }
+        
+        .table-book-btn {
+          padding: 6px 14px; border-radius: 100px; border: none;
+          background: #0066FF; color: #fff; font-size: 11px; font-weight: 700;
+          cursor: pointer; transition: background 0.18s;
+        }
+        .table-book-btn:hover { background: #005ce6; }
 
         /* ── HOW IT WORKS GRID ── */
         .steps-grid {
@@ -365,6 +581,61 @@ export default function Home() {
         }
         .step-title { font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
         .step-desc { font-size: 13px; color: #475569; line-height: 1.6; }
+
+        /* ── MODAL OVERLAY & CONTENT ── */
+        .modal-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px;
+        }
+        .modal-content {
+          background: #FFFFFF; border-radius: 24px; padding: 32px;
+          width: 100%; max-width: 400px; position: relative;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+          animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .modal-close {
+          position: absolute; top: 20px; right: 20px;
+          background: none; border: none; cursor: pointer; color: #64748B;
+          padding: 4px; border-radius: 50%; display: flex; align-items: center;
+          transition: background 0.2s;
+        }
+        .modal-close:hover { background: #F1F5F9; color: #0F172A; }
+        
+        .modal-header { margin-bottom: 24px; }
+        .modal-header h3 {
+          font-family: 'Playfair Display', serif; font-size: 24px;
+          font-weight: 900; color: #0F172A; margin-bottom: 8px;
+        }
+        .modal-header p { font-size: 13px; color: #64748B; line-height: 1.5; }
+        
+        .modal-error {
+          padding: 10px 14px; background: #FEF2F2; border: 1px solid #FEE2E2;
+          color: #DC2626; border-radius: 10px; font-size: 12px; margin-bottom: 16px;
+        }
+        .modal-info {
+          padding: 10px 14px; background: #ECFDF5; border: 1px solid #D1FAE5;
+          color: #059669; border-radius: 10px; font-size: 12px; margin-bottom: 16px;
+        }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+        .form-group label { font-size: 12px; font-weight: 700; color: #475569; }
+        .modal-input {
+          height: 48px; border-radius: 12px; border: 1.5px solid #E2E8F0;
+          padding: 0 16px; font-size: 14px; font-family: inherit;
+          transition: border-color 0.2s; width: 100%;
+        }
+        .modal-input:focus { border-color: #0066FF; outline: none; }
+        
+        .modal-submit-btn {
+          width: 100%; height: 48px; border-radius: 12px; border: none;
+          background: #0066FF; color: #FFFFFF; font-size: 14px; font-weight: 700;
+          cursor: pointer; transition: background 0.2s;
+        }
+        .modal-submit-btn:hover { background: #005ce6; }
+        .modal-submit-btn:disabled { background: #94A3B8; cursor: not-allowed; }
       `}} />
 
       {/* Orbs */}
@@ -373,18 +644,29 @@ export default function Home() {
 
       {/* ── NAV ── */}
       <header className="top-nav">
-        <div className="nav-logo" onClick={() => switchView('home')}>
-          <Image src="/bglogo.png" alt="BG Laundry" width={82} height={82} style={{ objectFit: 'contain' }} priority />
+        <div className="nav-container-centered">
+          <div className="nav-group left">
+            <button className={`nav-btn${activeView === 'home' ? ' active' : ''}`} onClick={() => switchView('home')}>
+              Home
+            </button>
+            <button className={`nav-btn${activeView === 'services' ? ' active' : ''}`} onClick={() => switchView('services')}>
+              Services
+            </button>
+          </div>
+          
+          <div className="nav-logo" onClick={() => switchView('home')}>
+            <Image src="/bglogo.png" alt="BG Laundry" width={82} height={82} style={{ objectFit: 'contain' }} priority />
+          </div>
+          
+          <div className="nav-group right">
+            <button className={`nav-btn${activeView === 'pricing' ? ' active' : ''}`} onClick={() => switchView('pricing')}>
+              Pricing
+            </button>
+            <button className={`nav-btn${activeView === 'how-it-works' ? ' active' : ''}`} onClick={() => switchView('how-it-works')}>
+              How It Works
+            </button>
+          </div>
         </div>
-        <ul className="nav-links">
-          {navItems.map(({ key, label }) => (
-            <li key={key}>
-              <button className={`nav-btn${activeView === key ? ' active' : ''}`} onClick={() => switchView(key)}>
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
       </header>
 
       {/* ── MAIN PANEL ── */}
@@ -412,6 +694,45 @@ export default function Home() {
               <button className="btn-s" onClick={() => switchView('services')}>
                 Explore Services
               </button>
+            </div>
+            
+            {/* Minimalist Headless Feature Details */}
+            <div className="hero-features">
+              <div className="hero-feature-item">
+                <span className="hf-icon">⚡</span>
+                <div className="hf-text">
+                  <h4>24h Express</h4>
+                  <p>Fast turnaround</p>
+                </div>
+              </div>
+              <div className="hero-feature-item">
+                <span className="hf-icon">🛡️</span>
+                <div className="hf-text">
+                  <h4>Premium Care</h4>
+                  <p>Fabric protection</p>
+                </div>
+              </div>
+              <div className="hero-feature-item">
+                <span className="hf-icon">🚚</span>
+                <div className="hf-text">
+                  <h4>Free Delivery</h4>
+                  <p>Pickup & return</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Testimonials Indicators */}
+            <div className="hero-testimonials">
+              <div className="avatar-group">
+                <span className="avatar">👩‍🦰</span>
+                <span className="avatar">👨</span>
+                <span className="avatar">👩</span>
+                <span className="avatar">🧔</span>
+              </div>
+              <div className="rating-info">
+                <div className="rating-stars">★★★★★</div>
+                <p>Loved by 1,200+ Lagos families</p>
+              </div>
             </div>
           </div>
         </div>
@@ -481,6 +802,7 @@ export default function Home() {
                     <th>Wash Only</th>
                     <th>Iron Only</th>
                     <th>Wash & Iron</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -490,6 +812,11 @@ export default function Home() {
                       <td className="price-text">{item.hasWash && item.washPrice > 0 ? `₦${item.washPrice.toLocaleString()}` : '—'}</td>
                       <td className="price-text">{item.hasIron && item.ironPrice > 0 ? `₦${item.ironPrice.toLocaleString()}` : '—'}</td>
                       <td className="price-text">{item.hasWashIron && item.washIronPrice > 0 ? `₦${item.washIronPrice.toLocaleString()}` : '—'}</td>
+                      <td>
+                        <button className="table-book-btn" onClick={() => handleBookItem(item.name)}>
+                          Book
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -523,6 +850,85 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Login Popup Modal */}
+      {showLoginModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button className="modal-close" onClick={() => setShowLoginModal(false)}>
+              <X size={18} />
+            </button>
+            <div className="modal-header">
+              <h3>Sign In to Continue</h3>
+              <p>Please log in using your phone number to proceed with booking.</p>
+            </div>
+            
+            {loginError && <div className="modal-error">{loginError}</div>}
+            {loginInfo && <div className="modal-info">{loginInfo}</div>}
+
+            {loginStep === 'PHONE' && (
+              <form onSubmit={handlePhoneSubmit}>
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 08012345678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    className="modal-input"
+                  />
+                </div>
+                <button type="submit" disabled={loginLoading} className="modal-submit-btn">
+                  {loginLoading ? 'Sending OTP...' : 'Send OTP'}
+                </button>
+              </form>
+            )}
+
+            {loginStep === 'OTP' && (
+              <form onSubmit={handleOtpSubmit}>
+                <div className="form-group">
+                  <label>OTP Code</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    required
+                    className="modal-input"
+                  />
+                </div>
+                <button type="submit" disabled={loginLoading} className="modal-submit-btn">
+                  {loginLoading ? 'Verifying...' : 'Verify & Continue'}
+                </button>
+              </form>
+            )}
+
+            {loginStep === 'ONBOARDING' && (
+              <form onSubmit={handleOnboardSubmit}>
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="modal-input"
+                  />
+                </div>
+                <button type="submit" disabled={loginLoading} className="modal-submit-btn">
+                  {loginLoading ? 'Saving...' : 'Complete Registration'}
+                </button>
+              </form>
+            )}
+
+            {/* Hidden container for reCAPTCHA */}
+            <div id="recaptcha-container"></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
