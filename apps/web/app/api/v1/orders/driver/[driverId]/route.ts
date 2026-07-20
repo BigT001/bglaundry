@@ -4,10 +4,10 @@ import { OrderStatus } from '@bglaundry/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { driverId: string } },
+  { params }: { params: Promise<{ driverId: string }> },
 ) {
   try {
-    const { driverId } = params;
+    const { driverId } = await params;
 
     if (!driverId) {
       return NextResponse.json(

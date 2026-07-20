@@ -14,7 +14,7 @@ import {
   Navigation,
   Bike,
   Car,
-} from 'lucide-react';
+} from '@/lib/icons';
 
 interface KpiData {
   totalOrders: number;

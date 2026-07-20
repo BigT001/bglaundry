@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Sidebar from '../Sidebar';
-import { Search, Shield, User, Bike, AlertCircle } from 'lucide-react';
+import { Search, Shield, User, Bike, AlertCircle } from '@/lib/icons';
 
 interface UserItem {
   id: string;

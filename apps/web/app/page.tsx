@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Shirt, Compass } from 'lucide-react';
+import { ArrowRight, Shirt, Compass } from '@/lib/icons';
 
 export default function Home() {
   const router = useRouter();

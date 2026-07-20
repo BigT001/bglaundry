@@ -21,7 +21,7 @@ import {
   User,
   X,
   MapPinned
-} from 'lucide-react';
+} from '@/lib/icons';
 
 type TabType = 'BOOK' | 'ACTIVE' | 'HISTORY';
 type ServiceCategory = 'Clothing' | 'Household' | 'Additional';
@@ -150,11 +150,11 @@ export default function CustomerDashboard() {
   };
 
   const getBasketTotal = () => {
-    return Object.values(basket).reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return (Object.values(basket) as BasketItem[]).reduce((sum: number, item) => sum + item.price * item.quantity, 0);
   };
 
   const getBasketCount = () => {
-    return Object.values(basket).reduce((sum, item) => sum + item.quantity, 0);
+    return (Object.values(basket) as BasketItem[]).reduce((sum: number, item) => sum + item.quantity, 0);
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -172,7 +172,7 @@ export default function CustomerDashboard() {
         pickupAddress: pickupAddress.trim(),
         deliveryAddress: deliveryAddress.trim(),
         pickupDate,
-        items: Object.values(basket).map((item) => ({
+        items: (Object.values(basket) as BasketItem[]).map((item) => ({
           serviceName: item.serviceName,
           quantity: item.quantity,
           price: item.price
@@ -626,7 +626,7 @@ export default function CustomerDashboard() {
                   ) : (
                     <>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', flex: 1, marginBottom: '20px', paddingRight: '4px' }}>
-                        {Object.values(basket).map((item) => (
+                        {(Object.values(basket) as BasketItem[]).map((item) => (
                           <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F3F1ED', paddingBottom: '10px' }}>
                             <div style={{ flex: 1, paddingRight: '8px' }}>
                               <div style={{ fontSize: '13px', fontWeight: '600', color: '#0D0D0D' }}>{item.serviceName}</div>
@@ -1041,7 +1041,7 @@ export default function CustomerDashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
-              {Object.values(basket).map((item) => (
+              {(Object.values(basket) as BasketItem[]).map((item) => (
                 <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F3F1ED', paddingBottom: '14px' }}>
                   <div style={{ flex: 1, paddingRight: '12px' }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#0D0D0D' }}>{item.serviceName}</div>

@@ -14,16 +14,15 @@
     "firebase": "^12.16.0",
     "firebase-admin": "^14.1.0",
     "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.379.0",
-    "next": "^14.2.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "next": "15.3.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.12.7",
-    "@types/react": "^18.3.31",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.2.3",
     "typescript": "^5.4.5"
   }
 }

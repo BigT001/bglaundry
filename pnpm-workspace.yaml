@@ -8,4 +8,9 @@ allowBuilds:
   '@prisma/engines': true
   bcrypt: true
   prisma: true
+  sharp: true
   protobufjs: true
+
+overrides:
+  "@types/react": "19.1.17"
+  "@types/react-dom": "19.2.3"

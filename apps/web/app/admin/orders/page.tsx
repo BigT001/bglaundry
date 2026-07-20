@@ -10,7 +10,7 @@ import {
   User,
   MapPin,
   Calendar,
-} from 'lucide-react';
+} from '@/lib/icons';
 
 interface Driver {
   id: string;

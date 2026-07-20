@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import Sidebar from '../Sidebar';
-import { Sliders, Save, ShieldAlert, Check, Plus, Trash2, Tag, HelpCircle } from 'lucide-react';
+import { Sliders, Save, ShieldAlert, Check, Plus, Trash2, Tag, HelpCircle } from '@/lib/icons';
 
 interface ServiceItem {
   id: string;
