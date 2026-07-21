@@ -5,7 +5,7 @@ import Image from 'next/image';
 import axios from 'axios';
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { ArrowRight, Check, X } from '@/lib/icons';
+import { ArrowRight, Check, X, Menu, ChevronRight } from '@/lib/icons';
 
 type View = 'home' | 'services' | 'pricing' | 'how-it-works';
 
@@ -83,6 +83,8 @@ export default function Home() {
   const [displayedView, setDisplayedView] = useState<View>('home');
   const [dbServices, setDbServices] = useState<ServiceItem[]>(fallbackServices);
   const [pricingCategory, setPricingCategory] = useState<'Clothing' | 'Household' | 'Additional'>('Clothing');
+  const [showMenuDrawer, setShowMenuDrawer] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
 
   // Login Modal & Firebase verification states
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -143,6 +145,13 @@ export default function Home() {
       setAnimating(false);
     }, 280);
   }, [activeView, animating]);
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const handleStart = () => {
     if (loggedIn) {
@@ -286,17 +295,27 @@ export default function Home() {
       <style dangerouslySetInnerHTML={{
         __html: `
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; overflow: hidden; }
+        html, body {
+          height: auto;
+          min-height: 100%;
+          overflow-y: auto;
+          scroll-behavior: smooth;
+          background: #FAFBFC;
+          color: #0F172A;
+        }
         body {
           font-family: 'DM Sans', sans-serif;
           -webkit-font-smoothing: antialiased;
-          background: #fff; color: #0F172A;
         }
 
         /* ── SHELL ── */
         .shell {
-          height: 100svh; display: flex; flex-direction: column;
-          position: relative; overflow: hidden; background: #fff;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          background: #FAFBFC;
+          overflow-x: hidden;
         }
 
         /* Orbs */
@@ -308,234 +327,576 @@ export default function Home() {
         .orb-1 {
           width: 60vw; height: 60vw; max-width: 640px; max-height: 640px;
           top: -15%; left: -10%;
-          background: radial-gradient(circle, rgba(0,102,255,0.06) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(0,102,255,0.05) 0%, transparent 70%);
           animation: floatA 14s ease-in-out infinite;
         }
         .orb-2 {
           width: 70vw; height: 70vw; max-width: 760px; max-height: 760px;
           bottom: -18%; right: -10%;
-          background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%);
           animation: floatB 18s ease-in-out infinite;
         }
 
-        /* ── NAV — Centered splits (Logo in between Menu links) ── */
+        /* ── NAV — Centered split layout ── */
         .top-nav {
-          position: relative; z-index: 100; flex-shrink: 0;
-          display: flex; justify-content: center;
-          padding: 18px 5% 10px;
+          position: sticky;
+          top: 0;
+          z-index: 1000;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid #F1F5F9;
+          padding: 12px 5%;
         }
         .nav-container-centered {
           display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 20px;
+          justify-content: space-between;
           width: 100%;
-          max-width: 800px;
+          max-width: 1100px;
+          margin: 0 auto;
         }
-        .nav-group {
+        .nav-logo {
           display: flex;
           align-items: center;
-          gap: 16px;
-          flex: 1;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
         }
-        .nav-group.left { justify-content: flex-end; }
-        .nav-group.right { justify-content: flex-start; }
-        
-        .nav-logo { display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-        
-        .nav-btn {
-          padding: 6px 14px; border-radius: 100px; border: none;
-          font-size: 13px; font-weight: 500; color: #64748B; cursor: pointer;
-          background: transparent; font-family: 'DM Sans', sans-serif;
-          transition: all 0.18s; white-space: nowrap;
+        .hamburger-btn {
+          width: 42px;
+          height: 42px;
+          background: #0B132B;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          border: none;
+          color: #FFF;
+          transition: background 0.2s;
         }
-        .nav-btn:hover { color: #0F172A; background: #F1F5F9; }
-        .nav-btn.active { color: #0066FF; background: rgba(0,102,255,0.08); font-weight: 700; }
+        .hamburger-btn:hover {
+          background: #1C2541;
+        }
 
-        @media (max-width: 600px) {
-          .nav-container-centered { gap: 8px; }
-          .nav-group { gap: 6px; }
-          .nav-btn { font-size: 12px; padding: 5px 10px; }
-          .top-nav { padding: 12px 3% 6px; }
+        /* Drawer Overlay */
+        .drawer-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          z-index: 2000;
+          display: flex;
+          justify-content: flex-end;
+        }
+        .drawer-content {
+          background: #FFF;
+          width: 100%;
+          max-width: 280px;
+          height: 100%;
+          padding: 24px 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+          animation: slideLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes slideLeft {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .drawer-close {
+          align-self: flex-end;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #64748B;
+          padding: 6px;
+          border-radius: 50%;
+          transition: background 0.2s;
+        }
+        .drawer-close:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+        }
+        .drawer-link {
+          font-size: 15px;
+          font-weight: 700;
+          color: #0B132B;
+          background: none;
+          border: none;
+          text-align: left;
+          padding: 12px 6px;
+          border-bottom: 1px solid #F1F5F9;
+          cursor: pointer;
+          transition: color 0.18s;
+        }
+        .drawer-link:hover {
+          color: #0066FF;
         }
 
         /* ── MAIN PANEL ── */
         .panel {
-          flex: 1; position: relative; z-index: 10; overflow: hidden;
-          display: flex; align-items: stretch; justify-content: center;
-          min-height: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          z-index: 10;
+          height: auto;
         }
 
-        /* ── VIEW TRANSITIONS ── */
-        .view {
-          position: absolute; inset: 0;
-          display: flex; align-items: center; justify-content: center;
-          padding: 12px 5% 20px;
-          transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.16,1,0.3,1);
-        }
-        .view.entering { opacity: 1; transform: translateY(0); }
-        .view.exiting  { opacity: 0; transform: translateY(10px); pointer-events: none; }
-
-        /* ── HOME VIEW ── */
-        .hero {
-          display: flex; flex-direction: column; align-items: center;
-          text-align: center; max-width: 760px; width: 100%;
-        }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
-        .hero-badge {
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 7px 16px; border-radius: 100px;
-          background: rgba(0,102,255,0.07); color: #0066FF;
-          font-size: 11px; font-weight: 800; letter-spacing: 2px;
-          margin-bottom: 24px; border: 1px solid rgba(0,102,255,0.12);
-          text-transform: uppercase; animation: fadeUp 0.6s ease both;
-        }
-        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #0066FF; flex-shrink: 0; }
-        .hero-h1 {
-          font-family: 'Playfair Display', Georgia, serif;
-          font-size: clamp(34px, 7vw, 76px); font-weight: 900;
-          color: #0F172A; letter-spacing: -2.5px; line-height: 1.04;
-          margin-bottom: 16px;
-          animation: fadeUp 0.6s ease 0.08s both;
-        }
-        .hero-accent { color: #0066FF; font-style: italic; }
-        .hero-sub {
-          font-size: clamp(14px, 1.8vw, 17px); color: #64748B; line-height: 1.7;
-          margin-bottom: 28px; max-width: 480px;
-          animation: fadeUp 0.6s ease 0.16s both;
-        }
-        .ctas {
-          display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
-          animation: fadeUp 0.6s ease 0.22s both;
-          margin-bottom: 24px;
-        }
-        .btn-p {
-          height: 50px; padding: 0 26px; background: #0066FF; color: #fff;
-          border: none; border-radius: 100px; font-size: 15px; font-weight: 700;
-          font-family: 'DM Sans', sans-serif; cursor: pointer;
-          display: flex; align-items: center; gap: 8px;
-          box-shadow: 0 8px 22px rgba(0,102,255,0.25); transition: all 0.2s;
-        }
-        .btn-p:hover { background: #005ce6; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,102,255,0.35); }
-        .btn-s {
-          height: 50px; padding: 0 26px; background: transparent; color: #334155;
-          border: 2px solid #E2E8F0; border-radius: 100px; font-size: 15px; font-weight: 600;
-          font-family: 'DM Sans', sans-serif; cursor: pointer;
-          display: flex; align-items: center; gap: 8px; transition: all 0.2s;
-        }
-        .btn-s:hover { background: #F8FAFC; border-color: #CBD5E1; transform: translateY(-2px); }
-
-        /* Trust/Features Bar for empty Hero Section — transparent/headless style */
-        .hero-features {
-          display: flex; gap: 32px; width: 100%; max-width: 680px;
-          justify-content: center; animation: fadeUp 0.6s ease 0.3s both;
-          margin-bottom: 24px;
-        }
-        .hero-feature-item {
-          background: transparent; border: none;
-          padding: 8px 0; display: flex;
-          align-items: center; gap: 12px; text-align: left; transition: all 0.2s;
-        }
-        .hero-feature-item:hover {
-          transform: translateY(-2px);
-        }
-        .hf-icon { font-size: 24px; }
-        .hf-text h4 { font-size: 14px; font-weight: 700; color: #0F172A; }
-        .hf-text p { font-size: 12px; color: #64748B; margin-top: 1px; }
-
-        /* Testimonials Indicators */
-        .hero-testimonials {
-          display: flex; align-items: center; gap: 12px;
-          animation: fadeUp 0.6s ease 0.36s both;
-        }
-        .avatar-group {
-          display: flex; align-items: center;
-        }
-        .avatar {
-          width: 32px; height: 32px; border-radius: 50%;
-          background: #F1F5F9; border: 2px solid #fff;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; margin-left: -8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-        .avatar:first-child { margin-left: 0; }
-        
-        .rating-info { text-align: left; }
-        .rating-stars { color: #F59E0B; font-size: 14px; letter-spacing: 1px; font-weight: 700; }
-        .rating-info p { font-size: 12px; color: #64748B; font-weight: 500; }
-
-        @media (max-width: 640px) {
-          .hero-features { gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-          .hero-feature-item { flex: 1 1 45%; padding: 4px 0; gap: 8px; }
-          .hero-h1 { margin-bottom: 12px; }
-          .hero-sub { margin-bottom: 24px; }
-          .ctas { margin-bottom: 20px; }
-          .hf-icon { font-size: 20px; }
-          .hf-text h4 { font-size: 13px; }
-          .hf-text p { font-size: 11px; }
-        }
-
-        /* ── SHARED SECTION WRAPPER ── */
+        /* ── SECTIONS ── */
         .sec-wrap {
-          width: 100%; max-width: 1100px; height: 100%;
-          display: flex; flex-direction: column;
-        }
-        .sec-head { flex-shrink: 0; margin-bottom: 12px; }
-        .sec-label {
-          font-size: 10px; font-weight: 800; letter-spacing: 2px;
-          text-transform: uppercase; color: #0066FF; margin-bottom: 4px;
-        }
-        .sec-title {
-          font-family: 'Playfair Display', serif;
-          font-size: clamp(20px, 3.5vw, 36px); font-weight: 900;
-          color: #0F172A; letter-spacing: -0.5px; line-height: 1.1;
+          width: 100%;
+          max-width: 1100px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
         }
 
-        /* ── SERVICES GRID ── */
-        .services-grid {
-          flex: 1; min-height: 0;
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          grid-template-rows: repeat(3, 1fr);
-          gap: 10px;
+        /* ── HERO VIEW ── */
+        .hero-split {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 40px 5% 50px;
+          gap: 40px;
+          position: relative;
+          z-index: 2;
         }
-        @media (min-width: 768px) {
-          .services-grid {
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-          }
+        .hero-left {
+          flex: 1.1;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          text-align: left;
         }
-        .s-card {
-          border-radius: 14px; padding: 14px;
-          display: flex; flex-direction: column; justify-content: space-between;
+        .hero-right {
+          flex: 0.9;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .hero-img-container {
+          position: relative;
+          width: 100%;
+          max-width: 440px;
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+          border: 1px solid #FFF;
+        }
+        
+        .hero-h1-split {
+          font-family: 'DM Sans', sans-serif;
+          font-size: clamp(34px, 5vw, 56px);
+          font-weight: 900;
+          line-height: 1.05;
+          letter-spacing: -1.5px;
+          color: #0F172A;
+          margin-bottom: 12px;
+        }
+        .h1-blue {
+          color: #0066FF;
+        }
+        .hero-divider {
+          width: 48px;
+          height: 4px;
+          background: #0066FF;
+          border-radius: 2px;
+          margin-bottom: 20px;
+        }
+        .hero-sub-split {
+          font-size: 15px;
+          color: #475569;
+          line-height: 1.6;
+          margin-bottom: 28px;
+          max-width: 460px;
+        }
+
+        /* Hero Features list */
+        .hero-feature-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-bottom: 28px;
+        }
+        .hf-list-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .hf-list-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: #EFF6FF;
+          color: #0066FF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+        .hf-list-text h4 {
+          font-size: 14px;
+          font-weight: 800;
+          color: #0F172A;
+          margin-bottom: 1px;
+        }
+        .hf-list-text p {
+          font-size: 12px;
+          color: #64748B;
+        }
+
+        /* CTA buttons */
+        .hero-ctas {
+          display: flex;
+          gap: 12px;
+          width: 100%;
+          max-width: 460px;
+          margin-bottom: 24px;
+        }
+        .btn-pickup {
+          flex: 1;
+          height: 48px;
+          background: #0066FF;
+          color: #FFF;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 13px;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 4px 14px rgba(0,102,255,0.25);
           transition: all 0.2s;
         }
-        .s-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-        .s-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-        .s-icon-wrap {
-          width: 36px; height: 36px; border-radius: 10px;
-          background: rgba(255,255,255,0.7);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 18px; flex-shrink: 0;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        .btn-pickup:hover {
+          background: #0056FF;
+          transform: translateY(-1px);
         }
-        .s-name { font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.2; }
-        .s-desc { font-size: 14px; color: #475569; line-height: 1.55; flex: 1; margin-bottom: 8px; }
-        
-        .s-card-btn {
-          width: 100%; height: 36px; border-radius: 100px;
-          border: 1.5px solid #E2E8F0; background: #FFF;
-          color: #475569; font-size: 11px; font-weight: 700;
-          cursor: pointer; font-family: 'DM Sans', sans-serif;
-          transition: all 0.18s; display: flex; align-items: center; justify-content: center;
-          margin-top: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        .btn-whatsapp {
+          flex: 1;
+          height: 48px;
+          background: #FFF;
+          color: #0F172A;
+          border: 1.5px solid #E2E8F0;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.2s;
         }
-        .s-card-btn:hover {
-          border-color: #0066FF; color: #0066FF; background: rgba(0, 102, 255, 0.02);
+        .btn-whatsapp:hover {
+          background: #F8FAFC;
+          border-color: #CBD5E1;
         }
 
-        /* ── PRICING INTERACTIVE BOARD ── */
+        /* Testimonial rating indicators */
+        .hero-social-proof {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          background: #FFF;
+          border-radius: 12px;
+          border: 1px solid #F1F5F9;
+          padding: 8px 16px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        .avatar-group { display: flex; align-items: center; }
+        .avatar {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 2px solid #FFF;
+          margin-left: -6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          background: #F1F5F9;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .avatar:first-child { margin-left: 0; }
+        .rating-stars { color: #F59E0B; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+        .rating-info p { font-size: 11px; color: #64748B; font-weight: 600; }
+
+        /* ── HOW IT WORKS SECTION ── */
+        .how-it-works-sec {
+          background: #FFF;
+          padding: 64px 5%;
+          text-align: center;
+          border-top: 1px solid #F1F5F9;
+          border-bottom: 1px solid #F1F5F9;
+          position: relative;
+          z-index: 2;
+        }
+        .section-divider {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          font-size: 10px;
+          font-weight: 800;
+          color: #0066FF;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
+        .section-divider::before, .section-divider::after {
+          content: "";
+          width: 32px;
+          height: 1px;
+          background: #E2E8F0;
+        }
+        .section-main-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: clamp(24px, 4.5vw, 36px);
+          font-weight: 900;
+          color: #0F172A;
+          margin-bottom: 44px;
+        }
+        .steps-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          width: 100%;
+          max-width: 900px;
+          margin: 0 auto;
+          position: relative;
+        }
+        .step-item {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+          z-index: 2;
+          padding: 0 12px;
+        }
+        .step-icon-container {
+          width: 68px;
+          height: 68px;
+          border-radius: 50%;
+          background: #EFF6FF;
+          color: #0066FF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 26px;
+          box-shadow: 0 8px 20px rgba(0,102,255,0.06);
+          position: relative;
+          margin-bottom: 20px;
+          border: 1px solid #DBEAFE;
+        }
+        .step-badge {
+          position: absolute;
+          bottom: -4px;
+          right: -4px;
+          width: 22px;
+          height: 22px;
+          background: #0066FF;
+          color: #FFF;
+          border-radius: 50%;
+          font-size: 11px;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #FFF;
+        }
+        .step-item-title {
+          font-size: 13px;
+          font-weight: 900;
+          color: #0F172A;
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .step-item-desc {
+          font-size: 12px;
+          color: #64748B;
+          line-height: 1.5;
+          max-width: 220px;
+        }
+        .steps-connector {
+          position: absolute;
+          top: 34px;
+          left: 12%;
+          right: 12%;
+          height: 2px;
+          border-bottom: 2px dashed #E2E8F0;
+          z-index: 1;
+        }
+
+        /* ── SERVICES SECTION ── */
+        .services-sec {
+          padding: 64px 5% 80px;
+          text-align: center;
+          position: relative;
+          z-index: 2;
+        }
+        .services-mock-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          width: 100%;
+          max-width: 900px;
+          margin: 0 auto;
+        }
+        .service-card-mock {
+          background: #FFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+        }
+        .service-card-mock:hover {
+          border-color: #0066FF;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,102,255,0.05);
+        }
+        .s-mock-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .s-mock-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: #F8FAFC;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
+          flex-shrink: 0;
+          border: 1px solid #F1F5F9;
+        }
+        .s-mock-text h3 {
+          font-size: 14px;
+          font-weight: 800;
+          color: #0F172A;
+          margin-bottom: 3px;
+        }
+        .s-mock-text p {
+          font-size: 11px;
+          color: #64748B;
+        }
+        .s-mock-chevron {
+          color: #94A3B8;
+        }
+
+        /* ── STICKY CALL ACTION FOOTER ── */
+        .helper-footer {
+          position: sticky;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 900;
+          background: #0056FF;
+          color: #FFF;
+          padding: 14px 5%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 -4px 20px rgba(0,86,255,0.15);
+        }
+        .helper-text {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .helper-phone-icon {
+          font-size: 16px;
+        }
+        .btn-whatsapp-footer {
+          height: 38px;
+          padding: 0 18px;
+          background: #FFF;
+          color: #0056FF;
+          border-radius: 100px;
+          font-weight: 700;
+          font-size: 12px;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: background 0.2s;
+        }
+        .btn-whatsapp-footer:hover {
+          background: #F1F5F9;
+        }
+
+        /* ── PRICING MODAL OVERLAY ── */
+        .pricing-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 3000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .pricing-modal-content {
+          background: #FFF;
+          border-radius: 24px;
+          padding: 28px;
+          width: 100%;
+          max-width: 600px;
+          max-height: 85vh;
+          overflow-y: auto;
+          position: relative;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+          animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .pricing-modal-close {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #64748B;
+          padding: 4px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.2s;
+        }
+        .pricing-modal-close:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+        }
+
         .pricing-tabs {
-          display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-shrink: 0;
+          display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-shrink: 0;
         }
         .pricing-tab-btn {
           padding: 8px 18px; border-radius: 100px; border: 1.5px solid #E2E8F0;
@@ -546,9 +907,8 @@ export default function Home() {
         .pricing-tab-btn.active { background: #0066FF; color: #fff; border-color: #0066FF; }
 
         .pricing-table-container {
-          flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto;
           border: 1px solid #F1F5F9; border-radius: 16px;
-          background: #FAFBFC;
+          background: #FAFBFC; margin-bottom: 10px;
         }
         .pricing-table {
           width: 100%; border-collapse: collapse; text-align: left;
@@ -573,16 +933,14 @@ export default function Home() {
         }
         .table-book-btn:hover { background: #005ce6; }
 
-        /* Mobile Card Grid styling */
+        /* Mobile Card Grid styling inside Popover Catalog */
         .pricing-mobile-container {
           display: none;
-          flex: 1; min-height: 0; overflow-y: auto;
         }
         .pricing-mobile-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 10px;
-          padding: 2px;
         }
         
         .p-item-card {
@@ -601,10 +959,10 @@ export default function Home() {
           box-shadow: 0 4px 12px rgba(0,102,255,0.04);
         }
         .p-item-title {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 800;
           color: #0F172A;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
           border-bottom: 1px solid #F1F5F9;
           padding-bottom: 4px;
         }
@@ -654,36 +1012,6 @@ export default function Home() {
             display: block;
           }
         }
-
-        /* ── HOW IT WORKS GRID ── */
-        .steps-grid {
-          flex: 1; min-height: 0;
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          grid-template-rows: repeat(2, 1fr);
-          gap: 10px;
-        }
-        @media (min-width: 768px) {
-          .steps-grid { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; }
-        }
-        .step-card {
-          border-radius: 16px; padding: 18px;
-          display: flex; flex-direction: column; justify-content: space-between;
-        }
-        .step-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .step-icon-wrap {
-          width: 38px; height: 38px; border-radius: 12px;
-          background: rgba(255,255,255,0.7);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 20px; flex-shrink: 0;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
-        .step-num {
-          font-family: 'Playfair Display', serif;
-          font-size: 28px; font-weight: 900; line-height: 1;
-        }
-        .step-title { font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
-        .step-desc { font-size: 13px; color: #475569; line-height: 1.6; }
 
         /* ── MODAL OVERLAY & CONTENT ── */
         .modal-overlay {
@@ -752,6 +1080,60 @@ export default function Home() {
           height: 0 !important;
           overflow: hidden !important;
         }
+
+        /* ── RESPONSIVE MEDIA QUERIES ── */
+        @media (max-width: 768px) {
+          .hero-split {
+            flex-direction: column;
+            padding: 24px 5% 30px;
+            gap: 24px;
+          }
+          .hero-left {
+            align-items: center;
+            text-align: center;
+          }
+          .hero-divider {
+            margin: 0 auto 16px;
+          }
+          .hero-sub-split {
+            margin: 0 auto 20px;
+            text-align: center;
+          }
+          .hero-feature-list {
+            align-items: flex-start;
+            text-align: left;
+            margin-bottom: 24px;
+            width: 100%;
+            max-width: 320px;
+          }
+          .hero-ctas {
+            flex-direction: column;
+            width: 100%;
+            gap: 10px;
+            margin-bottom: 20px;
+          }
+          .hero-right {
+            order: -1; /* Wicker basket image goes on top on mobile */
+            width: 100%;
+          }
+          .steps-container {
+            flex-direction: column;
+            gap: 32px;
+          }
+          .steps-connector {
+            display: none;
+          }
+          .services-mock-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .helper-footer {
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+            padding: 18px 5%;
+          }
+        }
       `}} />
 
       {/* Orbs */}
@@ -761,84 +1143,91 @@ export default function Home() {
       {/* ── NAV ── */}
       <header className="top-nav">
         <div className="nav-container-centered">
-          <div className="nav-group left">
-            <button className={`nav-btn${activeView === 'home' ? ' active' : ''}`} onClick={() => switchView('home')}>
+          <div className="nav-logo" onClick={() => scrollToSection('home')}>
+            <Image src="/bglogo.png" alt="BG Laundry" width={100} height={100} style={{ objectFit: 'contain' }} priority />
+          </div>
+
+          <button className="hamburger-btn" aria-label="Open navigation menu" onClick={() => setShowMenuDrawer(true)}>
+            <Menu size={20} />
+          </button>
+        </div>
+      </header>
+
+      {/* ── MOBILE MENU DRAWER ── */}
+      {showMenuDrawer && (
+        <div className="drawer-overlay" onClick={() => setShowMenuDrawer(false)}>
+          <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
+            <button className="drawer-close" aria-label="Close navigation menu" onClick={() => setShowMenuDrawer(false)}>
+              <X size={20} />
+            </button>
+            <button className="drawer-link" onClick={() => { scrollToSection('home'); setShowMenuDrawer(false); }}>
               Home
             </button>
-            <button className={`nav-btn${activeView === 'services' ? ' active' : ''}`} onClick={() => switchView('services')}>
-              Services
-            </button>
-          </div>
-
-          <div className="nav-logo" onClick={() => switchView('home')}>
-            <Image src="/bglogo.png" alt="BG Laundry" width={82} height={82} style={{ objectFit: 'contain' }} priority />
-          </div>
-
-          <div className="nav-group right">
-            <button className={`nav-btn${activeView === 'pricing' ? ' active' : ''}`} onClick={() => switchView('pricing')}>
-              Pricing
-            </button>
-            <button className={`nav-btn${activeView === 'how-it-works' ? ' active' : ''}`} onClick={() => switchView('how-it-works')}>
+            <button className="drawer-link" onClick={() => { scrollToSection('how-it-works'); setShowMenuDrawer(false); }}>
               How It Works
+            </button>
+            <button className="drawer-link" onClick={() => { scrollToSection('services'); setShowMenuDrawer(false); }}>
+              Our Services
+            </button>
+            <button className="drawer-link" onClick={() => { setShowPricingModal(true); setShowMenuDrawer(false); }}>
+              Price Catalog
+            </button>
+            <button className="drawer-link" onClick={() => { handleStart(); setShowMenuDrawer(false); }} style={{ color: '#0066FF' }}>
+              {loggedIn ? 'Go to Dashboard' : 'Sign In'}
             </button>
           </div>
         </div>
-      </header>
+      )}
 
       {/* ── MAIN PANEL ── */}
       <main className="panel">
 
-        {/* HOME */}
-        <div className={`view${displayedView === 'home' ? (animating ? ' exiting' : ' entering') : ' exiting'}`}
-          style={{ display: isVisible('home') ? 'flex' : 'none' }}>
-          <div className="hero">
-            <div className="hero-badge">
-              <span className="badge-dot" />
-              Lagos&apos; Premier Laundry Service
-            </div>
-            <h1 className="hero-h1">
-              Premium Laundry.<br />
-              Delivered to <span className="hero-accent">Your Door.</span>
+        {/* HERO SECTION */}
+        <section id="home" className="hero-split">
+          <div className="hero-left">
+            <h1 className="hero-h1-split">
+              Clean Clothes.<br />
+              <span className="h1-blue">Happy Life.</span>
             </h1>
-            <p className="hero-sub">
-              World-class garment care without leaving your home. Schedule a pickup, track your order, and receive clothes that look brand new.
+            <div className="hero-divider" />
+            <p className="hero-sub-split">
+              Premium laundry and dry cleaning services with care, delivered to your door.
             </p>
-            <div className="ctas">
-              <button className="btn-p" onClick={handleStart}>
-                Get Started <ArrowRight size={16} />
-              </button>
-              <button className="btn-s" onClick={() => switchView('services')}>
-                Explore Services
-              </button>
-            </div>
 
-            {/* Minimalist Headless Feature Details */}
-            <div className="hero-features">
-              <div className="hero-feature-item">
-                <span className="hf-icon">⚡</span>
-                <div className="hf-text">
-                  <h4>24h Express</h4>
-                  <p>Fast turnaround</p>
-                </div>
-              </div>
-              <div className="hero-feature-item">
-                <span className="hf-icon">🛡️</span>
-                <div className="hf-text">
+            <div className="hero-feature-list">
+              <div className="hf-list-item">
+                <div className="hf-list-icon">👑</div>
+                <div className="hf-list-text">
                   <h4>Premium Care</h4>
-                  <p>Fabric protection</p>
+                  <p>Top-quality cleaning for every fabric.</p>
                 </div>
               </div>
-              <div className="hero-feature-item">
-                <span className="hf-icon">🚚</span>
-                <div className="hf-text">
-                  <h4>Free Delivery</h4>
-                  <p>Pickup & return</p>
+              <div className="hf-list-item">
+                <div className="hf-list-icon">⏰</div>
+                <div className="hf-list-text">
+                  <h4>24h Express</h4>
+                  <p>Fast turnaround when you need it.</p>
+                </div>
+              </div>
+              <div className="hf-list-item">
+                <div className="hf-list-icon">🚚</div>
+                <div className="hf-list-text">
+                  <h4>Free Pickup & Delivery</h4>
+                  <p>We pick up and deliver at your convenience.</p>
                 </div>
               </div>
             </div>
 
-            {/* Testimonials Indicators */}
-            <div className="hero-testimonials">
+            <div className="hero-ctas">
+              <button className="btn-pickup" onClick={handleStart}>
+                🛍️ BOOK A PICKUP →
+              </button>
+              <button className="btn-whatsapp" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+                💬 CHAT ON WHATSAPP
+              </button>
+            </div>
+
+            <div className="hero-social-proof">
               <div className="avatar-group">
                 <span className="avatar">👩‍🦰</span>
                 <span className="avatar">👨</span>
@@ -851,49 +1240,154 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* SERVICES */}
-        <div className={`view${displayedView === 'services' ? (animating ? ' exiting' : ' entering') : ' exiting'}`}
-          style={{ display: isVisible('services') ? 'flex' : 'none', alignItems: 'stretch' }}>
-          <div className="sec-wrap">
-            <div className="sec-head">
-              <p className="sec-label">What We Offer</p>
-              <h2 className="sec-title">Services for Every Need</h2>
-            </div>
-            <div className="services-grid">
-              {services.map((s) => (
-                <div key={s.title} className="s-card" style={{ background: s.color }}>
-                  <div>
-                    <div className="s-card-top">
-                      <div className="s-icon-wrap">{s.icon}</div>
-                      <span className="s-name">{s.title}</span>
-                    </div>
-                    <p className="s-desc">{s.desc}</p>
-                  </div>
-                  <button className="s-card-btn" onClick={() => {
-                    if (s.title.includes('Dry Cleaning')) {
-                      setPricingCategory('Clothing');
-                    } else if (s.title.includes('Bedding') || s.title.includes('Linen')) {
-                      setPricingCategory('Household');
-                    } else if (s.title.includes('Shoe') || s.title.includes('Stain')) {
-                      setPricingCategory('Additional');
-                    }
-                    switchView('pricing');
-                  }}>
-                    View Rates →
-                  </button>
-                </div>
-              ))}
+          <div className="hero-right">
+            <div className="hero-img-container">
+              <Image src="/basket.png" alt="Clean clothes basket" width={440} height={440} style={{ objectFit: 'cover', display: 'block' }} priority />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* PRICING */}
-        <div className={`view${displayedView === 'pricing' ? (animating ? ' exiting' : ' entering') : ' exiting'}`}
-          style={{ display: isVisible('pricing') ? 'flex' : 'none', alignItems: 'stretch' }}>
+        {/* HOW IT WORKS SECTION */}
+        <section id="how-it-works" className="how-it-works-sec">
           <div className="sec-wrap">
-            <div className="pricing-tabs" style={{ marginTop: '10px' }}>
+            <div className="section-divider">HOW IT WORKS</div>
+            <h2 className="section-main-title">Laundry made simple</h2>
+
+            <div className="steps-container">
+              <div className="steps-connector" />
+              
+              <div className="step-item">
+                <div className="step-icon-container">
+                  📅
+                  <span className="step-badge">1</span>
+                </div>
+                <h3 className="step-item-title">BOOK</h3>
+                <p className="step-item-desc">Schedule a pickup in seconds.</p>
+              </div>
+
+              <div className="step-item">
+                <div className="step-icon-container">
+                  🧼
+                  <span className="step-badge">2</span>
+                </div>
+                <h3 className="step-item-title">WE CLEAN</h3>
+                <p className="step-item-desc">We wash, dry & care for your clothes.</p>
+              </div>
+
+              <div className="step-item">
+                <div className="step-icon-container">
+                  👔
+                  <span className="step-badge">3</span>
+                </div>
+                <h3 className="step-item-title">WE DELIVER</h3>
+                <p className="step-item-desc">Fresh, clean & neatly packed to you.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SERVICES SECTION */}
+        <section id="services" className="services-sec">
+          <div className="sec-wrap">
+            <div className="section-divider">OUR SERVICES</div>
+            <h2 className="section-main-title">Services for Every Need</h2>
+
+            <div className="services-mock-grid">
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Clothing'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">👕</div>
+                  <div className="s-mock-text">
+                    <h3>Laundry</h3>
+                    <p>Washing & folding for everyday wear.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Clothing'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">🥼</div>
+                  <div className="s-mock-text">
+                    <h3>Dry Cleaning</h3>
+                    <p>Gentle care for delicate fabrics.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Clothing'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">👔</div>
+                  <div className="s-mock-text">
+                    <h3>Ironing</h3>
+                    <p>Crisp, neat & perfectly pressed.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Additional'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">🦠</div>
+                  <div className="s-mock-text">
+                    <h3>Stain Removal</h3>
+                    <p>Tough on stains, gentle on fabrics.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Additional'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">👟</div>
+                  <div className="s-mock-text">
+                    <h3>Shoe & Bag Cleaning</h3>
+                    <p>Deep cleaning for shoes, bags & accessories.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+
+              <div className="service-card-mock" onClick={() => { setPricingCategory('Household'); setShowPricingModal(true); }}>
+                <div className="s-mock-left">
+                  <div className="s-mock-icon-wrap">🛵</div>
+                  <div className="s-mock-text">
+                    <h3>Pickup & Delivery</h3>
+                    <p>Free pickup & delivery right to your door.</p>
+                  </div>
+                </div>
+                <ChevronRight className="s-mock-chevron" size={16} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      {/* ── STICKY HELPER FOOTER ── */}
+      <footer className="helper-footer">
+        <div className="helper-text">
+          <span className="helper-phone-icon">📞</span>
+          <span>Need help? 0705 815 5555 | 0805 825 5555</span>
+        </div>
+        <button className="btn-whatsapp-footer" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+          💬 WHATSAPP US
+        </button>
+      </footer>
+
+      {/* ── PRICE CATALOG POPOVER MODAL ── */}
+      {showPricingModal && (
+        <div className="pricing-modal-overlay" onClick={() => setShowPricingModal(false)}>
+          <div className="pricing-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="pricing-modal-close" aria-label="Close pricing catalog" onClick={() => setShowPricingModal(false)}>
+              <X size={20} />
+            </button>
+            
+            <div className="section-divider" style={{ marginBottom: '14px' }}>PRICING</div>
+            <h3 className="section-main-title" style={{ fontSize: '20px', marginBottom: '20px', textAlign: 'center' }}>Service Catalog Rates</h3>
+
+            <div className="pricing-tabs">
               {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (
                 <button
                   key={cat}
@@ -905,7 +1399,7 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Desktop Table View */}
+            {/* Desktop Table */}
             <div className="pricing-table-container">
               <table className="pricing-table">
                 <thead>
@@ -925,7 +1419,7 @@ export default function Home() {
                       <td className="price-text">{item.hasIron && item.ironPrice > 0 ? `₦${item.ironPrice.toLocaleString()}` : '—'}</td>
                       <td className="price-text">{item.hasWashIron && item.washIronPrice > 0 ? `₦${item.washIronPrice.toLocaleString()}` : '—'}</td>
                       <td>
-                        <button className="table-book-btn" onClick={() => handleBookItem(item.name)}>
+                        <button className="table-book-btn" onClick={() => { handleBookItem(item.name); setShowPricingModal(false); }}>
                           Book
                         </button>
                       </td>
@@ -935,7 +1429,7 @@ export default function Home() {
               </table>
             </div>
 
-            {/* Mobile Card Grid View */}
+            {/* Mobile Cards */}
             <div className="pricing-mobile-container">
               <div className="pricing-mobile-grid">
                 {displayServices.map((item) => (
@@ -963,7 +1457,7 @@ export default function Home() {
                         )}
                       </div>
                     </div>
-                    <button className="p-item-book-btn" onClick={() => handleBookItem(item.name)}>
+                    <button className="p-item-book-btn" onClick={() => { handleBookItem(item.name); setShowPricingModal(false); }}>
                       Book
                     </button>
                   </div>
@@ -972,32 +1466,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* HOW IT WORKS */}
-        <div className={`view${displayedView === 'how-it-works' ? (animating ? ' exiting' : ' entering') : ' exiting'}`}
-          style={{ display: isVisible('how-it-works') ? 'flex' : 'none', alignItems: 'stretch' }}>
-          <div className="sec-wrap">
-            <div className="sec-head">
-              <p className="sec-label">The Process</p>
-              <h2 className="sec-title">From Your Door. Back to Your Door.</h2>
-            </div>
-            <div className="steps-grid">
-              {steps.map((s) => (
-                <div key={s.step} className="step-card" style={{ background: s.color }}>
-                  <div>
-                    <div className="step-top">
-                      <div className="step-icon-wrap">{s.icon}</div>
-                      <span className="step-num" style={{ color: s.accent }}>{s.step}</span>
-                    </div>
-                    <h3 className="step-title">{s.title}</h3>
-                    <p className="step-desc">{s.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
+      )}
 
       {/* Login Popup Modal */}
       {showLoginModal && (
