@@ -183,9 +183,9 @@ export default function Home() {
     .nav-logo{display:flex;flex-direction:column;align-items:center;cursor:pointer;}
     .hamburger{width:46px;height:46px;background:#0B1B3E;border-radius:10px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:white;flex-shrink:0;}
     .hero-section{background:linear-gradient(160deg,#D6EAFF 0%,#E8F4FF 30%,#F5F9FF 65%,#FFFFFF 100%);padding:90px 20px 28px;position:relative;}
-    .hero-split{display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;}
-    .hero-left{flex:1;min-width:0;}
-    .hero-right{flex:0 0 155px;width:155px;}
+    .hero-split{display:flex;align-items:flex-start;gap:6px;margin-bottom:20px;position:relative;}
+    .hero-left{flex:1;min-width:0;z-index:2;}
+    .hero-right{flex:0 0 175px;width:175px;margin-left:-25px;margin-top:-6px;z-index:1;}
     .hero-h1{font-size:30px;font-weight:900;color:#0B1B3E;text-transform:uppercase;line-height:1.08;letter-spacing:-0.5px;}
     .hero-h1-blue{color:#1565C0;display:block;}
     .hero-ul{display:flex;align-items:center;gap:5px;margin:10px 0 11px;}
@@ -196,9 +196,10 @@ export default function Home() {
     .hf-item{display:flex;align-items:flex-start;gap:9px;}
     .hf-icon{width:33px;height:33px;border-radius:50%;background:#1565C0;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:white;}
     .hf-text h4{font-size:12.5px;font-weight:800;color:#0B1B3E;margin-bottom:1px;}
-    .hero-img-wrap{width:100%;border-radius:14px;overflow:hidden;margin-top:-2px;mix-blend-mode:multiply;}
+    .hf-text p{font-size:9.5px;color:#64748B;line-height:1.35;}
+    .hero-img-wrap{width:100%;border-radius:14px;overflow:hidden;mix-blend-mode:multiply;opacity:0.96;}
     .hero-img-wrap img{mix-blend-mode:multiply;}
-    .hero-ctas{display:flex;gap:10px;margin-bottom:13px;}
+    .hero-ctas{display:flex;gap:10px;margin-bottom:13px;z-index:2;position:relative;}
     .btn-book{flex:1;height:50px;background:#1565C0;color:white;border:none;border-radius:10px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;text-transform:uppercase;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(21,101,192,0.28);font-family:'DM Sans',sans-serif;}
     .btn-chat{flex:1;height:50px;background:white;color:#0B1B3E;border:1.5px solid #CBD5E1;border-radius:10px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;text-transform:uppercase;font-family:'DM Sans',sans-serif;}
     .social-proof{display:flex;align-items:center;gap:10px;background:white;border:1px solid #E2E8F0;border-radius:10px;padding:9px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
@@ -289,7 +290,7 @@ export default function Home() {
 
       {/* NAV */}
       <header className="top-nav">
-        <div className="nav-logo" onClick={() => scrollTo('home')}>
+        <div className="nav-logo" onClick={() => router.push('/')}>
           <Image src="/bglogo.png" alt="BG Laundry" width={70} height={70} style={{ objectFit: 'contain' }} priority />
         </div>
         <button className="hamburger" aria-label="Open menu" onClick={() => setShowMenuDrawer(true)}>
@@ -319,21 +320,30 @@ export default function Home() {
             <div className="hf-list">
               <div className="hf-item">
                 <div className="hf-icon">👑</div>
-                <div className="hf-text"><h4>Premium Care</h4><p>Top-quality cleaning for every fabric.</p></div>
+                <div className="hf-text">
+                  <h4>Premium Care</h4>
+                  <p>Top-quality cleaning for every fabric.</p>
+                </div>
               </div>
               <div className="hf-item">
                 <div className="hf-icon">🕐</div>
-                <div className="hf-text"><h4>24h Express</h4><p>Fast turnaround when you need it.</p></div>
+                <div className="hf-text">
+                  <h4>24h Express</h4>
+                  <p>Fast turnaround when you need it.</p>
+                </div>
               </div>
               <div className="hf-item">
                 <div className="hf-icon">🚚</div>
-                <div className="hf-text"><h4>Free Pickup &amp; Delivery</h4><p>We pick up and deliver at your convenience.</p></div>
+                <div className="hf-text">
+                  <h4>Free Pickup &amp; Delivery</h4>
+                  <p>We pick up and deliver at your convenience.</p>
+                </div>
               </div>
             </div>
           </div>
           <div className="hero-right">
             <div className="hero-img-wrap">
-              <Image src="/basket.png" alt="BG Laundry basket" width={200} height={260} style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }} priority />
+              <Image src="/basket.png" alt="BG Laundry basket with washing machine" width={220} height={280} style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }} priority />
             </div>
           </div>
         </div>
@@ -418,11 +428,11 @@ export default function Home() {
         <div className="drawer-ov" onClick={() => setShowMenuDrawer(false)}>
           <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
             <button className="drawer-x" onClick={() => setShowMenuDrawer(false)}>✕</button>
-            <button className="drawer-item" onClick={() => { scrollTo('home'); setShowMenuDrawer(false); }}>Home</button>
-            <button className="drawer-item" onClick={() => { scrollTo('how-it-works'); setShowMenuDrawer(false); }}>How It Works</button>
-            <button className="drawer-item" onClick={() => { scrollTo('services'); setShowMenuDrawer(false); }}>Our Services</button>
-            <button className="drawer-item" onClick={() => { setShowPricingModal(true); setShowMenuDrawer(false); }}>Price Catalog</button>
-            <button className="drawer-item blue" onClick={() => { handleStart(); setShowMenuDrawer(false); }}>
+            <button className="drawer-item" onClick={() => { router.push('/'); setShowMenuDrawer(false); }}>Home</button>
+            <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowMenuDrawer(false); }}>How It Works</button>
+            <button className="drawer-item" onClick={() => { router.push('/services'); setShowMenuDrawer(false); }}>Our Services</button>
+            <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowMenuDrawer(false); }}>Price Catalog</button>
+            <button className="drawer-item blue" onClick={() => { router.push(loggedIn ? '/dashboard' : '/login'); setShowMenuDrawer(false); }}>
               {loggedIn ? '📊 Dashboard' : '🔐 Sign In'}
             </button>
           </div>
