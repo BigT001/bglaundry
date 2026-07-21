@@ -99,8 +99,6 @@ export default function Home() {
     }, 100);
   }, [showLoginModal]);
 
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-
   const handleStart = () => {
     if (loggedIn) { router.push('/dashboard'); return; }
     setLoginStep('PHONE'); setLoginError(''); setLoginInfo(''); setShowLoginModal(true);
@@ -182,33 +180,54 @@ export default function Home() {
     .top-nav{position:absolute;top:0;left:0;right:0;z-index:100;display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 0;}
     .nav-logo{display:flex;flex-direction:column;align-items:center;cursor:pointer;}
     .hamburger{width:46px;height:46px;background:#0B1B3E;border-radius:10px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:white;flex-shrink:0;}
-    .hero-section{background:linear-gradient(160deg,#D6EAFF 0%,#E8F4FF 30%,#F5F9FF 65%,#FFFFFF 100%);padding:90px 20px 28px;position:relative;}
-    .hero-split{display:flex;align-items:flex-start;gap:6px;margin-bottom:20px;position:relative;}
-    .hero-left{flex:1;min-width:0;z-index:2;}
-    .hero-right{flex:0 0 175px;width:175px;margin-left:-25px;margin-top:-6px;z-index:1;}
-    .hero-h1{font-size:30px;font-weight:900;color:#0B1B3E;text-transform:uppercase;line-height:1.08;letter-spacing:-0.5px;}
+    
+    /* ── HERO SECTION WITH LARGE BACKGROUND ── */
+    .hero-section{
+      position: relative;
+      overflow: hidden;
+      padding: 100px 20px 28px;
+      min-height: 520px;
+      background-image: url('/hero-bg.jpg');
+      background-size: cover;
+      background-position: center right;
+      background-repeat: no-repeat;
+    }
+    .hero-section::before{
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.80) 22%, rgba(255,255,255,0.18) 56%, rgba(255,255,255,0.08) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .hero-content-wrap{
+      position: relative;
+      z-index: 2;
+      max-width: 560px;
+    }
+    .hero-h1{font-size:38px;font-weight:900;color:#0B1B3E;text-transform:uppercase;line-height:1.04;letter-spacing:-0.6px;}
     .hero-h1-blue{color:#1565C0;display:block;}
-    .hero-ul{display:flex;align-items:center;gap:5px;margin:10px 0 11px;}
-    .hero-ul-bar{width:26px;height:3px;background:#1565C0;border-radius:2px;}
+    .hero-ul{display:flex;align-items:center;gap:5px;margin:10px 0 12px;}
+    .hero-ul-bar{width:28px;height:3.5px;background:#1565C0;border-radius:2px;}
     .hero-ul-dot{width:6px;height:6px;border-radius:50%;background:#1565C0;}
-    .hero-sub{font-size:12.5px;color:#4B5563;line-height:1.6;margin-bottom:16px;}
-    .hf-list{display:flex;flex-direction:column;gap:11px;}
-    .hf-item{display:flex;align-items:flex-start;gap:9px;}
-    .hf-icon{width:33px;height:33px;border-radius:50%;background:#1565C0;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:white;}
+    .hero-sub{font-size:12.5px;color:#4B5563;line-height:1.6;margin-bottom:18px;max-width:70%;}
+    .hf-list{display:flex;flex-direction:column;gap:12px;margin-bottom:22px;}
+    .hf-item{display:flex;align-items:flex-start;gap:10px;}
+    .hf-icon{width:34px;height:34px;border-radius:50%;background:#1565C0;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:white;box-shadow:0 3px 10px rgba(21,101,192,0.22);}
     .hf-text h4{font-size:12.5px;font-weight:800;color:#0B1B3E;margin-bottom:1px;}
     .hf-text p{font-size:9.5px;color:#64748B;line-height:1.35;}
-    .hero-img-wrap{width:100%;border-radius:14px;overflow:hidden;mix-blend-mode:multiply;opacity:0.96;}
-    .hero-img-wrap img{mix-blend-mode:multiply;}
-    .hero-ctas{display:flex;gap:10px;margin-bottom:13px;z-index:2;position:relative;}
-    .btn-book{flex:1;height:50px;background:#1565C0;color:white;border:none;border-radius:10px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;text-transform:uppercase;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(21,101,192,0.28);font-family:'DM Sans',sans-serif;}
-    .btn-chat{flex:1;height:50px;background:white;color:#0B1B3E;border:1.5px solid #CBD5E1;border-radius:10px;font-weight:800;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;text-transform:uppercase;font-family:'DM Sans',sans-serif;}
-    .social-proof{display:flex;align-items:center;gap:10px;background:white;border:1px solid #E2E8F0;border-radius:10px;padding:9px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+
+    .hero-ctas{display:flex;gap:10px;margin-bottom:14px;position:relative;z-index:3;}
+    .btn-book{flex:1;height:52px;background:#1565C0;color:white;border:none;border-radius:12px;font-weight:800;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;text-transform:uppercase;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(21,101,192,0.28);font-family:'DM Sans',sans-serif;}
+    .btn-chat{flex:1;height:52px;background:white;color:#0B1B3E;border:1.5px solid #CBD5E1;border-radius:12px;font-weight:800;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;text-transform:uppercase;font-family:'DM Sans',sans-serif;}
+    .social-proof{display:flex;align-items:center;gap:10px;background:white;border:1px solid #E2E8F0;border-radius:12px;padding:10px 14px;box-shadow:0 2px 10px rgba(0,0,0,0.04);position:relative;z-index:3;}
     .av-stack{display:flex;}
-    .av{width:26px;height:26px;border-radius:50%;border:2px solid white;background:#CBD5E1;margin-left:-7px;display:flex;align-items:center;justify-content:center;font-size:12px;overflow:hidden;flex-shrink:0;}
+    .av{width:27px;height:27px;border-radius:50%;border:2px solid white;background:#CBD5E1;margin-left:-7px;display:flex;align-items:center;justify-content:center;font-size:12px;overflow:hidden;flex-shrink:0;}
     .av:first-child{margin-left:0;}
     .sp-stars{color:#F59E0B;font-size:13px;letter-spacing:1px;flex-shrink:0;}
     .sp-text{font-size:11px;color:#4B5563;font-weight:600;}
-    .hiw-section{background:white;padding:30px 20px 26px;border-top:1px solid #F1F5F9;}
+
+    .hiw-section{background:white;padding:32px 20px 28px;border-top:1px solid #F1F5F9;}
     .sec-label{display:flex;align-items:center;justify-content:center;gap:10px;font-size:10px;font-weight:800;color:#1565C0;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px;}
     .sec-label::before,.sec-label::after{content:'';flex:1;max-width:36px;height:1px;background:#CBD5E1;}
     .sec-title{text-align:center;font-size:22px;font-weight:900;color:#0B1B3E;margin-bottom:26px;font-style:italic;}
@@ -219,6 +238,7 @@ export default function Home() {
     .step-badge{position:absolute;bottom:1px;right:1px;width:20px;height:20px;background:#1565C0;border-radius:50%;border:2px solid white;color:white;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;}
     .step-title{font-size:11px;font-weight:900;color:#0B1B3E;text-transform:uppercase;letter-spacing:0.5px;text-align:center;margin-bottom:3px;}
     .step-desc{font-size:10px;color:#6B7280;text-align:center;line-height:1.4;}
+
     .services-section{background:#F8FAFC;padding:26px 20px 90px;border-top:1px solid #F1F5F9;}
     .svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
     .svc-card{background:white;border:1px solid #E2E8F0;border-radius:12px;padding:11px 10px 11px 11px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:border-color 0.18s,box-shadow 0.18s;gap:6px;}
@@ -228,12 +248,14 @@ export default function Home() {
     .svc-info h3{font-size:12px;font-weight:800;color:#0B1B3E;margin-bottom:1px;line-height:1.2;}
     .svc-info p{font-size:9.5px;color:#6B7280;line-height:1.3;}
     .svc-chev{color:#9CA3AF;flex-shrink:0;font-size:16px;font-weight:700;}
+
     .help-footer{position:sticky;bottom:0;background:#0B1B3E;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:500;}
     .help-left{display:flex;align-items:center;gap:10px;}
     .help-ph-circle{width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:15px;color:white;flex-shrink:0;}
     .help-txt h4{font-size:11.5px;font-weight:800;color:white;margin-bottom:1px;}
     .help-txt p{font-size:10px;color:rgba(255,255,255,0.75);}
     .btn-wa{height:39px;padding:0 15px;background:white;color:#0B1B3E;border:none;border-radius:100px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;font-family:'DM Sans',sans-serif;}
+
     .drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;justify-content:flex-end;}
     .drawer-panel{background:white;width:280px;max-width:85vw;height:100%;padding:20px;display:flex;flex-direction:column;animation:slideD 0.25s cubic-bezier(0.16,1,0.3,1) both;}
     @keyframes slideD{from{transform:translateX(100%)}to{transform:translateX(0)}}
@@ -241,29 +263,46 @@ export default function Home() {
     .drawer-item{padding:14px 8px;border-bottom:1px solid #F1F5F9;font-size:15px;font-weight:700;color:#0B1B3E;background:none;border-top:none;border-left:none;border-right:none;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color 0.18s;}
     .drawer-item:hover{color:#1565C0;}
     .drawer-item.blue{color:#1565C0;border-bottom:none;}
+
+    /* ── PRICING SLIDE-OUT BOTTOM SHEET MODAL ── */
     .pm-ov{position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:3000;display:flex;align-items:flex-end;justify-content:center;}
-    .pm-sheet{background:white;border-radius:24px 24px 0 0;padding:22px 18px 32px;width:100%;max-width:480px;max-height:82vh;overflow-y:auto;position:relative;animation:sheetUp 0.3s cubic-bezier(0.16,1,0.3,1) both;}
-    @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-    .pm-handle{width:40px;height:4px;background:#E2E8F0;border-radius:2px;margin:0 auto 18px;}
-    .pm-x{position:absolute;top:16px;right:16px;background:#F1F5F9;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748B;}
-    .pm-title{font-size:18px;font-weight:900;color:#0B1B3E;text-align:center;margin-bottom:14px;}
-    .pm-tabs{display:flex;gap:7px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
-    .pm-tab{padding:6px 14px;border-radius:100px;border:1.5px solid #E2E8F0;background:transparent;color:#64748B;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.18s;}
+    .pm-sheet{
+      background:white;
+      border-radius:24px 24px 0 0;
+      padding:22px 18px 32px;
+      width:100%;
+      max-width:480px;
+      max-height:85vh;
+      overflow-y:auto;
+      position:relative;
+      animation:slideUpSheet 0.32s cubic-bezier(0.16,1,0.3,1) both;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.18);
+    }
+    @keyframes slideUpSheet{
+      from{transform:translateY(100%);}
+      to{transform:translateY(0);}
+    }
+    .pm-handle{width:44px;height:4.5px;background:#CBD5E1;border-radius:3px;margin:0 auto 16px;}
+    .pm-x{position:absolute;top:16px;right:16px;background:#F1F5F9;border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748B;}
+    .pm-title{font-size:19px;font-weight:900;color:#0B1B3E;text-align:center;margin-bottom:14px;}
+    .pm-tabs{display:flex;gap:7px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+    .pm-tab{padding:7px 16px;border-radius:100px;border:1.5px solid #E2E8F0;background:transparent;color:#64748B;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.18s;}
     .pm-tab.active{background:#1565C0;color:white;border-color:#1565C0;}
     .pm-table{width:100%;border-collapse:collapse;font-size:12px;}
     .pm-table th{background:#F8FAFC;color:#64748B;font-weight:800;padding:9px 10px;border-bottom:1px solid #F1F5F9;text-align:left;font-size:11px;}
-    .pm-table td{padding:9px 10px;border-bottom:1px solid #F1F5F9;}
+    .pm-table td{padding:10px;border-bottom:1px solid #F1F5F9;}
     .pm-table tr:last-child td{border-bottom:none;}
     .pm-nm{font-weight:700;color:#0B1B3E;}
     .pm-pr{color:#1565C0;font-weight:700;}
-    .pm-bk{padding:5px 11px;border-radius:100px;border:none;background:#1565C0;color:white;font-size:11px;font-weight:700;cursor:pointer;}
+    .pm-bk{padding:6px 12px;border-radius:100px;border:none;background:#1565C0;color:white;font-size:11px;font-weight:700;cursor:pointer;}
     .pm-grid{display:none;grid-template-columns:1fr 1fr;gap:8px;}
     .pm-card{background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:10px;}
     .pm-card-t{font-size:12px;font-weight:800;color:#0B1B3E;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid #F1F5F9;}
     .pm-card-r{display:flex;justify-content:space-between;font-size:10.5px;color:#64748B;margin-bottom:3px;}
     .pm-card-r .v{color:#1565C0;font-weight:700;}
-    .pm-card-bk{width:100%;height:29px;border-radius:100px;border:none;background:#1565C0;color:white;font-size:10.5px;font-weight:700;cursor:pointer;margin-top:7px;}
+    .pm-card-bk{width:100%;height:30px;border-radius:100px;border:none;background:#1565C0;color:white;font-size:10.5px;font-weight:700;cursor:pointer;margin-top:7px;}
     @media(max-width:400px){.pm-table{display:none;}.pm-grid{display:grid;}}
+
     .modal-ov{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;}
     .modal-box{background:white;border-radius:20px;padding:26px 22px;width:100%;max-width:380px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,0.15);animation:fUp 0.35s cubic-bezier(0.16,1,0.3,1) both;}
     @keyframes fUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
@@ -302,70 +341,64 @@ export default function Home() {
         </button>
       </header>
 
-      {/* HERO */}
+      {/* HERO SECTION WITH LARGE BACKGROUND IMAGE */}
       <section id="home" className="hero-section">
-        <div className="hero-split">
-          <div className="hero-left">
-            <h1 className="hero-h1">
-              Clean Clothes.
-              <span className="hero-h1-blue">Happy Life.</span>
-            </h1>
-            <div className="hero-ul">
-              <div className="hero-ul-bar" />
-              <div className="hero-ul-dot" />
-            </div>
-            <p className="hero-sub">
-              Premium laundry and dry cleaning services with care, delivered to your door.
-            </p>
-            <div className="hf-list">
-              <div className="hf-item">
-                <div className="hf-icon">👑</div>
-                <div className="hf-text">
-                  <h4>Premium Care</h4>
-                  <p>Top-quality cleaning for every fabric.</p>
-                </div>
-              </div>
-              <div className="hf-item">
-                <div className="hf-icon">🕐</div>
-                <div className="hf-text">
-                  <h4>24h Express</h4>
-                  <p>Fast turnaround when you need it.</p>
-                </div>
-              </div>
-              <div className="hf-item">
-                <div className="hf-icon">🚚</div>
-                <div className="hf-text">
-                  <h4>Free Pickup &amp; Delivery</h4>
-                  <p>We pick up and deliver at your convenience.</p>
-                </div>
-              </div>
-            </div>
+        <div className="hero-content-wrap">
+          <h1 className="hero-h1">
+            Clean Clothes.
+            <span className="hero-h1-blue">Happy Life.</span>
+          </h1>
+          <div className="hero-ul">
+            <div className="hero-ul-bar" />
+            <div className="hero-ul-dot" />
           </div>
-          <div className="hero-right">
-            <div className="hero-img-wrap">
-              <Image src="/basket.png" alt="BG Laundry basket with washing machine" width={220} height={280} style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }} priority />
-            </div>
-          </div>
-        </div>
+          <p className="hero-sub">
+            Premium laundry and dry cleaning services with care, delivered to your door.
+          </p>
 
-        <div className="hero-ctas">
-          <button className="btn-book" onClick={handleStart}>
-            🛍 Book a Pickup →
-          </button>
-          <button className="btn-chat" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
-            💬 Chat on WhatsApp
-          </button>
-        </div>
-
-        <div className="social-proof">
-          <div className="av-stack">
-            <span className="av">👩‍🦰</span>
-            <span className="av">👨</span>
-            <span className="av">👩</span>
-            <span className="av">🧔</span>
+          <div className="hf-list">
+            <div className="hf-item">
+              <div className="hf-icon">👑</div>
+              <div className="hf-text">
+                <h4>Premium Care</h4>
+                <p>Top-quality cleaning for every fabric.</p>
+              </div>
+            </div>
+            <div className="hf-item">
+              <div className="hf-icon">🕐</div>
+              <div className="hf-text">
+                <h4>24h Express</h4>
+                <p>Fast turnaround when you need it.</p>
+              </div>
+            </div>
+            <div className="hf-item">
+              <div className="hf-icon">🚚</div>
+              <div className="hf-text">
+                <h4>Free Pickup &amp; Delivery</h4>
+                <p>We pick up and deliver at your convenience.</p>
+              </div>
+            </div>
           </div>
-          <div className="sp-stars">★★★★★</div>
-          <span className="sp-text">Loved by 1,200+ Lagos families</span>
+
+          <div className="hero-ctas">
+            <button className="btn-book" onClick={handleStart}>
+              🛍 Book a Pickup →
+            </button>
+            <button className="btn-chat" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+              💬 Chat on WhatsApp
+            </button>
+          </div>
+
+          <div className="social-proof">
+            <div className="av-stack">
+              <span className="av">👩‍🦰</span>
+              <span className="av">👨</span>
+              <span className="av">👩</span>
+              <span className="av">🧔</span>
+            </div>
+            <div className="sp-stars">★★★★★</div>
+            <span className="sp-text">Loved by 1,200+ Lagos families</span>
+          </div>
         </div>
       </section>
 
@@ -423,7 +456,7 @@ export default function Home() {
         </button>
       </footer>
 
-      {/* DRAWER */}
+      {/* DRAWER MENU */}
       {showMenuDrawer && (
         <div className="drawer-ov" onClick={() => setShowMenuDrawer(false)}>
           <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
@@ -431,7 +464,7 @@ export default function Home() {
             <button className="drawer-item" onClick={() => { router.push('/'); setShowMenuDrawer(false); }}>Home</button>
             <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowMenuDrawer(false); }}>How It Works</button>
             <button className="drawer-item" onClick={() => { router.push('/services'); setShowMenuDrawer(false); }}>Our Services</button>
-            <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowMenuDrawer(false); }}>Price Catalog</button>
+            <button className="drawer-item" onClick={() => { setShowPricingModal(true); setShowMenuDrawer(false); }}>Price Catalog</button>
             <button className="drawer-item blue" onClick={() => { router.push(loggedIn ? '/dashboard' : '/login'); setShowMenuDrawer(false); }}>
               {loggedIn ? '📊 Dashboard' : '🔐 Sign In'}
             </button>
@@ -439,7 +472,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* PRICING MODAL */}
+      {/* PRICING SLIDE-OUT BOTTOM SHEET MODAL */}
       {showPricingModal && (
         <div className="pm-ov" onClick={() => setShowPricingModal(false)}>
           <div className="pm-sheet" onClick={(e) => e.stopPropagation()}>
