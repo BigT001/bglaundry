@@ -1,164 +1,66 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { auth } from '../../lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
-type Step = 'PHONE' | 'OTP' | 'ONBOARDING';
+type Step = 'MODE_SELECT' | 'LOGIN_PHONE' | 'LOGIN_PASSWORD' | 'SIGNUP_PHONE' | 'SIGNUP_NAME' | 'SIGNUP_ADDRESS' | 'SIGNUP_PASSWORD' | 'SUCCESS';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('PHONE');
+  const [step, setStep] = useState<Step>('MODE_SELECT');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [verifier, setVerifier] = useState<RecaptchaVerifier | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
-  const [tempToken, setTempToken] = useState('');
-  const [tempUser, setTempUser] = useState<any>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let v: RecaptchaVerifier | null = null;
-
-    // Small delay ensures the DOM element is mounted before reCAPTCHA binds
-    const timer = setTimeout(() => {
-      try {
-        const container = document.getElementById('recaptcha-container');
-        if (!container) return;
-        container.innerHTML = '';                 // clear any stale widget
-        v = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {},
-          'expired-callback': () => {
-            // silently reset on expiry so the next attempt gets a fresh token
-            setVerifier(null);
-          },
-        });
-        // Render eagerly so the token is ready before the user submits
-        v.render().then(() => setVerifier(v)).catch(() => {});
-      } catch (e) {
-        console.warn('[reCAPTCHA init]', e);
-      }
-    }, 300);
-
-    return () => {
-      clearTimeout(timer);
-      try { v?.clear(); } catch (_) {}
-    };
-  }, []);
-
-  const formatted = phone.startsWith('+') ? phone : `+234${phone.replace(/^0+/, '')}`;
-
-  const resetVerifier = () => {
-    try {
-      verifier?.clear();
-      const c = document.getElementById('recaptcha-container');
-      if (c) c.innerHTML = '';
-      const v2 = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible', callback: () => {} });
-      v2.render().then(() => setVerifier(v2)).catch(() => {});
-    } catch (_) {}
-  };
-
-  const handlePhone = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || loading) return;
-    setLoading(true); setError(''); setInfo('');
+    if (!phone || !password || loading) return;
+    setLoading(true);
+    setError('');
+
     try {
-      // First request a server-side OTP (useful when SMS provider or Firebase SMS fails)
-      let serverCode: string | null = null;
-      try {
-        const resp = await axios.post('/api/v1/auth/request-otp', { phoneNumber: formatted });
-        if (resp?.data?.code) {
-          serverCode = String(resp.data.code);
-          setInfo(`OTP sent to ${formatted}. Code: ${serverCode}`);
-        }
-      } catch (reqErr) {
-        // ignore server-side OTP failures — we'll still attempt Firebase flow below
-      }
+      const { data } = await axios.post('/api/v1/auth/login', {
+        phoneNumber: phone,
+        password: password,
+      });
 
-      // Re-build verifier if it expired between page load and submit
-      let v = verifier;
-      if (!v) {
-        const c = document.getElementById('recaptcha-container');
-        if (c) c.innerHTML = '';
-        v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-        await v.render();
-        setVerifier(v);
-      }
-
-      // Attempt Firebase SMS delivery; this may fail if Firebase config is missing.
-      try {
-        const result = await signInWithPhoneNumber(auth, formatted, v);
-        setConfirmation(result);
-        // If we already showed the server code, include note that Firebase SMS was attempted
-        if (!serverCode) setInfo(`Code sent to ${formatted}`);
-      } catch (fbErr) {
-        console.error('[Firebase signInWithPhoneNumber failed]', fbErr);
-        // If Firebase SMS fails, rely on serverCode shown above (dev or Termii fallback)
-        if (!serverCode) {
-          const codeStr = fbErr?.code || fbErr?.message || 'unknown';
-          setError(`Firebase error: ${codeStr}`);
-          resetVerifier();
-          return;
-        }
-      }
-
-      setStep('OTP');
-    } catch (err: any) {
-      const msg = (err.message || '').toLowerCase();
-      if (msg.includes('invalid-app-credential') || msg.includes('recaptcha')) {
-        setError('Security check failed. Please click Continue again to retry.');
-      } else {
-        setError(err.message || 'Could not send code. Please try again.');
-      }
-      resetVerifier();
-    } finally { setLoading(false); }
-  };
-
-  const handleOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length < 6 || !confirmation || loading) return;
-    setLoading(true); setError('');
-    try {
-      const credential = await confirmation.confirm(otp);
-      const idToken = await credential.user.getIdToken();
-      const { data } = await axios.post('/api/v1/auth/verify-otp', { phoneNumber: formatted, idToken });
-      const { token, user } = data;
-      if (!user.fullName || user.fullName === 'Customer Account') {
-        setTempToken(token); setTempUser(user); setStep('ONBOARDING');
-      } else {
-        localStorage.setItem('customerToken', token);
-        localStorage.setItem('customerUser', JSON.stringify(user));
-        router.push('/dashboard');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Invalid code. Please try again.');
-    } finally { setLoading(false); }
-  };
-
-  const handleOnboard = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim() || loading) return;
-    setLoading(true); setError('');
-    try {
-      const { data } = await axios.patch(
-        '/api/v1/users/profile',
-        { fullName: fullName.trim() },
-        { headers: { Authorization: `Bearer ${tempToken}` } }
-      );
-      localStorage.setItem('customerToken', tempToken);
+      localStorage.setItem('customerToken', data.token);
       localStorage.setItem('customerUser', JSON.stringify(data.user));
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Something went wrong. Please try again.');
-    } finally { setLoading(false); }
+      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || !fullName || !pickupAddress || !password || loading) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data } = await axios.post('/api/v1/auth/signup', {
+        phoneNumber: phone,
+        fullName: fullName,
+        pickupAddress: pickupAddress,
+        addressType: addressType,
+        password: password,
+      });
+
+      localStorage.setItem('customerToken', data.token);
+      localStorage.setItem('customerUser', JSON.stringify(data.user));
+      setStep('SUCCESS');
+      setTimeout(() => router.push('/dashboard'), 1500);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Signup failed. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,6 +74,7 @@ export default function LoginPage() {
         html, body { height: 100%; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
         @keyframes spin   { to { transform: rotate(360deg); } }
+        @keyframes checkmark { 0% { transform: scale(0.5) rotate(-45deg); } 50% { transform: scale(1.1); } 100% { transform: scale(1) rotate(0deg); } }
         .page {
           min-height: 100svh;
           display: flex; align-items: center; justify-content: center;
@@ -231,7 +134,7 @@ export default function LoginPage() {
           pointer-events: none;
           border-right: 1px solid #E8E6E1; padding-right: 10px;
         }
-        input[type=tel], input[type=text] {
+        input[type=tel], input[type=text], input[type=password] {
           width: 100%; height: 48px;
           border: 1.5px solid #E8E6E1; border-radius: 10px;
           font-size: 15px; font-family: 'DM Sans', sans-serif;
@@ -247,11 +150,45 @@ export default function LoginPage() {
           background: #fff;
           box-shadow: 0 0 0 3px rgba(13,13,13,0.06);
         }
-        .otp-input {
-          text-align: center;
-          letter-spacing: 14px;
-          font-size: 20px; font-weight: 600;
-          padding: 0 14px !important;
+        textarea {
+          width: 100%; min-height: 80px;
+          border: 1.5px solid #E8E6E1; border-radius: 10px;
+          font-size: 15px; font-family: 'DM Sans', sans-serif;
+          color: #0D0D0D; background: #FAFAF9;
+          outline: none;
+          transition: border-color 0.18s, box-shadow 0.18s;
+          padding: 12px 14px;
+          resize: none;
+        }
+        textarea:focus {
+          border-color: #0D0D0D;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(13,13,13,0.06);
+        }
+        .radio-group {
+          display: flex; gap: 16px; margin-bottom: 20px;
+        }
+        .radio-option {
+          flex: 1;
+          display: flex; align-items: center; gap: 8px;
+          padding: 12px; border-radius: 10px;
+          border: 1.5px solid #E8E6E1;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .radio-option input[type=radio] {
+          cursor: pointer;
+        }
+        .radio-option:hover {
+          border-color: #9CA3AF;
+        }
+        .radio-option input[type=radio]:checked + label {
+          color: #0D0D0D;
+          font-weight: 600;
+        }
+        .radio-option.selected {
+          border-color: #0D0D0D;
+          background: #F5F4F0;
         }
         .hint {
           font-size: 12px; color: #9CA3AF;
@@ -269,6 +206,13 @@ export default function LoginPage() {
         }
         .btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
         .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-secondary {
+          background: #F5F4F0; color: #0D0D0D;
+          border: 1.5px solid #E8E6E1;
+        }
+        .btn-secondary:hover:not(:disabled) {
+          border-color: #0D0D0D;
+        }
         .error {
           font-size: 13px; color: #B91C1C;
           background: #FEF2F2; border: 1px solid #FECACA;
@@ -276,11 +220,21 @@ export default function LoginPage() {
           margin-bottom: 14px;
           animation: fadeUp 0.3s ease;
         }
-        .info {
-          font-size: 13px; color: #166534;
-          background: #F0FDF4; border: 1px solid #BBF7D0;
-          border-radius: 8px; padding: 10px 14px;
-          margin-bottom: 14px;
+        .success-icon {
+          width: 80px; height: 80px;
+          background: #DCFCE7;
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          margin: 20px auto;
+          animation: checkmark 0.6s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        .success-icon svg {
+          width: 48px; height: 48px; color: #16A34A;
+        }
+        .success-text {
+          text-align: center;
+          font-size: 16px; font-weight: 600; color: #0D0D0D;
+          margin-bottom: 8px;
         }
         .back-link {
           display: block; text-align: center;
@@ -299,9 +253,10 @@ export default function LoginPage() {
           animation: spin 0.7s linear infinite;
           flex-shrink: 0;
         }
+        .mode-buttons {
+          display: flex; flex-direction: column; gap: 12px;
+        }
       `}} />
-
-      <div id="recaptcha-container" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
 
       <div className="page">
         <div className="card">
@@ -311,89 +266,290 @@ export default function LoginPage() {
             </div>
             <div className="brand-name">BG Laundry</div>
           </div>
-          <div className="tagline">
-            {step === 'PHONE' && 'Enter your phone number to continue'}
-            {step === 'OTP' && `Code sent to ${formatted}`}
-            {step === 'ONBOARDING' && "One last thing — what's your name?"}
-          </div>
-          <div className="divider" />
 
-          {error && <div className="error">{error}</div>}
-          {info && !error && <div className="info">{info}</div>}
+          {/* MODE SELECT */}
+          {step === 'MODE_SELECT' && (
+            <>
+              <div className="tagline">Welcome back</div>
+              <div className="divider" />
+              <div className="mode-buttons">
+                <button
+                  className="btn"
+                  onClick={() => { setStep('LOGIN_PHONE'); setError(''); }}
+                >
+                  Sign In
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('SIGNUP_PHONE'); setError(''); }}
+                >
+                  Create Account
+                </button>
+              </div>
+            </>
+          )}
 
-          {/* Phone */}
-          {step === 'PHONE' && (
-            <form onSubmit={handlePhone}>
+          {/* LOGIN - PHONE */}
+          {step === 'LOGIN_PHONE' && (
+            <form onSubmit={(e) => { e.preventDefault(); setStep('LOGIN_PASSWORD'); }}>
+              <div className="tagline">Sign In</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
               <label>Phone Number</label>
               <div className="input-wrap">
                 <span className="prefix">+234</span>
                 <input
                   type="tel"
-                  value={phone.replace(/^(\+234|0)/, '')}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="08012345678"
+                  placeholder="801 234 5678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   required
-                  autoFocus
-                  disabled={loading}
                 />
               </div>
-              <button className="btn" type="submit" disabled={loading || phone.replace(/\D/g, '').length < 10}>
-                {loading ? <><div className="spinner" /> Sending...</> : 'Continue'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('MODE_SELECT'); setPhone(''); setPassword(''); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!phone || loading}
+                >
+                  {loading ? <span className="spinner" /> : 'Next'}
+                </button>
+              </div>
             </form>
           )}
 
-          {/* OTP */}
-          {step === 'OTP' && (
-            <form onSubmit={handleOtp}>
-              <label>6-Digit Code</label>
+          {/* LOGIN - PASSWORD */}
+          {step === 'LOGIN_PASSWORD' && (
+            <form onSubmit={handleLogin}>
+              <div className="tagline">Enter Your Password</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
+              <label>Password</label>
               <div className="input-wrap">
                 <input
-                  className="otp-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="——————"
-                  maxLength={6}
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   autoFocus
-                  disabled={loading}
                 />
               </div>
-              <button className="btn" type="submit" disabled={loading || otp.length < 6}>
-                {loading ? <><div className="spinner" /> Verifying...</> : 'Verify'}
-              </button>
-              <button type="button" className="back-link" onClick={() => { setStep('PHONE'); setOtp(''); setError(''); setInfo(''); }}>
-                Change number
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('LOGIN_PHONE'); setPassword(''); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!password || loading}
+                >
+                  {loading ? <span className="spinner" /> : 'Sign In'}
+                </button>
+              </div>
             </form>
           )}
 
-          {/* Onboarding */}
-          {step === 'ONBOARDING' && (
-            <form onSubmit={handleOnboard}>
+          {/* SIGNUP - PHONE */}
+          {step === 'SIGNUP_PHONE' && (
+            <form onSubmit={(e) => { e.preventDefault(); setStep('SIGNUP_NAME'); }}>
+              <div className="tagline">Create Account</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
+              <label>Phone Number</label>
+              <div className="input-wrap">
+                <span className="prefix">+234</span>
+                <input
+                  type="tel"
+                  placeholder="801 234 5678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('MODE_SELECT'); setPhone(''); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!phone || loading}
+                >
+                  Next
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* SIGNUP - NAME */}
+          {step === 'SIGNUP_NAME' && (
+            <form onSubmit={(e) => { e.preventDefault(); setStep('SIGNUP_ADDRESS'); }}>
+              <div className="tagline">Your Full Name</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
               <label>Full Name</label>
               <div className="input-wrap">
                 <input
                   type="text"
+                  placeholder="John Doe"
                   value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder="e.g. Samuel Adeyemi"
+                  onChange={(e) => setFullName(e.target.value)}
                   required
                   autoFocus
-                  disabled={loading}
                 />
               </div>
-              <button className="btn" type="submit" disabled={loading || !fullName.trim()}>
-                {loading ? <><div className="spinner" /> Setting up...</> : 'Get Started'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('SIGNUP_PHONE'); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!fullName.trim() || loading}
+                >
+                  Next
+                </button>
+              </div>
             </form>
           )}
 
-          <button className="back-link" onClick={() => router.push('/')}>
-            ← Back to home
-          </button>
+          {/* SIGNUP - ADDRESS */}
+          {step === 'SIGNUP_ADDRESS' && (
+            <form onSubmit={(e) => { e.preventDefault(); setStep('SIGNUP_PASSWORD'); }}>
+              <div className="tagline">Pickup Address</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
+              <label style={{ marginBottom: 12 }}>Address Type</label>
+              <div className="radio-group">
+                <label
+                  className={`radio-option ${addressType === 'HOME' ? 'selected' : ''}`}
+                  style={{ margin: 0 }}
+                >
+                  <input
+                    type="radio"
+                    name="addressType"
+                    value="HOME"
+                    checked={addressType === 'HOME'}
+                    onChange={() => setAddressType('HOME')}
+                  />
+                  <span>Home</span>
+                </label>
+                <label
+                  className={`radio-option ${addressType === 'OFFICE' ? 'selected' : ''}`}
+                  style={{ margin: 0 }}
+                >
+                  <input
+                    type="radio"
+                    name="addressType"
+                    value="OFFICE"
+                    checked={addressType === 'OFFICE'}
+                    onChange={() => setAddressType('OFFICE')}
+                  />
+                  <span>Office</span>
+                </label>
+              </div>
+              <label>Address</label>
+              <div className="input-wrap">
+                <textarea
+                  placeholder="Enter your full pickup address"
+                  value={pickupAddress}
+                  onChange={(e) => setPickupAddress(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('SIGNUP_NAME'); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!pickupAddress.trim() || loading}
+                >
+                  Next
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* SIGNUP - PASSWORD */}
+          {step === 'SIGNUP_PASSWORD' && (
+            <form onSubmit={handleSignup}>
+              <div className="tagline">Create Password</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
+              <label>Password</label>
+              <div className="input-wrap">
+                <input
+                  type="password"
+                  placeholder="Minimum 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoFocus
+                />
+              </div>
+              <div className="hint">Password must be at least 6 characters</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => { setStep('SIGNUP_ADDRESS'); setError(''); }}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={password.length < 6 || loading}
+                >
+                  {loading ? <span className="spinner" /> : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* SUCCESS */}
+          {step === 'SUCCESS' && (
+            <div style={{ textAlign: 'center', paddingTop: 20 }}>
+              <div className="success-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div className="success-text">Account Created!</div>
+              <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 20 }}>
+                Welcome to BG Laundry. Redirecting to dashboard...
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>

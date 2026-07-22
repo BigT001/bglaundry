@@ -3,8 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import axios from 'axios';
-import { auth } from '@/lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { X } from '@/lib/icons';
 
 interface ServiceItem {
@@ -65,16 +63,15 @@ export default function Home() {
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP' | 'ONBOARDING'>('PHONE');
+  const [loginMode, setLoginMode] = useState<'SELECT' | 'LOGIN' | 'SIGNUP'>('SELECT');
+  const [loginStep, setLoginStep] = useState<'PHONE' | 'NAME' | 'ADDRESS' | 'PASSWORD'>('PHONE');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [loginInfo, setLoginInfo] = useState('');
-  const [verifier, setVerifier] = useState<RecaptchaVerifier | null>(null);
-  const [confirmation, setConfirmation] = useState<any>(null);
-  const [tempToken, setTempToken] = useState('');
 
   useEffect(() => {
     setLoggedIn(!!localStorage.getItem('customerToken'));
@@ -84,109 +81,79 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!showLoginModal) return;
-    setTimeout(() => {
-      try {
-        const c = document.getElementById('recaptcha-container');
-        if (!c) return;
-        c.innerHTML = '';
-        const v = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible', callback: () => {}, 'expired-callback': () => setVerifier(null),
-        });
-        v.render().then(() => setVerifier(v)).catch(() => {});
-      } catch (e) { console.error(e); }
-    }, 100);
-  }, [showLoginModal]);
-
   const handleStart = () => {
     if (loggedIn) { router.push('/dashboard'); return; }
-    setLoginStep('PHONE'); setLoginError(''); setLoginInfo(''); setShowLoginModal(true);
+    setLoginMode('SELECT');
+    setLoginStep('PHONE');
+    setPhone('');
+    setPassword('');
+    setFullName('');
+    setPickupAddress('');
+    setAddressType('HOME');
+    setLoginError('');
+    setShowLoginModal(true);
   };
 
   const handleBook = (name: string) => {
     if (loggedIn) { router.push('/dashboard'); return; }
-    setLoginStep('PHONE'); setLoginError(''); setLoginInfo(''); setShowLoginModal(true);
+    setLoginMode('SELECT');
+    setLoginStep('PHONE');
+    setPhone('');
+    setPassword('');
+    setFullName('');
+    setPickupAddress('');
+    setAddressType('HOME');
+    setLoginError('');
+    setShowLoginModal(true);
   };
 
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || loginLoading) return;
-    setLoginLoading(true); setLoginError(''); setLoginInfo('');
-    const fmt = phone.startsWith('+') ? phone : '+234' + phone.replace(/^0+/, '');
+    if (!phone || !password || loginLoading) return;
+    setLoginLoading(true);
+    setLoginError('');
+
     try {
-      // Request server-side OTP. If the server returns a code (dev fallback), show it to the user.
-      let serverCode: string | null = null;
-      try {
-        const resp = await axios.post('/api/v1/auth/request-otp', { phoneNumber: fmt });
-        if (resp?.data?.code) {
-          serverCode = String(resp.data.code);
-          setLoginInfo(`OTP sent to ${fmt}. Code: ${serverCode}`);
-        }
-      } catch (reqErr) {
-        // Ignore server-side OTP errors — we'll still try Firebase delivery
-      }
+      const { data } = await axios.post('/api/v1/auth/login', {
+        phoneNumber: phone,
+        password: password,
+      });
 
-      try {
-        let v = verifier;
-        if (!v) {
-          const c = document.getElementById('recaptcha-container');
-          if (c) c.innerHTML = '';
-          v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-          await v.render(); setVerifier(v);
-        }
-        signInWithPhoneNumber(auth, fmt, v)
-          .then((r) => setConfirmation(r))
-          .catch((e) => { console.error('[Firebase SMS Error]', e); });
-        if (!serverCode) setLoginInfo('OTP sent to ' + fmt);
-      } catch (fbErr) {
-        console.error('[Firebase signInWithPhoneNumber failed]', fbErr);
-        // If Firebase SMS fails but serverCode exists, continue and show server code.
-        if (!serverCode) setLoginError(`Firebase error: ${fbErr?.code || fbErr?.message || 'unknown'}`);
-      }
-
-      setLoginStep('OTP');
-    } catch (err: any) {
-      setLoginError(err.response?.data?.error || 'Failed to send OTP.');
-    } finally { setLoginLoading(false); }
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length < 6 || loginLoading) return;
-    setLoginLoading(true); setLoginError('');
-    const fmt = phone.startsWith('+') ? phone : '+234' + phone.replace(/^0+/, '');
-    try {
-      let idToken = '';
-      if (confirmation) {
-        try { const cred = await confirmation.confirm(otp); idToken = await cred.user.getIdToken(); } catch { }
-      }
-      const { data } = await axios.post('/api/v1/auth/verify-otp', { phoneNumber: fmt, code: otp, idToken });
-      const { token, user: u } = data;
-      if (!u.fullName || u.fullName === 'Customer Account') {
-        setTempToken(token); setLoginStep('ONBOARDING');
-      } else {
-        localStorage.setItem('customerToken', token);
-        localStorage.setItem('customerUser', JSON.stringify(u));
-        setLoggedIn(true); setShowLoginModal(false); router.push('/dashboard');
-      }
-    } catch (err: any) {
-      setLoginError(err.response?.data?.error || 'Invalid code.');
-    } finally { setLoginLoading(false); }
-  };
-
-  const handleOnboardSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName.trim() || loginLoading) return;
-    setLoginLoading(true); setLoginError('');
-    try {
-      const { data } = await axios.patch('/api/v1/users/profile', { fullName: fullName.trim() }, { headers: { Authorization: 'Bearer ' + tempToken } });
-      localStorage.setItem('customerToken', tempToken);
+      localStorage.setItem('customerToken', data.token);
       localStorage.setItem('customerUser', JSON.stringify(data.user));
-      setLoggedIn(true); setShowLoginModal(false); router.push('/dashboard');
+      setLoggedIn(true);
+      setShowLoginModal(false);
+      router.push('/dashboard');
     } catch (err: any) {
-      setLoginError(err.response?.data?.error || 'Failed to register.');
-    } finally { setLoginLoading(false); }
+      setLoginError(err.response?.data?.error || 'Login failed. Please try again.');
+      setLoginLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || !fullName || !pickupAddress || !password || loginLoading) return;
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      const { data } = await axios.post('/api/v1/auth/signup', {
+        phoneNumber: phone,
+        fullName: fullName,
+        pickupAddress: pickupAddress,
+        addressType: addressType,
+        password: password,
+      });
+
+      localStorage.setItem('customerToken', data.token);
+      localStorage.setItem('customerUser', JSON.stringify(data.user));
+      setLoggedIn(true);
+      setShowLoginModal(false);
+      router.push('/dashboard');
+    } catch (err: any) {
+      setLoginError(err.response?.data?.error || 'Signup failed. Please try again.');
+      setLoginLoading(false);
+    }
   };
 
   const displayServices = dbServices.filter((s) => s.category === pricingCategory);
@@ -546,32 +513,244 @@ export default function Home() {
         <div className="modal-ov">
           <div className="modal-box">
             <button className="modal-x" onClick={() => setShowLoginModal(false)}><X size={13} /></button>
-            <h3 className="modal-ttl">Sign In</h3>
-            <p className="modal-sub">Enter your phone number to book a service.</p>
-            {loginError && <div className="m-err">{loginError}</div>}
-            {loginInfo && <div className="m-info">{loginInfo}</div>}
-            {loginStep === 'PHONE' && (
-              <form onSubmit={handlePhoneSubmit}>
-                <label className="f-lbl">Phone Number</label>
-                <input type="tel" placeholder="e.g. 08012345678" value={phone} onChange={(e) => setPhone(e.target.value)} required className="f-inp" />
-                <button type="submit" disabled={loginLoading} className="m-sub">{loginLoading ? 'Sending OTP...' : 'Send OTP'}</button>
-              </form>
+            {loginMode === 'SELECT' && (
+              <>
+                <h3 className="modal-ttl">Welcome</h3>
+                <p className="modal-sub">Sign in or create an account to book a service.</p>
+                {loginError && <div className="m-err">{loginError}</div>}
+                <button
+                  className="m-sub"
+                  onClick={() => { setLoginMode('LOGIN'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); }}
+                  style={{ marginBottom: '8px' }}
+                >
+                  Sign In
+                </button>
+                <button
+                  className="m-sub"
+                  onClick={() => { setLoginMode('SIGNUP'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); setFullName(''); setPickupAddress(''); }}
+                  style={{ background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                >
+                  Create Account
+                </button>
+              </>
             )}
-            {loginStep === 'OTP' && (
-              <form onSubmit={handleOtpSubmit}>
-                <label className="f-lbl">OTP Code</label>
-                <input type="text" maxLength={6} placeholder="Enter 6-digit code" value={otp} onChange={(e) => setOtp(e.target.value)} required className="f-inp" />
-                <button type="submit" disabled={loginLoading} className="m-sub">{loginLoading ? 'Verifying...' : 'Verify & Continue'}</button>
-              </form>
+
+            {loginMode === 'LOGIN' && (
+              <>
+                <h3 className="modal-ttl">Sign In</h3>
+                <p className="modal-sub">Enter your phone number and password.</p>
+                {loginError && <div className="m-err">{loginError}</div>}
+                {loginStep === 'PHONE' && (
+                  <form onSubmit={(e) => { e.preventDefault(); setLoginStep('PASSWORD'); }}>
+                    <label className="f-lbl">Phone Number</label>
+                    <input
+                      type="tel"
+                      placeholder="e.g. 08012345678"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      required
+                      className="f-inp"
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginMode('SELECT'); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={!phone || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        Next
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {loginStep === 'PASSWORD' && (
+                  <form onSubmit={handleLoginSubmit}>
+                    <label className="f-lbl">Password</label>
+                    <input
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="f-inp"
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginStep('PHONE'); setPassword(''); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={!password || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        {loginLoading ? 'Signing In...' : 'Sign In'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
             )}
-            {loginStep === 'ONBOARDING' && (
-              <form onSubmit={handleOnboardSubmit}>
-                <label className="f-lbl">Full Name</label>
-                <input type="text" placeholder="Enter your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="f-inp" />
-                <button type="submit" disabled={loginLoading} className="m-sub">{loginLoading ? 'Saving...' : 'Complete Registration'}</button>
-              </form>
+
+            {loginMode === 'SIGNUP' && (
+              <>
+                <h3 className="modal-ttl">Create Account</h3>
+                <p className="modal-sub">Fill in your details to get started.</p>
+                {loginError && <div className="m-err">{loginError}</div>}
+                {loginStep === 'PHONE' && (
+                  <form onSubmit={(e) => { e.preventDefault(); setLoginStep('NAME'); }}>
+                    <label className="f-lbl">Phone Number</label>
+                    <input
+                      type="tel"
+                      placeholder="e.g. 08012345678"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      required
+                      className="f-inp"
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginMode('SELECT'); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={!phone || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        Next
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {loginStep === 'NAME' && (
+                  <form onSubmit={(e) => { e.preventDefault(); setLoginStep('ADDRESS'); }}>
+                    <label className="f-lbl">Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className="f-inp"
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginStep('PHONE'); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={!fullName.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        Next
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {loginStep === 'ADDRESS' && (
+                  <form onSubmit={(e) => { e.preventDefault(); setLoginStep('PASSWORD'); }}>
+                    <label className="f-lbl">Address Type</label>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAddressType('HOME')}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          border: addressType === 'HOME' ? '2px solid #0D0D0D' : '1.5px solid #E8E6E1',
+                          borderRadius: '6px',
+                          background: addressType === 'HOME' ? '#F5F4F0' : '#fff',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: addressType === 'HOME' ? '600' : '400',
+                        }}
+                      >
+                        Home
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAddressType('OFFICE')}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          border: addressType === 'OFFICE' ? '2px solid #0D0D0D' : '1.5px solid #E8E6E1',
+                          borderRadius: '6px',
+                          background: addressType === 'OFFICE' ? '#F5F4F0' : '#fff',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: addressType === 'OFFICE' ? '600' : '400',
+                        }}
+                      >
+                        Office
+                      </button>
+                    </div>
+                    <label className="f-lbl">Your Address</label>
+                    <textarea
+                      placeholder="Enter your full address"
+                      value={pickupAddress}
+                      onChange={(e) => setPickupAddress(e.target.value)}
+                      required
+                      className="f-inp"
+                      style={{ minHeight: '80px', resize: 'none' }}
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginStep('NAME'); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={!pickupAddress.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        Next
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {loginStep === 'PASSWORD' && (
+                  <form onSubmit={handleSignupSubmit}>
+                    <label className="f-lbl">Create Password</label>
+                    <input
+                      type="password"
+                      placeholder="Minimum 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="f-inp"
+                      autoFocus
+                    />
+                    <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '-8px', marginBottom: '16px' }}>
+                      Password must be at least 6 characters
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="m-sub"
+                        onClick={() => { setLoginStep('ADDRESS'); setLoginError(''); }}
+                        style={{ flex: 1, background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
+                      >
+                        Back
+                      </button>
+                      <button type="submit" disabled={password.length < 6 || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                        {loginLoading ? 'Creating...' : 'Create Account'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
             )}
-            <div id="recaptcha-container"></div>
           </div>
         </div>
       )}
