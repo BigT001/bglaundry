@@ -68,10 +68,14 @@ export default function Home() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [pickupAddress, setPickupAddress] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [officeAddress, setOfficeAddress] = useState('');
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
+  const setSelectedAddress = addressType === 'HOME' ? setHomeAddress : setOfficeAddress;
 
   useEffect(() => {
     setLoggedIn(!!localStorage.getItem('customerToken'));
@@ -88,7 +92,8 @@ export default function Home() {
     setPhone('');
     setPassword('');
     setFullName('');
-    setPickupAddress('');
+    setHomeAddress('');
+    setOfficeAddress('');
     setAddressType('HOME');
     setLoginError('');
     setShowLoginModal(true);
@@ -101,7 +106,8 @@ export default function Home() {
     setPhone('');
     setPassword('');
     setFullName('');
-    setPickupAddress('');
+    setHomeAddress('');
+    setOfficeAddress('');
     setAddressType('HOME');
     setLoginError('');
     setShowLoginModal(true);
@@ -132,7 +138,8 @@ export default function Home() {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !fullName || !pickupAddress || !password || loginLoading) return;
+    const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
+    if (!phone || !fullName || !selectedAddress.trim() || !password || loginLoading) return;
     setLoginLoading(true);
     setLoginError('');
 
@@ -140,7 +147,7 @@ export default function Home() {
       const { data } = await axios.post('/api/v1/auth/signup', {
         phoneNumber: phone,
         fullName: fullName,
-        pickupAddress: pickupAddress,
+        pickupAddress: selectedAddress,
         addressType: addressType,
         password: password,
       });
@@ -397,6 +404,22 @@ export default function Home() {
         </div>
       </section>
 
+      {/* OUR SERVICES */}
+      <section id="services" className="services-section">
+        <div className="sec-label">OUR SERVICES</div>
+        <div className="svc-grid">
+          {serviceCards.map((s) => (
+            <div key={s.title} className="svc-card" onClick={() => { setPricingCategory(s.cat); setShowPricingModal(true); }}>
+              <div className="svc-left">
+                <div className="svc-icon">{s.icon}</div>
+                <div className="svc-info"><h3>{s.title}</h3><p>{s.desc}</p></div>
+              </div>
+              <span className="svc-chev">›</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* HOW IT WORKS */}
       <section id="how-it-works" className="hiw-section">
         <div className="sec-label">HOW IT WORKS</div>
@@ -421,29 +444,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* OUR SERVICES */}
-      <section id="services" className="services-section">
-        <div className="sec-label">OUR SERVICES</div>
-        <div className="svc-grid">
-          {serviceCards.map((s) => (
-            <div key={s.title} className="svc-card" onClick={() => { setPricingCategory(s.cat); setShowPricingModal(true); }}>
-              <div className="svc-left">
-                <div className="svc-icon">{s.icon}</div>
-                <div className="svc-info"><h3>{s.title}</h3><p>{s.desc}</p></div>
-              </div>
-              <span className="svc-chev">›</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* STICKY FOOTER */}
       <footer className="help-footer">
         <div className="help-left">
           <div className="help-ph-circle">📞</div>
           <div className="help-txt">
             <h4>Need help?</h4>
-            <p>0705 815 5555 &nbsp;|&nbsp; 0805 825 5555</p>
+            <p>0705 815 5555</p>
           </div>
         </div>
         <button className="btn-wa" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
@@ -461,7 +468,7 @@ export default function Home() {
             <button className="drawer-item" onClick={() => { router.push('/services'); setShowMenuDrawer(false); }}>Our Services</button>
             <button className="drawer-item" onClick={() => { setShowPricingModal(true); setShowMenuDrawer(false); }}>Price Catalog</button>
             <button className="drawer-item blue" onClick={() => { router.push(loggedIn ? '/dashboard' : '/login'); setShowMenuDrawer(false); }}>
-              {loggedIn ? '📊 Dashboard' : '🔐 Sign In'}
+              {loggedIn ? '� Profile' : '🔐 Sign In'}
             </button>
           </div>
         </div>
@@ -527,7 +534,7 @@ export default function Home() {
                 </button>
                 <button
                   className="m-sub"
-                  onClick={() => { setLoginMode('SIGNUP'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); setFullName(''); setPickupAddress(''); }}
+                  onClick={() => { setLoginMode('SIGNUP'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); setFullName(''); setHomeAddress(''); setOfficeAddress(''); }}
                   style={{ background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
                 >
                   Create Account
@@ -547,7 +554,7 @@ export default function Home() {
                       type="tel"
                       placeholder="e.g. 08012345678"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                       required
                       className="f-inp"
                       autoFocus
@@ -609,7 +616,7 @@ export default function Home() {
                       type="tel"
                       placeholder="e.g. 08012345678"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                       required
                       className="f-inp"
                       autoFocus
@@ -634,7 +641,7 @@ export default function Home() {
                     <label className="f-lbl">Full Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. John Doe"
+                      placeholder="Blessed Samuel"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
@@ -695,9 +702,9 @@ export default function Home() {
                     </div>
                     <label className="f-lbl">Your Address</label>
                     <textarea
-                      placeholder="Enter your full address"
-                      value={pickupAddress}
-                      onChange={(e) => setPickupAddress(e.target.value)}
+                      placeholder={addressType === 'HOME' ? 'Enter your home pickup address' : 'Enter your office pickup address'}
+                      value={selectedAddress}
+                      onChange={(e) => setSelectedAddress(e.target.value)}
                       required
                       className="f-inp"
                       style={{ minHeight: '80px', resize: 'none' }}
@@ -712,7 +719,7 @@ export default function Home() {
                       >
                         Back
                       </button>
-                      <button type="submit" disabled={!pickupAddress.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                      <button type="submit" disabled={!selectedAddress.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
                         Next
                       </button>
                     </div>

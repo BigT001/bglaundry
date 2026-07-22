@@ -12,10 +12,14 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [pickupAddress, setPickupAddress] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [officeAddress, setOfficeAddress] = useState('');
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
+  const setSelectedAddress = addressType === 'HOME' ? setHomeAddress : setOfficeAddress;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,15 +44,16 @@ export default function LoginPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !fullName || !pickupAddress || !password || loading) return;
+    if (!phone || !fullName || !selectedAddress.trim() || !password || loading) return;
     setLoading(true);
     setError('');
 
     try {
+      const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
       const { data } = await axios.post('/api/v1/auth/signup', {
         phoneNumber: phone,
         fullName: fullName,
-        pickupAddress: pickupAddress,
+        pickupAddress: selectedAddress,
         addressType: addressType,
         password: password,
       });
@@ -302,7 +307,7 @@ export default function LoginPage() {
                   type="tel"
                   placeholder="801 234 5678"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                   required
                 />
               </div>
@@ -374,7 +379,7 @@ export default function LoginPage() {
                   type="tel"
                   placeholder="801 234 5678"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                   required
                   autoFocus
                 />
@@ -408,7 +413,7 @@ export default function LoginPage() {
               <div className="input-wrap">
                 <input
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Blessed Samuel"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -472,9 +477,9 @@ export default function LoginPage() {
               <label>Address</label>
               <div className="input-wrap">
                 <textarea
-                  placeholder="Enter your full pickup address"
-                  value={pickupAddress}
-                  onChange={(e) => setPickupAddress(e.target.value)}
+                  placeholder={addressType === 'HOME' ? 'Enter your home pickup address' : 'Enter your office pickup address'}
+                  value={selectedAddress}
+                  onChange={(e) => setSelectedAddress(e.target.value)}
                   required
                   autoFocus
                 />
@@ -490,7 +495,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="btn"
-                  disabled={!pickupAddress.trim() || loading}
+                  disabled={!selectedAddress.trim() || loading}
                 >
                   Next
                 </button>

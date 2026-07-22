@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -144,6 +144,118 @@ export default function CheckoutScreen() {
   const pickupDate = params.pickupDate as string;
 
   const [loading, setLoading] = useState(false);
+  const [customerName, setCustomerName] = React.useState<string>('');
+  const [customerPhone, setCustomerPhone] = React.useState<string>('');
+  const [formPickupAddress, setFormPickupAddress] = React.useState<string>(pickupAddress || '');
+  const [formDeliveryAddress, setFormDeliveryAddress] = React.useState<string>(deliveryAddress || '');
+  const [canSaveToProfile, setCanSaveToProfile] = React.useState(false);
+  const [profileSaving, setProfileSaving] = React.useState(false);
+  const [profileSaveMessage, setProfileSaveMessage] = React.useState('');
+
+  const persistProfileLocally = React.useCallback(async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@bglaundry_user');
+      let user = userStr ? JSON.parse(userStr) : {};
+      user = {
+        ...user,
+        fullName: customerName || user.fullName,
+        phoneNumber: customerPhone || user.phoneNumber,
+        pickupAddress: formPickupAddress || user.pickupAddress,
+      };
+      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(user));
+      return user;
+    } catch (e) {
+      console.warn('Failed to persist updated user locally', e);
+      return null;
+    }
+  }, [customerName, customerPhone, formPickupAddress]);
+
+  const saveProfileToServer = React.useCallback(async (showFeedback = true) => {
+    if (!canSaveToProfile) {
+      setProfileSaveMessage('Sign in to save this information to your profile.');
+      return false;
+    }
+
+    try {
+      setProfileSaving(true);
+      setProfileSaveMessage('');
+      const localUser = await persistProfileLocally();
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      if (!token) {
+        setCanSaveToProfile(false);
+        setProfileSaveMessage('Sign in to save this information to your profile.');
+        return false;
+      }
+
+      const payload = {
+        fullName: customerName.trim() || localUser?.fullName || '',
+        phoneNumber: customerPhone.trim() || localUser?.phoneNumber || '',
+        pickupAddress: formPickupAddress.trim() || localUser?.pickupAddress || '',
+      };
+
+      const response = await axios.patch(`${API_URL}/users/profile`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data?.user) {
+        const updatedUser = {
+          ...localUser,
+          ...response.data.user,
+        };
+        await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+      }
+
+      if (showFeedback) {
+        setProfileSaveMessage('Saved to your profile.');
+      }
+      return true;
+    } catch (error) {
+      console.warn('Failed to save profile to server from checkout', error);
+      if (showFeedback) {
+        const message = axios.isAxiosError(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'We could not save this profile to your account right now.';
+        setProfileSaveMessage(message);
+      }
+      return false;
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [API_URL, canSaveToProfile, customerName, customerPhone, formPickupAddress, persistProfileLocally]);
+
+  React.useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem('@bglaundry_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user.fullName) setCustomerName(user.fullName);
+          if (user.phoneNumber) setCustomerPhone(user.phoneNumber);
+          if (user.pickupAddress) setFormPickupAddress(user.pickupAddress);
+        }
+
+        const addrs = await AsyncStorage.getItem('@bglaundry_addresses');
+        if ((!userStr || !JSON.parse(userStr).pickupAddress) && addrs) {
+          try {
+            const parsed = JSON.parse(addrs);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setFormPickupAddress(prev => prev || parsed[0].address || '');
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        const token = await AsyncStorage.getItem('@bglaundry_token');
+        setCanSaveToProfile(Boolean(token));
+      } catch (err) {
+        console.error('Failed to load stored user for checkout:', err);
+      }
+    };
+    loadUser();
+  }, []);
 
   const handlePlaceOrder = async () => {
     setLoading(true);
@@ -171,16 +283,30 @@ export default function CheckoutScreen() {
         console.error('Failed to load user ID for booking:', err);
       }
 
+      const payloadPickup = formPickupAddress || pickupAddress || '';
+      const payloadDelivery = formDeliveryAddress || deliveryAddress || '';
+
       const orderResponse = await axios.post(`${API_URL}/orders/book`, {
         customerId: realCustomerId,
-        pickupAddress,
-        deliveryAddress,
+        pickupAddress: payloadPickup,
+        deliveryAddress: payloadDelivery,
         pickupDate,
         items: formattedItems,
       });
 
       const orderId = orderResponse.data.id;
       const orderNumber = orderResponse.data.orderNumber;
+
+      // Persist any edited profile/address details locally and to the account when available
+      try {
+        await persistProfileLocally();
+      } catch (e) {
+        console.warn('Failed to persist updated user after checkout', e);
+      }
+
+      if (canSaveToProfile) {
+        await saveProfileToServer(false);
+      }
 
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
@@ -242,13 +368,59 @@ export default function CheckoutScreen() {
           })}
         </View>
 
+        <Text style={styles.sectionTitle}>Contact Details</Text>
+        <View style={styles.card}>
+          <Text style={styles.infoLabel}>Full name</Text>
+          <TextInput
+            style={[styles.infoVal, { borderWidth: 1, borderColor: '#E6F0FA', padding: 8, borderRadius: 6 }]}
+            value={customerName}
+            onChangeText={setCustomerName}
+            placeholder="Your full name"
+          />
+          <View style={{ height: 12 }} />
+          <Text style={styles.infoLabel}>Phone number</Text>
+          <TextInput
+            style={[styles.infoVal, { borderWidth: 1, borderColor: '#E6F0FA', padding: 8, borderRadius: 6 }]}
+            value={customerPhone}
+            onChangeText={setCustomerPhone}
+            placeholder="+2348106889242"
+            keyboardType="phone-pad"
+          />
+          {canSaveToProfile ? (
+            <TouchableOpacity
+              style={styles.saveProfileButton}
+              onPress={() => saveProfileToServer(true)}
+              disabled={profileSaving}
+            >
+              <Text style={styles.saveProfileButtonText}>{profileSaving ? 'Saving...' : 'Save to profile'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.saveProfileHintBox}>
+              <Text style={styles.saveProfileHintText}>Sign in to save these details to your account.</Text>
+            </View>
+          )}
+          {profileSaveMessage ? (
+            <Text style={styles.saveProfileStatus}>{profileSaveMessage}</Text>
+          ) : null}
+        </View>
+
         <Text style={styles.sectionTitle}>Address Coordinates</Text>
         <View style={styles.card}>
           <Text style={styles.infoLabel}>Pickup From:</Text>
-          <Text style={styles.infoVal}>{pickupAddress}</Text>
+          <TextInput
+            style={[styles.infoVal, { borderWidth: 1, borderColor: '#E6F0FA', padding: 8, borderRadius: 6 }]}
+            value={formPickupAddress}
+            onChangeText={setFormPickupAddress}
+            placeholder="e.g. Apt 4, 16B Maria Okor Street, Ejibo"
+          />
           <View style={styles.divider} />
           <Text style={styles.infoLabel}>Deliver To:</Text>
-          <Text style={styles.infoVal}>{deliveryAddress}</Text>
+          <TextInput
+            style={[styles.infoVal, { borderWidth: 1, borderColor: '#E6F0FA', padding: 8, borderRadius: 6 }]}
+            value={formDeliveryAddress}
+            onChangeText={setFormDeliveryAddress}
+            placeholder="e.g. Same as pickup address"
+          />
         </View>
       </ScrollView>
 
@@ -338,6 +510,32 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E6F0FA',
     marginVertical: 12,
+  },
+  saveProfileButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  saveProfileButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  saveProfileHintBox: {
+    marginTop: 10,
+    paddingVertical: 6,
+  },
+  saveProfileHintText: {
+    color: '#6B7280',
+    fontSize: 12,
+  },
+  saveProfileStatus: {
+    marginTop: 8,
+    color: '#047857',
+    fontSize: 12,
   },
   footer: {
     padding: 16,

@@ -55,6 +55,12 @@ export default function CustomerDashboard() {
   const [pickupDate, setPickupDate] = useState('');
   const [bookingStep, setBookingStep] = useState<'SELECT' | 'SCHEDULE'>('SELECT');
   const [mobileBasketOpen, setMobileBasketOpen] = useState(false);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileHomeAddress, setProfileHomeAddress] = useState('');
+  const [profileOfficeAddress, setProfileOfficeAddress] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,6 +93,23 @@ export default function CustomerDashboard() {
     refreshOrders();
   }, [token, user]);
 
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.fullName || '');
+      setProfilePhone(user.phoneNumber || '');
+      setProfileHomeAddress(user.homeAddress || '');
+      setProfileOfficeAddress(user.officeAddress || '');
+
+      if (!user.homeAddress && !user.officeAddress && user.pickupAddress) {
+        if (user.addressType === 'OFFICE') {
+          setProfileOfficeAddress(user.pickupAddress);
+        } else {
+          setProfileHomeAddress(user.pickupAddress);
+        }
+      }
+    }
+  }, [user]);
+
   const refreshOrders = () => {
     if (!token || !user) return;
     setOrdersLoading(true);
@@ -113,6 +136,53 @@ export default function CustomerDashboard() {
     localStorage.removeItem('customerToken');
     localStorage.removeItem('customerUser');
     router.push('/login');
+  };
+
+  const syncLocalUser = (updatedFields: Record<string, any>) => {
+    const updatedUser = { ...user, ...updatedFields };
+    setUser(updatedUser);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('customerUser', JSON.stringify(updatedUser));
+    }
+    return updatedUser;
+  };
+
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const updatedUser = syncLocalUser({
+        fullName: profileName,
+        phoneNumber: profilePhone,
+        homeAddress: profileHomeAddress,
+        officeAddress: profileOfficeAddress,
+      });
+
+      if (token) {
+        await axios.patch(
+          '/api/v1/users/profile',
+          {
+            fullName: profileName,
+            phoneNumber: profilePhone,
+            pickupAddress: profileHomeAddress || profileOfficeAddress,
+            addressType: profileHomeAddress ? 'HOME' : 'OFFICE',
+          },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+      }
+
+      setSuccess('Profile details updated successfully.');
+      setTimeout(() => setSuccess(''), 3200);
+      setProfileDrawerOpen(false);
+    } catch (err: any) {
+      console.error('Failed to save profile:', err);
+      const message = err.response?.data?.error || 'Unable to save profile details right now.';
+      setError(message);
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const handleAddToBasket = (serviceName: string, optionName: string, price: number) => {
@@ -153,8 +223,11 @@ export default function CustomerDashboard() {
     return (Object.values(basket) as BasketItem[]).reduce((sum: number, item) => sum + item.price * item.quantity, 0);
   };
 
+  const basketItems = Object.values(basket) as BasketItem[];
+  const basketTotal = getBasketTotal();
+
   const getBasketCount = () => {
-    return (Object.values(basket) as BasketItem[]).reduce((sum: number, item) => sum + item.quantity, 0);
+    return basketItems.reduce((sum: number, item) => sum + item.quantity, 0);
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -242,8 +315,23 @@ export default function CustomerDashboard() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
         
-        .header-logo { font-size: 18px; font-weight: 700; color: #0D0D0D; letter-spacing: -0.4px; }
+        .header-logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .header-logo img { width: 38px; height: 38px; object-fit: contain; }
+        .header-logo span { font-size: 18px; font-weight: 700; color: #0D0D0D; letter-spacing: -0.4px; }
         .header-profile-circle { width: 34px; height: 34px; border-radius: 50%; background: #0D0D0D; color: #FAF9F7; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .header-profile-circle:hover { transform: scale(1.03); }
+        .profile-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; animation: fadeIn 0.25s ease; }
+        .profile-drawer-container { position: fixed; top: 50%; left: 50%; width: min(540px, 92vw); max-height: 90vh; overflow-y: auto; background: #FFFFFF; z-index: 151; padding: 28px 28px 24px; border-radius: 28px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18); transform: translate(-50%, -50%) scale(0.98); opacity: 0; transition: opacity 0.24s ease, transform 0.24s ease; display: flex; flex-direction: column; }
+        .profile-drawer-container.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .profile-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
+        .profile-drawer-title { font-size: 20px; font-weight: 800; color: #0D0D0D; margin: 0; }
+        .profile-drawer-close { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: none; background: #F3F4F6; color: #475569; cursor: pointer; }
+        .profile-drawer-section { margin-bottom: 18px; }
+        .profile-drawer-section label { display: block; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .profile-drawer-input, .profile-drawer-textarea { width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid #E5E7EB; background: #FCFCFC; color: #0D0D0D; font-size: 15px; font-family: 'DM Sans', sans-serif; }
+        .profile-drawer-textarea { min-height: 104px; resize: vertical; }
+        .profile-drawer-action { width: 100%; padding: 14px 18px; border: none; border-radius: 16px; background: #0D0D0D; color: #FAF9F7; font-size: 15px; font-weight: 700; cursor: pointer; }
+        .profile-drawer-divider { height: 1px; background: #E5E7EB; margin: 24px 0; }
         
         .sidebar { width: 260px; background: #fff; border-right: 1px solid #EAE8E3; padding: 32px 18px; display: flex; flex-direction: column; gap: 8px; }
         .sidebar-btn { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: none; border-radius: 12px; background: transparent; color: #6B7280; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s ease; width: 100%; }
@@ -325,18 +413,19 @@ export default function CustomerDashboard() {
         top: 0,
         zIndex: 50
       }}>
-        <div className="header-logo">
-          BG Laundry Portal
+        <div className="header-logo" onClick={() => router.push('/')}>
+          <img src="/bglogo.png" alt="BG Laundry" />
+          <span>BG Laundry</span>
         </div>
-        
+
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }} className="desktop-profile-info">
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0D0D0D' }}>{user.fullName}</span>
-              <span style={{ fontSize: '11px', color: '#6B7280' }}>+234{user.phoneNumber.replace(/^(\+234|0)/, '')}</span>
-            </div>
-            
-            <div className="header-profile-circle" onClick={handleLogout} title="Click to Logout">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              className="header-profile-circle"
+              onClick={() => setProfileDrawerOpen(true)}
+              title="View profile details"
+              aria-label="Open profile drawer"
+            >
               {initials}
             </div>
           </div>
@@ -432,10 +521,6 @@ export default function CustomerDashboard() {
               <div style={{ flex: 1 }}>
                 {bookingStep === 'SELECT' ? (
                   <>
-                    <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.5px' }}>
-                      Select Services
-                    </h2>
-                    
                     <div className="cat-scroll-container">
                       {(['Clothing', 'Household', 'Additional'] as ServiceCategory[]).map((cat) => (
                         <button
@@ -532,6 +617,30 @@ export default function CustomerDashboard() {
 
                     <form onSubmit={handlePlaceOrder}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>Selected Items</div>
+                            {basketItems.length === 0 ? (
+                              <div style={{ fontSize: '13px', color: '#9CA3AF' }}>No items selected yet. Go back to choose services.</div>
+                            ) : (
+                              <div style={{ display: 'grid', gap: '10px' }}>
+                                {basketItems.map((item) => (
+                                  <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                    <span style={{ fontSize: '13px', color: '#0D0D0D' }}>{item.serviceName}</span>
+                                    <span style={{ fontSize: '13px', color: '#0D0D0D', fontWeight: '700' }}>
+                                      {item.quantity} × {formatCurrency(item.price)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ minWidth: '140px', padding: '16px', borderRadius: '16px', backgroundColor: '#F5F5F4', border: '1px solid #EAE8E3' }}>
+                            <div style={{ fontSize: '11px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '8px' }}>Order total</div>
+                            <div style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D' }}>{formatCurrency(basketTotal)}</div>
+                          </div>
+                        </div>
+
                         <div>
                           <label className="field-label">Pickup Address</label>
                           <input
@@ -757,8 +866,8 @@ export default function CustomerDashboard() {
                               Garments List
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {order.items.map((item: any) => (
-                                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                              {(order.items || []).map((item: any) => (
+                                <div key={item.id || `${item.serviceName}-${item.quantity}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                   <span style={{ color: '#374151' }}>{item.serviceName}</span>
                                   <span style={{ color: '#0D0D0D', fontWeight: '500' }}>Qty: {item.quantity}</span>
                                 </div>
@@ -933,8 +1042,8 @@ export default function CustomerDashboard() {
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {order.items.map((item: any) => (
-                          <div key={item.id} style={{ fontSize: '12px', color: '#4B5563' }}>
+                        {(order.items || []).map((item: any) => (
+                          <div key={item.id || `${item.serviceName}-${item.quantity}`} style={{ fontSize: '12px', color: '#4B5563' }}>
                             {item.serviceName} × {item.quantity}
                           </div>
                         ))}
@@ -1018,6 +1127,14 @@ export default function CustomerDashboard() {
           <History size={20} />
           <span className="mobile-nav-label">History</span>
         </button>
+
+        <button
+          onClick={() => setProfileDrawerOpen(true)}
+          className={`mobile-nav-item ${profileDrawerOpen ? 'active' : ''}`}
+        >
+          <User size={20} />
+          <span className="mobile-nav-label">Profile</span>
+        </button>
       </div>
 
       {/* ═══════════════════════════════════════
@@ -1087,6 +1204,76 @@ export default function CustomerDashboard() {
                 Checkout <ChevronRight size={16} />
               </button>
             </div>
+          </div>
+        </>
+      )}
+
+      {profileDrawerOpen && (
+        <>
+          <div className="profile-drawer-overlay" style={{ display: 'block' }} onClick={() => setProfileDrawerOpen(false)} />
+          <div className={`profile-drawer-container ${profileDrawerOpen ? 'open' : ''}`}>
+            <div className="profile-drawer-header">
+              <div>
+                <p className="profile-drawer-title">Profile details</p>
+                <p style={{ marginTop: '6px', fontSize: '13px', color: '#6B7280' }}>Edit your info and signup address here</p>
+              </div>
+              <button className="profile-drawer-close" onClick={() => setProfileDrawerOpen(false)} aria-label="Close profile drawer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="profile-drawer-section">
+              <label>Name</label>
+              <input
+                className="profile-drawer-input"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+              />
+            </div>
+            <div className="profile-drawer-section">
+              <label>Phone</label>
+              <input
+                className="profile-drawer-input"
+                value={profilePhone}
+                onChange={(e) => setProfilePhone(e.target.value)}
+              />
+            </div>
+            <div className="profile-drawer-section">
+              <label>Home address</label>
+              <textarea
+                className="profile-drawer-textarea"
+                value={profileHomeAddress}
+                onChange={(e) => setProfileHomeAddress(e.target.value)}
+              />
+            </div>
+            <div className="profile-drawer-section">
+              <label>Office address</label>
+              <textarea
+                className="profile-drawer-textarea"
+                value={profileOfficeAddress}
+                onChange={(e) => setProfileOfficeAddress(e.target.value)}
+              />
+            </div>
+
+            <div className="profile-drawer-divider" />
+
+            <button
+              className="profile-drawer-action"
+              onClick={handleSaveProfile}
+              disabled={profileSaving}
+              style={{ opacity: profileSaving ? 0.7 : 1 }}
+            >
+              {profileSaving ? 'Saving...' : 'Save changes'}
+            </button>
+
+            <button
+              onClick={() => { handleLogout(); setProfileDrawerOpen(false); }}
+              style={{
+                marginTop: '12px', width: '100%', padding: '14px 18px', borderRadius: '14px', border: '1px solid #E5E7EB', background: '#FFFFFF', color: '#0D0D0D', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
+              }}
+            >
+              Log out
+            </button>
           </div>
         </>
       )}

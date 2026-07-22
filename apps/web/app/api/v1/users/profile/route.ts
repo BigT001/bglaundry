@@ -26,7 +26,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName } = await request.json();
+    const userId = decoded.sub || decoded.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Invalid session payload' },
+        { status: 401 },
+      );
+    }
+
+    const { fullName, phoneNumber, pickupAddress, addressType } = await request.json();
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },
@@ -34,11 +42,37 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Update the user's name in Postgres database
-    const updatedUser = await prisma.user.update({
-      where: { id: decoded.sub },
-      data: { fullName: fullName.trim() },
-    });
+    const dataToUpdate: Record<string, any> = {
+      fullName: fullName.trim(),
+    };
+
+    if (phoneNumber && phoneNumber.trim().length > 0) {
+      dataToUpdate.phoneNumber = phoneNumber.trim();
+    }
+
+    if (pickupAddress && pickupAddress.trim().length > 0) {
+      dataToUpdate.pickupAddress = pickupAddress.trim();
+    }
+
+    if (addressType && ['HOME', 'OFFICE'].includes(addressType)) {
+      dataToUpdate.addressType = addressType;
+    }
+
+    let updatedUser;
+    try {
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: dataToUpdate,
+      });
+    } catch (err: any) {
+      if (err.code === 'P2002' && err.meta?.target?.includes('phoneNumber')) {
+        return NextResponse.json(
+          { error: 'This phone number is already in use by another account.' },
+          { status: 409 },
+        );
+      }
+      throw err;
+    }
 
     return NextResponse.json({
       message: 'Profile updated successfully',
@@ -46,6 +80,8 @@ export async function PATCH(request: NextRequest) {
         id: updatedUser.id,
         phoneNumber: updatedUser.phoneNumber,
         fullName: updatedUser.fullName,
+        pickupAddress: updatedUser.pickupAddress,
+        addressType: updatedUser.addressType,
         role: updatedUser.role,
       },
     });
