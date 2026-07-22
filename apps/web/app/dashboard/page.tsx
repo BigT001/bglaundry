@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
@@ -32,6 +32,48 @@ interface BasketItem {
   price: number;
 }
 
+const BASKET_STORAGE_KEY = 'bglaundry-dashboard-basket';
+
+const fallbackServices = [
+  { id: 'fallback-tshirt', name: 'T-Shirt / Polo', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 500, ironPrice: 300, washIronPrice: 700 },
+  { id: 'fallback-shirt', name: 'Dress Shirt', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 700, ironPrice: 400, washIronPrice: 1000 },
+  { id: 'fallback-trouser', name: 'Trouser', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 500, ironPrice: 300, washIronPrice: 700 },
+  { id: 'fallback-jeans', name: 'Jeans', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 700, ironPrice: 400, washIronPrice: 1000 },
+  { id: 'fallback-shorts', name: 'Shorts', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 300, ironPrice: 200, washIronPrice: 500 },
+  { id: 'fallback-casual-shirt', name: 'Casual/Formal Shirt', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 500, ironPrice: 300, washIronPrice: 800 },
+  { id: 'fallback-blouse', name: 'Blouse', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 500, ironPrice: 300, washIronPrice: 800 },
+  { id: 'fallback-dress', name: 'Dress', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 1300, ironPrice: 700, washIronPrice: 2000 },
+  { id: 'fallback-suit', name: 'Two-Piece Suit', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 2500, ironPrice: 1200, washIronPrice: 3500 },
+  { id: 'fallback-blazer', name: 'Blazer', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 1000, ironPrice: 600, washIronPrice: 1500 },
+  { id: 'fallback-senator', name: 'Senator Wear (2 pcs)', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 1000, ironPrice: 500, washIronPrice: 1500 },
+  { id: 'fallback-agbada', name: 'Agbada (Complete Set)', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 2500, ironPrice: 1200, washIronPrice: 3500 },
+  { id: 'fallback-kaftan', name: 'Kaftan', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 1300, ironPrice: 700, washIronPrice: 2000 },
+  { id: 'fallback-jacket', name: 'Jacket', category: 'Clothing', hasWash: true, hasIron: true, hasWashIron: true, washPrice: 1000, ironPrice: 600, washIronPrice: 1500 },
+  { id: 'fallback-tie', name: 'Tie', category: 'Clothing', hasWash: false, hasIron: true, hasWashIron: true, washPrice: 0, ironPrice: 300, washIronPrice: 300 },
+  { id: 'fallback-duvet', name: 'Duvet (Large/King)', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 3500, ironPrice: 0, washIronPrice: 4000 },
+  { id: 'fallback-bedsheet', name: 'Bed Sheet', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 1000, ironPrice: 0, washIronPrice: 1500 },
+  { id: 'fallback-duvet-small', name: 'Duvet (Small)', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 2500, ironPrice: 0, washIronPrice: 3000 },
+  { id: 'fallback-duvet-medium', name: 'Duvet (Medium)', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 3500, ironPrice: 0, washIronPrice: 4000 },
+  { id: 'fallback-blanket', name: 'Blanket', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 3000, ironPrice: 0, washIronPrice: 3500 },
+  { id: 'fallback-pillow', name: 'Pillow', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 600, ironPrice: 0, washIronPrice: 800 },
+  { id: 'fallback-curtain', name: 'Curtain (Per Panel)', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 1500, ironPrice: 0, washIronPrice: 2000 },
+  { id: 'fallback-towel', name: 'Bath Towel', category: 'Household', hasWash: true, hasIron: false, hasWashIron: true, washPrice: 600, ironPrice: 0, washIronPrice: 800 },
+  { id: 'fallback-shoe', name: 'Shoe Cleaning', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 4000, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-stain', name: 'Stain Removal', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 1000, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-spot', name: 'Spot Cleaning', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 500, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-softener', name: 'Fabric Softener Treatment', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 200, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-fragrance', name: 'Premium Fragrance Finish', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 200, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-folding', name: 'Folding Only', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 200, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-bag', name: 'Bag Cleaning', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 4000, ironPrice: 0, washIronPrice: 0 },
+  { id: 'fallback-gown', name: 'Wedding Gown Care', category: 'Additional', hasWash: true, hasIron: false, hasWashIron: false, washPrice: 15000, ironPrice: 0, washIronPrice: 0 },
+];
+
+const mergeWithStandardCatalog = (catalog: any[]) => {
+  const standardServices = new Map(fallbackServices.map((service) => [service.name.toLowerCase(), service]));
+  catalog.forEach((service) => standardServices.set(service.name.toLowerCase(), service));
+  return Array.from(standardServices.values());
+};
+
 export default function CustomerDashboard() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
@@ -40,7 +82,7 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('BOOK');
   const [categoryTab, setCategoryTab] = useState<ServiceCategory>('Clothing');
   
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>(fallbackServices);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
   
@@ -50,9 +92,11 @@ export default function CustomerDashboard() {
   const [success, setSuccess] = useState('');
   
   const [basket, setBasket] = useState<Record<string, BasketItem>>({});
+  const [basketReady, setBasketReady] = useState(false);
   const [pickupAddress, setPickupAddress] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [pickupDate, setPickupDate] = useState('');
+  const [useSameAddress, setUseSameAddress] = useState(true);
   const [bookingStep, setBookingStep] = useState<'SELECT' | 'SCHEDULE'>('SELECT');
   const [mobileBasketOpen, setMobileBasketOpen] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
@@ -77,16 +121,42 @@ export default function CustomerDashboard() {
   }, [router]);
 
   useEffect(() => {
+    try {
+      const savedBasket = localStorage.getItem(BASKET_STORAGE_KEY);
+      if (savedBasket) {
+        const parsedBasket = JSON.parse(savedBasket);
+        if (parsedBasket && typeof parsedBasket === 'object' && !Array.isArray(parsedBasket)) {
+          setBasket((currentBasket) => ({ ...parsedBasket, ...currentBasket }));
+        }
+      }
+    } catch (err) {
+      console.warn('Unable to restore basket:', err);
+    } finally {
+      setBasketReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!basketReady) return;
+    try {
+      localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basket));
+    } catch (err) {
+      console.warn('Unable to save basket:', err);
+    }
+  }, [basket, basketReady]);
+
+  useEffect(() => {
     if (!token || !user) return;
     
     setLoading(true);
     axios.get('/api/v1/admin/services')
       .then((res) => {
-        setServices(res.data.services || []);
+        const catalog = res.data.services || [];
+        setServices(mergeWithStandardCatalog(catalog));
       })
       .catch((err) => {
         console.error('Failed to load services:', err);
-        setError('Unable to load laundry service catalog.');
+        setServices(fallbackServices);
       })
       .finally(() => setLoading(false));
 
@@ -106,6 +176,12 @@ export default function CustomerDashboard() {
         } else {
           setProfileHomeAddress(user.pickupAddress);
         }
+      }
+
+      const savedAddress = user.homeAddress || user.pickupAddress || user.officeAddress || '';
+      if (savedAddress) {
+        setPickupAddress((current) => current || savedAddress);
+        setDeliveryAddress((current) => current || savedAddress);
       }
     }
   }, [user]);
@@ -256,8 +332,10 @@ export default function CustomerDashboard() {
       
       setSuccess('Laundry booking placed successfully! A driver will be assigned shortly.');
       setBasket({});
-      setPickupAddress('');
-      setDeliveryAddress('');
+      const savedAddress = user.homeAddress || user.pickupAddress || user.officeAddress || '';
+      setPickupAddress(savedAddress);
+      setDeliveryAddress(savedAddress);
+      setUseSameAddress(true);
       setPickupDate('');
       setBookingStep('SELECT');
       setMobileBasketOpen(false);
@@ -304,9 +382,10 @@ export default function CustomerDashboard() {
 
   const filteredServices = services.filter((svc) => svc.category === categoryTab);
   const initials = user?.fullName ? user.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
+  const preferredAddress = user?.homeAddress || user?.pickupAddress || user?.officeAddress || '';
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FAF9F7', color: '#0D0D0D', display: 'flex', flexDirection: 'column' }}>
+    <div className="dashboard-shell" style={{ minHeight: '100vh', backgroundColor: '#FAF9F7', color: '#0D0D0D', display: 'flex', flexDirection: 'column' }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -315,11 +394,6 @@ export default function CustomerDashboard() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
         
-        .header-logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-        .header-logo img { width: 38px; height: 38px; object-fit: contain; }
-        .header-logo span { font-size: 18px; font-weight: 700; color: #0D0D0D; letter-spacing: -0.4px; }
-        .header-profile-circle { width: 34px; height: 34px; border-radius: 50%; background: #0D0D0D; color: #FAF9F7; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; }
-        .header-profile-circle:hover { transform: scale(1.03); }
         .profile-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; animation: fadeIn 0.25s ease; }
         .profile-drawer-container { position: fixed; top: 50%; left: 50%; width: min(540px, 92vw); max-height: 90vh; overflow-y: auto; background: #FFFFFF; z-index: 151; padding: 28px 28px 24px; border-radius: 28px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18); transform: translate(-50%, -50%) scale(0.98); opacity: 0; transition: opacity 0.24s ease, transform 0.24s ease; display: flex; flex-direction: column; }
         .profile-drawer-container.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -333,28 +407,38 @@ export default function CustomerDashboard() {
         .profile-drawer-action { width: 100%; padding: 14px 18px; border: none; border-radius: 16px; background: #0D0D0D; color: #FAF9F7; font-size: 15px; font-weight: 700; cursor: pointer; }
         .profile-drawer-divider { height: 1px; background: #E5E7EB; margin: 24px 0; }
         
-        .sidebar { width: 260px; background: #fff; border-right: 1px solid #EAE8E3; padding: 32px 18px; display: flex; flex-direction: column; gap: 8px; }
+        .sidebar { width: 282px; min-height:100vh; background: #fff; border-right: 1px solid #EAE8E3; padding: 28px 18px 22px; display: flex; flex-direction: column; gap: 8px; }
+        .sidebar-brand { display:flex; align-items:center; gap:11px; padding:0 10px 28px; border-bottom:1px solid #F0EEEA; margin-bottom:18px; cursor:pointer; }
+        .sidebar-brand img { width:44px; height:44px; object-fit:contain; }.sidebar-brand span { color:#0D0D0D; font-size:19px; font-weight:800; letter-spacing:-.6px; }
+        .sidebar-label { color:#9CA3AF; font-size:10px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; padding:0 14px 8px; }
         .sidebar-btn { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: none; border-radius: 12px; background: transparent; color: #6B7280; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s ease; width: 100%; }
         .sidebar-btn.active { background: #0D0D0D; color: #FAF9F7; }
         .sidebar-btn:hover:not(.active) { background: #F3F1ED; color: #0D0D0D; }
+        .sidebar-footer { margin-top:auto; padding-top:18px; border-top:1px solid #F0EEEA; }.sidebar-profile { width:100%; padding:12px; border:0; background:#FAF9F7; border-radius:14px; display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer; font-family:'DM Sans',sans-serif; }.sidebar-avatar { width:34px;height:34px;border-radius:50%;background:#1565C0;color:white;display:grid;place-items:center;font-size:11px;font-weight:800;flex-shrink:0; }.sidebar-profile-name{font-size:13px;font-weight:700;color:#0D0D0D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.sidebar-profile-copy{font-size:11px;color:#6B7280;margin-top:2px;}.sidebar-logout{margin-top:10px;width:100%;padding:10px 12px;border:0;background:transparent;color:#6B7280;display:flex;gap:10px;align-items:center;font:600 12px 'DM Sans',sans-serif;cursor:pointer;border-radius:10px;}.sidebar-logout:hover{background:#FEF2F2;color:#B91C1C;}
 
         .cat-scroll-container { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid #EAE8E3; padding-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .cat-scroll-container::-webkit-scrollbar { display: none; }
         .cat-tab { padding: 8px 18px; border: none; border-radius: 100px; background: transparent; color: #6B7280; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; }
         .cat-tab.active { background: #0D0D0D; color: #FAF9F7; }
 
-        .service-card { background: #fff; border: 1px solid #EAE8E3; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, box-shadow 0.2s; }
-        .service-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+        .service-card { background: #fff; border: 1px solid #EAE8E3; border-radius: 18px; overflow:hidden; transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease; }
+        .service-card:hover { transform: translateY(-3px); border-color:#B9D5FF; box-shadow: 0 16px 32px rgba(21,101,192,0.10); }
+        .service-card-header { display:flex; align-items:center; gap:13px; padding:18px 20px 16px; background:linear-gradient(135deg,#F8FBFF 0%,#F1F7FF 100%); border-bottom:1px solid #E8F0FC; }
+        .service-card-icon { width:42px;height:42px;border-radius:13px;background:#FFFFFF;border:1px solid #D8E8FF;color:#1565C0;display:grid;place-items:center;box-shadow:0 4px 10px rgba(21,101,192,.08);flex-shrink:0; }
+        .service-card-title { font-size:16px;font-weight:800;color:#0D0D0D;letter-spacing:-.35px; }.service-card-subtitle { font-size:11px;color:#64748B;margin-top:3px; }
+        .service-options { padding:4px 20px 10px; }.service-option { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #F0F1F3; }.service-option:last-child{border-bottom:0;}.service-option-name{font-size:12px;font-weight:700;color:#475569;}.service-option-price{font-size:15px;font-weight:800;color:#0D0D0D;margin-top:2px;letter-spacing:-.2px;}.service-add{min-width:72px;padding:8px 13px;border-radius:9px;border:1px solid #1565C0;background:#1565C0;color:#fff;font:700 12px 'DM Sans',sans-serif;cursor:pointer;transition:all .18s;}.service-add:hover{background:#0E56AD;box-shadow:0 5px 11px rgba(21,101,192,.2);}.service-quantity{display:flex;align-items:center;gap:9px;background:#F2F7FF;padding:4px;border-radius:10px;}.service-quantity .btn-round-adjust{border:0;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.1);}.service-quantity-count{font-size:13px;font-weight:800;color:#1565C0;min-width:12px;text-align:center;}
 
         .btn-action-sm { padding: 6px 14px; border-radius: 8px; border: none; background: #0D0D0D; color: #FAF9F7; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s; }
         .btn-action-sm:hover { opacity: 0.85; }
 
         .btn-round-adjust { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #EAE8E3; background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #0D0D0D; transition: all 0.15s; }
         .btn-round-adjust:hover { border-color: #0D0D0D; background: #FAF9F7; }
+        .workspace-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}.workspace-title{font-size:30px;font-weight:800;letter-spacing:-1.1px;color:#0D0D0D;margin-bottom:8px;}.workspace-copy{font-size:14px;color:#6B7280;line-height:1.55;margin-bottom:28px;}.catalog-count{display:inline-flex;align-items:center;padding:5px 10px;border-radius:100px;background:#EFF6FF;color:#1565C0;font-size:11px;font-weight:700;margin-left:8px;vertical-align:middle;}.mobile-cart-button{display:none;}
 
         .field-label { display: block; font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
         .field-input { width: 100%; padding: 12px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: #0D0D0D; background: #fff; border: 1.5px solid #EAE8E3; border-radius: 10px; outline: none; transition: all 0.18s; }
         .field-input:focus { border-color: #0D0D0D; box-shadow: 0 0 0 3px rgba(13,13,13,0.05); }
+        .checkout-container{box-shadow:0 14px 36px rgba(15,23,42,.055);}.checkout-eyebrow{display:flex;align-items:center;gap:7px;color:#1565C0;font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:10px;}.checkout-copy{font-size:14px;color:#64748B;line-height:1.55;margin:-14px 0 25px;}.checkout-summary{padding:18px;border:1px solid #EAE8E3;background:#FAFBFC;border-radius:14px;margin-bottom:24px;}.checkout-summary-title{font-size:11px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px;}.checkout-item-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#334155;padding:7px 0;border-bottom:1px solid #EEF0F2;}.checkout-item-row:last-child{border-bottom:0;padding-bottom:0;}.checkout-total-card{min-width:152px;padding:16px;border-radius:14px;background:#0D0D0D;color:white;}.checkout-total-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.62);margin-bottom:6px;}.checkout-total-value{font-size:24px;font-weight:800;letter-spacing:-.5px;}.saved-address-note{display:flex;align-items:flex-start;gap:8px;background:#EFF6FF;border:1px solid #D8E8FF;border-radius:10px;padding:10px 12px;margin:-8px 0 4px;color:#275D9A;font-size:12px;line-height:1.45;}.same-address-row{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#475569;margin-top:-9px;cursor:pointer;}.same-address-row input{width:16px;height:16px;accent-color:#1565C0;}
 
         .timeline-vertical { display: flex; flex-direction: column; gap: 16px; position: relative; margin-top: 24px; padding-left: 20px; }
         .timeline-vertical-line { position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: #EAE8E3; }
@@ -389,48 +473,26 @@ export default function CustomerDashboard() {
           .services-grid { grid-template-columns: 1fr !important; }
           .mobile-basket-bar.show { display: flex; }
           .checkout-container { max-width: 100% !important; }
+          .workspace-title { font-size:24px; line-height:1.12; letter-spacing:-.7px; }
+          .workspace-header-row { margin-bottom:4px; }
+          .mobile-cart-button { width:46px; height:46px; border:1px solid #D7E7FC; background:#EFF6FF; color:#1565C0; border-radius:14px; display:grid; place-items:center; position:relative; flex-shrink:0; cursor:pointer; }
+          .mobile-cart-button:active { transform:scale(.96); }
+          .mobile-cart-badge { position:absolute; top:-5px; right:-5px; min-width:19px; height:19px; padding:0 5px; border-radius:10px; background:#1565C0; color:#fff; border:2px solid #FAF9F7; display:grid; place-items:center; font-size:10px; font-weight:800; }
           .order-card-inner { flex-direction: column !important; gap: 16px !important; }
           .order-tracker-h { display: none !important; }
           .order-tracker-v { display: block !important; }
         }
 
         @media (min-width: 901px) {
+          .dashboard-shell { height:100dvh; overflow:hidden; }
+          .desktop-layout { min-height:0; overflow:hidden; }
+          .sidebar { position:sticky; top:0; height:100dvh; overflow-y:auto; flex-shrink:0; }
+          .main-content { height:100dvh; overflow-y:auto; min-width:0; padding:48px !important; }
+          .booking-workspace { display:flex; gap:40px; align-items:flex-start; }
+          .desktop-basket { position:sticky !important; top:32px !important; align-self:flex-start; flex-shrink:0; }
           .order-tracker-v { display: none !important; }
         }
       `}} />
-
-      {/* ═══════════════════════════════════════
-          TOP HEADER
-      ═══════════════════════════════════════ */}
-      <header className="header-nav" style={{
-        backgroundColor: '#FFFFFF',
-        borderBottom: '1px solid #EAE8E3',
-        padding: '16px 48px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div className="header-logo" onClick={() => router.push('/')}>
-          <img src="/bglogo.png" alt="BG Laundry" />
-          <span>BG Laundry</span>
-        </div>
-
-        {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              className="header-profile-circle"
-              onClick={() => setProfileDrawerOpen(true)}
-              title="View profile details"
-              aria-label="Open profile drawer"
-            >
-              {initials}
-            </div>
-          </div>
-        )}
-      </header>
 
       {/* ═══════════════════════════════════════
           MAIN WRAPPER
@@ -439,6 +501,11 @@ export default function CustomerDashboard() {
         
         {/* DESKTOP SIDEBAR */}
         <aside className="sidebar">
+          <div className="sidebar-brand" onClick={() => router.push('/')}>
+            <img src="/bglogo.png" alt="BG Laundry" />
+            <span>BG Laundry</span>
+          </div>
+          <p className="sidebar-label">Workspace</p>
           <button
             onClick={() => { setActiveTab('BOOK'); setSuccess(''); setError(''); }}
             className={`sidebar-btn ${activeTab === 'BOOK' ? 'active' : ''}`}
@@ -475,6 +542,13 @@ export default function CustomerDashboard() {
             <History size={18} />
             Order History
           </button>
+          <div className="sidebar-footer">
+            <button className="sidebar-profile" onClick={() => setProfileDrawerOpen(true)}>
+              <span className="sidebar-avatar">{initials}</span>
+              <span style={{ minWidth:0 }}><span className="sidebar-profile-name">{user?.fullName || 'Your Profile'}</span><span className="sidebar-profile-copy">Manage your details</span></span>
+            </button>
+            <button className="sidebar-logout" onClick={handleLogout}><LogOut size={15} /> Sign out</button>
+          </div>
         </aside>
 
         {/* WORKSPACE AREA */}
@@ -516,11 +590,19 @@ export default function CustomerDashboard() {
               TAB 1: BOOK VIEW
           ═══════════════════════════════════════ */}
           {activeTab === 'BOOK' && (
-            <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
+            <div className="booking-workspace">
               
               <div style={{ flex: 1 }}>
                 {bookingStep === 'SELECT' ? (
                   <>
+                    <div className="workspace-header-row">
+                      <h1 className="workspace-title">Book your laundry <span className="catalog-count">{filteredServices.length} services</span></h1>
+                      <button className="mobile-cart-button" onClick={() => setMobileBasketOpen(true)} aria-label="Open basket">
+                        <ShoppingBag size={21} />
+                        {getBasketCount() > 0 && <span className="mobile-cart-badge">{getBasketCount()}</span>}
+                      </button>
+                    </div>
+                    <p className="workspace-copy">Select the items you need cleaned, choose your preferred service, and we’ll handle the rest.</p>
                     <div className="cat-scroll-container">
                       {(['Clothing', 'Household', 'Additional'] as ServiceCategory[]).map((cat) => (
                         <button
@@ -547,48 +629,37 @@ export default function CustomerDashboard() {
 
                           return (
                             <div key={svc.id} className="service-card">
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                  width: '36px', height: '36px', borderRadius: '10px',
-                                  backgroundColor: '#FAF9F7', border: '1px solid #EAE8E3',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  color: '#0055FF'
-                                }}>
+                              <div className="service-card-header">
+                                <div className="service-card-icon">
                                   <Shirt size={16} />
                                 </div>
-                                <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#0D0D0D' }}>
-                                  {svc.name}
-                                </h3>
+                                <div><h3 className="service-card-title">{svc.name}</h3><p className="service-card-subtitle">Expert care, cleaned your way</p></div>
                               </div>
 
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div className="service-options">
                                 {options.map((opt, idx) => {
                                   const key = `${svc.name} - ${opt.type}`;
                                   const basketQty = basket[key]?.quantity || 0;
 
                                   return (
-                                    <div key={idx} style={{
-                                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                      padding: '10px 14px', backgroundColor: '#FAFAF9',
-                                      borderRadius: '10px', border: '1.5px solid #F1F0ED'
-                                    }}>
+                                    <div key={idx} className="service-option">
                                       <div>
-                                        <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151' }}>{opt.type}</div>
-                                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0D0D0D', marginTop: '1px' }}>{formatCurrency(opt.price)}</div>
+                                        <div className="service-option-name">{opt.type}</div>
+                                        <div className="service-option-price">{formatCurrency(opt.price)}</div>
                                       </div>
 
                                       {basketQty > 0 ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div className="service-quantity">
                                           <button onClick={() => handleRemoveFromBasket(key)} className="btn-round-adjust">
                                             <Minus size={11} />
                                           </button>
-                                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#0D0D0D', width: '12px', textAlign: 'center' }}>{basketQty}</span>
+                                          <span className="service-quantity-count">{basketQty}</span>
                                           <button onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)} className="btn-round-adjust">
                                             <Plus size={11} />
                                           </button>
                                         </div>
                                       ) : (
-                                        <button onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)} className="btn-action-sm">
+                                        <button onClick={() => handleAddToBasket(svc.name, opt.type, opt.price)} className="service-add">
                                           Add
                                         </button>
                                       )}
@@ -611,23 +682,25 @@ export default function CustomerDashboard() {
                     padding: '32px',
                     maxWidth: '560px'
                   }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0D0D0D', marginBottom: '24px', letterSpacing: '-0.3px' }}>
-                      Schedule Laundry Pickup
+                    <div className="checkout-eyebrow"><Calendar size={14} /> Final step</div>
+                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0D0D0D', marginBottom: '18px', letterSpacing: '-0.7px' }}>
+                      Schedule your pickup
                     </h2>
+                    <p className="checkout-copy">Confirm where and when we should collect your laundry. You can update these details whenever you need to.</p>
 
                     <form onSubmit={handlePlaceOrder}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                          <div>
-                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#6B7280', marginBottom: '8px' }}>Selected Items</div>
+                        <div className="checkout-summary" style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: '200px' }}>
+                            <div className="checkout-summary-title">Selected items</div>
                             {basketItems.length === 0 ? (
                               <div style={{ fontSize: '13px', color: '#9CA3AF' }}>No items selected yet. Go back to choose services.</div>
                             ) : (
                               <div style={{ display: 'grid', gap: '10px' }}>
                                 {basketItems.map((item) => (
-                                  <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                                    <span style={{ fontSize: '13px', color: '#0D0D0D' }}>{item.serviceName}</span>
-                                    <span style={{ fontSize: '13px', color: '#0D0D0D', fontWeight: '700' }}>
+                                  <div key={item.serviceName} className="checkout-item-row">
+                                    <span>{item.serviceName}</span>
+                                    <span style={{ fontWeight: '800', whiteSpace: 'nowrap' }}>
                                       {item.quantity} × {formatCurrency(item.price)}
                                     </span>
                                   </div>
@@ -635,11 +708,13 @@ export default function CustomerDashboard() {
                               </div>
                             )}
                           </div>
-                          <div style={{ minWidth: '140px', padding: '16px', borderRadius: '16px', backgroundColor: '#F5F5F4', border: '1px solid #EAE8E3' }}>
-                            <div style={{ fontSize: '11px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '8px' }}>Order total</div>
-                            <div style={{ fontSize: '22px', fontWeight: '700', color: '#0D0D0D' }}>{formatCurrency(basketTotal)}</div>
+                          <div className="checkout-total-card">
+                            <div className="checkout-total-label">Order total</div>
+                            <div className="checkout-total-value">{formatCurrency(basketTotal)}</div>
                           </div>
                         </div>
+
+                        {preferredAddress && <div className="saved-address-note"><MapPin size={15} style={{ flexShrink: 0, marginTop: '1px' }} /><span>Your saved address has been added below. Edit it if this pickup needs a different location.</span></div>}
 
                         <div>
                           <label className="field-label">Pickup Address</label>
@@ -647,7 +722,7 @@ export default function CustomerDashboard() {
                             type="text"
                             required
                             value={pickupAddress}
-                            onChange={(e) => setPickupAddress(e.target.value)}
+                            onChange={(e) => { setPickupAddress(e.target.value); if (useSameAddress) setDeliveryAddress(e.target.value); }}
                             placeholder="e.g. Apt 4, 16B Maria Okor Street, Ejibo"
                             className="field-input"
                           />
@@ -659,10 +734,11 @@ export default function CustomerDashboard() {
                             type="text"
                             required
                             value={deliveryAddress}
-                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            onChange={(e) => { setDeliveryAddress(e.target.value); setUseSameAddress(false); }}
                             placeholder="e.g. Same as pickup address"
                             className="field-input"
                           />
+                          <label className="same-address-row"><input type="checkbox" checked={useSameAddress} onChange={(e) => { setUseSameAddress(e.target.checked); if (e.target.checked) setDeliveryAddress(pickupAddress); }} /> Use the pickup address for delivery</label>
                         </div>
 
                         <div>
@@ -1157,8 +1233,15 @@ export default function CustomerDashboard() {
               </button>
             </div>
 
+            {basketItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0 32px', color: '#64748B' }}>
+                <ShoppingBag size={34} style={{ color: '#94A3B8', marginBottom: '12px' }} />
+                <p style={{ fontSize: '15px', fontWeight: '700', color: '#0D0D0D', marginBottom: '6px' }}>Your basket is empty</p>
+                <p style={{ fontSize: '13px' }}>Add a service to see it here.</p>
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
-              {(Object.values(basket) as BasketItem[]).map((item) => (
+              {basketItems.map((item) => (
                 <div key={item.serviceName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #F3F1ED', paddingBottom: '14px' }}>
                   <div style={{ flex: 1, paddingRight: '12px' }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#0D0D0D' }}>{item.serviceName}</div>
@@ -1182,8 +1265,9 @@ export default function CustomerDashboard() {
                 </div>
               ))}
             </div>
+            )}
 
-            <div style={{ borderTop: '1.5px dashed #EAE8E3', paddingTop: '20px' }}>
+            {basketItems.length > 0 && <div style={{ borderTop: '1.5px dashed #EAE8E3', paddingTop: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <span style={{ fontSize: '14px', fontWeight: '500', color: '#6B7280' }}>Total Amount:</span>
                 <span style={{ fontSize: '20px', fontWeight: '700', color: '#0D0D0D' }}>
@@ -1204,6 +1288,7 @@ export default function CustomerDashboard() {
                 Checkout <ChevronRight size={16} />
               </button>
             </div>
+            }
           </div>
         </>
       )}

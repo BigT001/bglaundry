@@ -173,6 +173,7 @@ export default function Home() {
     .top-nav{position:absolute;top:0;left:0;right:0;z-index:100;display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 0;}
     .nav-logo{display:flex;flex-direction:column;align-items:center;cursor:pointer;}
     .hamburger{width:46px;height:46px;background:#0B1B3E;border-radius:10px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:white;flex-shrink:0;}
+    .desktop-nav{display:none;}
     
     /* ── HERO SECTION WITH LARGE BACKGROUND ── */
     .hero-section{
@@ -201,6 +202,80 @@ export default function Home() {
     .hero-h1{font-size:38px;font-weight:900;color:#0B1B3E;text-transform:uppercase;line-height:1.04;letter-spacing:-0.6px;}
     .hero-h1-blue{color:#1565C0;display:block;}
     .hero-ul{display:flex;align-items:center;gap:5px;margin:10px 0 12px;}
+    @media (min-width: 1024px) {
+      .shell {
+        max-width: 100%;
+        margin: 0;
+        box-shadow: none;
+      }
+      .top-nav{
+        align-items:center;
+        padding:18px clamp(40px,6vw,112px);
+        background:rgba(255,255,255,0.90);
+        border-bottom:1px solid rgba(203,213,225,0.78);
+        box-shadow:0 4px 24px rgba(15,23,42,0.05);
+        backdrop-filter:blur(14px);
+      }
+      .nav-logo img{width:92px!important;height:76px!important;}
+      .desktop-nav{display:flex;align-items:center;gap:clamp(20px,2vw,36px);margin-left:auto;}
+      .desktop-nav button{appearance:none;border:0;background:transparent;color:#334155;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;padding:12px 0;transition:color .2s ease;}
+      .desktop-nav button:hover{color:#1565C0;}
+      .desktop-nav .nav-price{color:#1565C0;}
+      .desktop-nav .nav-book{background:#1565C0;color:white;border-radius:10px;padding:13px 20px;box-shadow:0 7px 16px rgba(21,101,192,.22);}
+      .desktop-nav .nav-book:hover{background:#0f56aa;color:white;transform:translateY(-1px);}
+      .hamburger{display:none;}
+      .hero-section {
+        min-height: 780px;
+        padding: 178px clamp(40px,8vw,150px) 76px;
+        display:flex;
+        align-items:center;
+        background-position:center right;
+      }
+      .hero-section::before{background:linear-gradient(90deg,rgba(255,255,255,.98) 0%,rgba(255,255,255,.94) 30%,rgba(255,255,255,.58) 51%,rgba(255,255,255,.12) 76%,rgba(255,255,255,.02) 100%);}
+      .hero-content-wrap {
+        max-width: 670px;
+      }
+      .hero-h1{font-size:clamp(58px,5vw,78px);line-height:.98;letter-spacing:-2.4px;}
+      .hero-ul{margin:19px 0 20px;gap:8px;}
+      .hero-ul-bar{width:48px;height:5px;}
+      .hero-ul-dot{width:9px;height:9px;}
+      .hero-sub{font-size:18px;line-height:1.55;max-width:580px;margin-bottom:30px;}
+      .hf-list{display:grid;grid-template-columns:repeat(3,minmax(145px,1fr));gap:14px;margin-bottom:34px;max-width:650px;}
+      .hf-item{align-items:center;gap:11px;background:rgba(255,255,255,.70);padding:12px;border:1px solid rgba(226,232,240,.9);border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,.04);}
+      .hf-icon{width:46px;height:46px;font-size:20px;}
+      .hf-text h4{font-size:14px;line-height:1.2;margin-bottom:4px;}
+      .hf-text p{font-size:11px;line-height:1.4;}
+      .hero-ctas{gap:14px;margin-bottom:18px;max-width:570px;}
+      .btn-book,.btn-chat{flex:initial;width:275px;height:60px;border-radius:12px;font-size:13px;}
+      .btn-book:hover,.btn-chat:hover{transform:translateY(-2px);}
+      .social-proof{max-width:570px;padding:14px 18px;}
+      .sp-text{font-size:12px;}
+      .av{width:31px;height:31px;font-size:13px;}
+      .sp-stars{font-size:15px;}
+      .services-section{padding:72px clamp(40px,6vw,112px) 88px;}
+      .services-section .sec-label{margin-bottom:30px;}
+      .svc-grid{max-width:1440px;margin:0 auto;gap:18px;}
+      .svc-card{border-radius:16px;padding:22px 20px;min-height:108px;}
+      .svc-left{gap:15px;}
+      .svc-icon{width:54px;height:54px;border-radius:13px;font-size:25px;}
+      .svc-info h3{font-size:16px;margin-bottom:5px;}
+      .svc-info p{font-size:13px;}
+      .svc-chev{font-size:26px;}
+      .hiw-section{padding:78px clamp(40px,6vw,112px) 88px;}
+      .sec-label{font-size:12px;letter-spacing:3.5px;margin-bottom:12px;}
+      .sec-label::before,.sec-label::after{max-width:58px;}
+      .sec-title{font-size:38px;margin-bottom:42px;}
+      .steps-row{max-width:800px;}
+      .steps-conn{top:48px;}
+      .step-wrap{width:96px;height:96px;font-size:38px;margin-bottom:14px;}
+      .step-badge{width:27px;height:27px;font-size:12px;}
+      .step-title{font-size:13px;margin-bottom:6px;}
+      .step-desc{font-size:12px;max-width:170px;}
+      .help-footer{position:relative;padding:20px clamp(40px,6vw,112px);}
+      .help-ph-circle{width:48px;height:48px;font-size:19px;}
+      .help-txt h4{font-size:14px;}.help-txt p{font-size:12px;}
+      .btn-wa{height:48px;padding:0 22px;font-size:12px;}
+    }
     .hero-ul-bar{width:28px;height:3.5px;background:#1565C0;border-radius:2px;}
     .hero-ul-dot{width:6px;height:6px;border-radius:50%;background:#1565C0;}
     .hero-sub{font-size:12.5px;color:#4B5563;line-height:1.6;margin-bottom:18px;max-width:70%;}
@@ -226,6 +301,7 @@ export default function Home() {
     .sec-label{display:flex;align-items:center;justify-content:center;gap:10px;font-size:10px;font-weight:800;color:#1565C0;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px;}
     .sec-label::before,.sec-label::after{content:'';flex:1;max-width:36px;height:1px;background:#CBD5E1;}
     .sec-title{text-align:center;font-size:22px;font-weight:900;color:#0B1B3E;margin-bottom:26px;font-style:italic;}
+    .services-heading,.hiw-copy{display:none;}
     .steps-row{display:flex;justify-content:space-between;position:relative;max-width:360px;margin:0 auto;}
     .steps-conn{position:absolute;top:35px;left:18%;right:18%;border-top:2px dashed #CBD5E1;z-index:0;}
     .step-col{flex:1;display:flex;flex-direction:column;align-items:center;z-index:1;padding:0 6px;}
@@ -320,6 +396,37 @@ export default function Home() {
     .m-sub:disabled{background:#94A3B8;cursor:not-allowed;}
     #recaptcha-container{position:absolute!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;}
     @media(min-width:481px){.shell{border-radius:24px;margin:20px auto;min-height:calc(100vh - 40px);}}
+
+    /* Desktop presentation only — mobile remains intentionally compact. */
+    @media (min-width:1024px){
+      .shell{max-width:none;margin:0;border-radius:0;min-height:100vh;}
+      .hero-h1{font-size:clamp(58px,5vw,78px);line-height:.98;letter-spacing:-2.4px;}
+      .hero-ul{margin:19px 0 20px;gap:8px;}.hero-ul-bar{width:48px;height:5px;}.hero-ul-dot{width:9px;height:9px;}
+      .hero-sub{font-size:18px;line-height:1.55;max-width:580px;margin-bottom:30px;}
+      .hf-list{display:grid;grid-template-columns:repeat(3,minmax(145px,1fr));gap:14px;margin-bottom:34px;max-width:650px;}
+      .hf-item{align-items:center;gap:11px;background:rgba(255,255,255,.70);padding:12px;border:1px solid rgba(226,232,240,.9);border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,.04);}
+      .hf-icon{width:46px;height:46px;font-size:20px;}.hf-text h4{font-size:14px;line-height:1.2;margin-bottom:4px;}.hf-text p{font-size:11px;line-height:1.4;}
+      .hero-ctas{gap:14px;margin-bottom:18px;max-width:570px;}.btn-book,.btn-chat{flex:initial;width:275px;height:60px;border-radius:12px;font-size:13px;}
+      .social-proof{max-width:570px;padding:14px 18px;}.av{width:31px;height:31px;font-size:13px;}.sp-stars{font-size:15px;}.sp-text{font-size:12px;}
+
+      .services-section{padding:96px clamp(48px,7vw,144px) 112px;}
+      .services-heading{display:block;max-width:760px;margin:0 auto 42px;text-align:center;}
+      .services-heading h2{font-size:clamp(34px,3vw,48px);line-height:1.08;letter-spacing:-1.4px;color:#0B1B3E;margin:0 0 14px;font-weight:900;}
+      .services-heading p{font-size:18px;line-height:1.6;color:#64748B;margin:0 auto;max-width:670px;}
+      .services-section .sec-label{margin-bottom:16px;}
+      .svc-grid{max-width:1440px;margin:0 auto;gap:20px;}
+      .svc-card{min-height:132px;border-radius:18px;padding:25px 24px;box-shadow:0 6px 20px rgba(15,23,42,.045);}
+      .svc-card:hover{border-color:#1565C0;box-shadow:0 16px 30px rgba(21,101,192,.14);}
+      .svc-left{gap:17px;}.svc-icon{width:58px;height:58px;border-radius:15px;font-size:27px;}.svc-info h3{font-size:18px;margin-bottom:6px;}.svc-info p{font-size:14px;line-height:1.45;}.svc-chev{font-size:28px;}
+
+      .hiw-section{padding:96px clamp(48px,7vw,144px) 108px;}
+      .hiw-section .sec-label{margin-bottom:15px;}.sec-label{font-size:12px;letter-spacing:3.5px;}.sec-label::before,.sec-label::after{max-width:58px;}
+      .sec-title{font-size:clamp(38px,3vw,50px);line-height:1.06;margin-bottom:14px;}
+      .hiw-copy{display:block;max-width:650px;margin:0 auto 48px;text-align:center;color:#64748B;font-size:18px;line-height:1.6;}
+      .steps-row{max-width:900px;}.steps-conn{top:51px;left:18%;right:18%;border-width:3px;}.step-wrap{width:104px;height:104px;font-size:42px;margin-bottom:16px;}.step-badge{width:29px;height:29px;font-size:13px;}.step-title{font-size:14px;margin-bottom:7px;}.step-desc{font-size:13px;line-height:1.55;max-width:190px;}
+      .help-footer{position:relative;padding:22px clamp(48px,7vw,144px);}.help-ph-circle{width:50px;height:50px;font-size:20px;}.help-txt h4{font-size:15px;}.help-txt p{font-size:13px;}.btn-wa{height:50px;padding:0 24px;font-size:13px;}
+    }
+    @media (min-width:1240px){.svc-grid{grid-template-columns:repeat(3,1fr);}}
   `;
 
   return (
@@ -334,6 +441,13 @@ export default function Home() {
         <div className="nav-logo" onClick={() => router.push('/')}>
           <Image src="/bglogo.png" alt="BG Laundry" width={70} height={70} style={{ objectFit: 'contain' }} priority />
         </div>
+        <nav className="desktop-nav" aria-label="Primary navigation">
+          <button onClick={() => document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' })}>Home</button>
+          <button onClick={() => document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' })}>Services</button>
+          <button onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
+          <button className="nav-price" onClick={() => setShowPricingModal(true)}>Price Catalog</button>
+          <button className="nav-book" onClick={handleStart}>{loggedIn ? 'My Dashboard' : 'Book a Pickup'}</button>
+        </nav>
         <button className="hamburger" aria-label="Open menu" onClick={() => setShowMenuDrawer(true)}>
           <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
             <rect width="20" height="2.4" rx="1.2" fill="white" />
@@ -347,8 +461,8 @@ export default function Home() {
       <section id="home" className="hero-section">
         <div className="hero-content-wrap">
           <h1 className="hero-h1">
-            Clean Clothes.
-            <span className="hero-h1-blue">Happy Life.</span>
+            Fresh Clothes.
+            <span className="hero-h1-blue">Fresh Confidence.</span>
           </h1>
           <div className="hero-ul">
             <div className="hero-ul-bar" />
@@ -407,6 +521,10 @@ export default function Home() {
       {/* OUR SERVICES */}
       <section id="services" className="services-section">
         <div className="sec-label">OUR SERVICES</div>
+        <div className="services-heading">
+          <h2>Everything your wardrobe needs, in expert hands.</h2>
+          <p>From everyday favourites to delicate pieces, choose the care that fits your routine. We collect, clean, and return every item ready to wear.</p>
+        </div>
         <div className="svc-grid">
           {serviceCards.map((s) => (
             <div key={s.title} className="svc-card" onClick={() => { setPricingCategory(s.cat); setShowPricingModal(true); }}>
@@ -424,6 +542,7 @@ export default function Home() {
       <section id="how-it-works" className="hiw-section">
         <div className="sec-label">HOW IT WORKS</div>
         <h2 className="sec-title">Laundry made simple</h2>
+        <p className="hiw-copy">A smoother laundry day starts here. Choose a pickup time that works for you, then relax while our team handles the rest.</p>
         <div className="steps-row">
           <div className="steps-conn" />
           <div className="step-col">
