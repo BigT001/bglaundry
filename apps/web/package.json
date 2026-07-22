@@ -11,6 +11,7 @@
     "@aws-sdk/client-s3": "^3.500.0",
     "@bglaundry/database": "workspace:*",
     "axios": "^1.6.0",
+    "bcrypt": "^6.0.0",
     "firebase": "^12.16.0",
     "firebase-admin": "^14.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -19,6 +20,7 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.12.7",
     "@types/react": "19.1.17",

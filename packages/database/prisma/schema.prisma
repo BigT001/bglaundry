@@ -32,21 +32,24 @@ enum PaymentStatus {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  phoneNumber   String    @unique
-  email         String?   @unique
-  fullName      String
-  role          Role      @default(CUSTOMER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  phoneNumber     String    @unique
+  email           String?   @unique
+  fullName        String
+  passwordHash    String?   // NULL for drivers using phone-only auth, non-NULL for customers
+  pickupAddress   String?   // Default pickup address for customers
+  addressType     String?   // "HOME" or "OFFICE"
+  role            Role      @default(CUSTOMER)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Customer specific
-  customerOrders Order[]  @relation("CustomerOrders")
+  customerOrders  Order[]   @relation("CustomerOrders")
   
   // Driver specific
-  driverOrders   Order[]  @relation("DriverOrders")
-  driverEarnings Earning[]
-  driverProfile  DriverProfile?
+  driverOrders    Order[]   @relation("DriverOrders")
+  driverEarnings  Earning[]
+  driverProfile   DriverProfile?
 }
 
 model DriverProfile {
