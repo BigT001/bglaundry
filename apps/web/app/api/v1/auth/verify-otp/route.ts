@@ -49,15 +49,20 @@ export async function POST(request: NextRequest) {
 
     // 1. Check in-memory / Termii backend OTP map first
     if (code) {
-      const stored =
-        otpMap.get(phoneNumber) ||
-        otpMap.get(localPhone) ||
-        otpMap.get(intlPhone) ||
-        otpMap.get(rawIntl);
-
-      if (stored && stored.code === String(code).trim() && Date.now() <= stored.expiresAt) {
-        verified = true;
-        console.log(`[Verify OTP] Code verified successfully via backend store for ${intlPhone}`);
+      const triedKeys = [phoneNumber, localPhone, intlPhone, rawIntl];
+      let stored;
+      for (const k of triedKeys) {
+        const entry = otpMap.get(k);
+        console.log(`[Verify OTP] checking key=${k} -> ${entry ? 'FOUND' : 'missing'}`);
+        if (entry) stored = entry;
+        if (stored && stored.code === String(code).trim() && Date.now() <= stored.expiresAt) {
+          verified = true;
+          console.log(`[Verify OTP] Code verified successfully via backend store for ${intlPhone} (key ${k})`);
+          break;
+        }
+      }
+      if (!verified) {
+        console.log(`[Verify OTP] No matching OTP in store for ${intlPhone} / tried: ${triedKeys.join(', ')}`);
       }
     }
 

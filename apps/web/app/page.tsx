@@ -135,11 +135,14 @@ export default function Home() {
           v = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
           await v.render(); setVerifier(v);
         }
-        signInWithPhoneNumber(auth, fmt, v).then((r) => setConfirmation(r)).catch(() => {});
+        signInWithPhoneNumber(auth, fmt, v)
+          .then((r) => setConfirmation(r))
+          .catch((e) => { console.error('[Firebase SMS Error]', e); });
         if (!serverCode) setLoginInfo('OTP sent to ' + fmt);
       } catch (fbErr) {
+        console.error('[Firebase signInWithPhoneNumber failed]', fbErr);
         // If Firebase SMS fails but serverCode exists, continue and show server code.
-        if (!serverCode) setLoginError('Failed to send OTP via Firebase.');
+        if (!serverCode) setLoginError(`Firebase error: ${fbErr?.code || fbErr?.message || 'unknown'}`);
       }
 
       setLoginStep('OTP');

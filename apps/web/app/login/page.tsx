@@ -100,14 +100,11 @@ export default function LoginPage() {
         // If we already showed the server code, include note that Firebase SMS was attempted
         if (!serverCode) setInfo(`Code sent to ${formatted}`);
       } catch (fbErr) {
+        console.error('[Firebase signInWithPhoneNumber failed]', fbErr);
         // If Firebase SMS fails, rely on serverCode shown above (dev or Termii fallback)
         if (!serverCode) {
-          const msg = (fbErr?.message || '').toLowerCase();
-          if (msg.includes('invalid-app-credential') || msg.includes('recaptcha')) {
-            setError('Security check failed. Please click Continue again to retry.');
-          } else {
-            setError(fbErr?.message || 'Could not send code via Firebase.');
-          }
+          const codeStr = fbErr?.code || fbErr?.message || 'unknown';
+          setError(`Firebase error: ${codeStr}`);
           resetVerifier();
           return;
         }
