@@ -115,7 +115,18 @@ export default function Home() {
     setLoginLoading(true); setLoginError(''); setLoginInfo('');
     const fmt = phone.startsWith('+') ? phone : '+234' + phone.replace(/^0+/, '');
     try {
-      await axios.post('/api/v1/auth/request-otp', { phoneNumber: fmt });
+      // Request server-side OTP. If the server returns a code (dev fallback), show it to the user.
+      let serverCode: string | null = null;
+      try {
+        const resp = await axios.post('/api/v1/auth/request-otp', { phoneNumber: fmt });
+        if (resp?.data?.code) {
+          serverCode = String(resp.data.code);
+          setLoginInfo(`OTP sent to ${fmt}. Code: ${serverCode}`);
+        }
+      } catch (reqErr) {
+        // Ignore server-side OTP errors — we'll still try Firebase delivery
+      }
+
       try {
         let v = verifier;
         if (!v) {
@@ -125,8 +136,13 @@ export default function Home() {
           await v.render(); setVerifier(v);
         }
         signInWithPhoneNumber(auth, fmt, v).then((r) => setConfirmation(r)).catch(() => {});
-      } catch { }
-      setLoginInfo('OTP sent to ' + fmt); setLoginStep('OTP');
+        if (!serverCode) setLoginInfo('OTP sent to ' + fmt);
+      } catch (fbErr) {
+        // If Firebase SMS fails but serverCode exists, continue and show server code.
+        if (!serverCode) setLoginError('Failed to send OTP via Firebase.');
+      }
+
+      setLoginStep('OTP');
     } catch (err: any) {
       setLoginError(err.response?.data?.error || 'Failed to send OTP.');
     } finally { setLoginLoading(false); }

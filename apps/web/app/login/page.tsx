@@ -71,6 +71,18 @@ export default function LoginPage() {
     if (!phone || loading) return;
     setLoading(true); setError(''); setInfo('');
     try {
+      // First request a server-side OTP (useful when SMS provider or Firebase SMS fails)
+      let serverCode: string | null = null;
+      try {
+        const resp = await axios.post('/api/v1/auth/request-otp', { phoneNumber: formatted });
+        if (resp?.data?.code) {
+          serverCode = String(resp.data.code);
+          setInfo(`OTP sent to ${formatted}. Code: ${serverCode}`);
+        }
+      } catch (reqErr) {
+        // ignore server-side OTP failures — we'll still attempt Firebase flow below
+      }
+
       // Re-build verifier if it expired between page load and submit
       let v = verifier;
       if (!v) {
@@ -80,9 +92,27 @@ export default function LoginPage() {
         await v.render();
         setVerifier(v);
       }
-      const result = await signInWithPhoneNumber(auth, formatted, v);
-      setConfirmation(result);
-      setInfo(`Code sent to ${formatted}`);
+
+      // Attempt Firebase SMS delivery; this may fail if Firebase config is missing.
+      try {
+        const result = await signInWithPhoneNumber(auth, formatted, v);
+        setConfirmation(result);
+        // If we already showed the server code, include note that Firebase SMS was attempted
+        if (!serverCode) setInfo(`Code sent to ${formatted}`);
+      } catch (fbErr) {
+        // If Firebase SMS fails, rely on serverCode shown above (dev or Termii fallback)
+        if (!serverCode) {
+          const msg = (fbErr?.message || '').toLowerCase();
+          if (msg.includes('invalid-app-credential') || msg.includes('recaptcha')) {
+            setError('Security check failed. Please click Continue again to retry.');
+          } else {
+            setError(fbErr?.message || 'Could not send code via Firebase.');
+          }
+          resetVerifier();
+          return;
+        }
+      }
+
       setStep('OTP');
     } catch (err: any) {
       const msg = (err.message || '').toLowerCase();
