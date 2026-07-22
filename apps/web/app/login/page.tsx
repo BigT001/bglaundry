@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { auth } from '../../lib/firebase';
@@ -147,22 +148,38 @@ export default function LoginPage() {
         .page {
           min-height: 100svh;
           display: flex; align-items: center; justify-content: center;
-          background: #F5F4F0;
+          background: radial-gradient(circle at top, rgba(21,101,192,0.12), transparent 28%), #F5F4F0;
           padding: 24px;
         }
         .card {
-          width: 100%; max-width: 380px;
+          width: 100%; max-width: 400px;
           background: #fff;
-          border-radius: 16px;
-          padding: 40px 36px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.05);
+          border-radius: 22px;
+          padding: 36px 30px 34px;
+          box-shadow: 0 18px 55px rgba(15,23,42,0.12);
           animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) both;
         }
-        .logo {
-          text-align: center;
-          font-size: 15px; font-weight: 600; color: #0D0D0D;
-          letter-spacing: -0.2px;
-          margin-bottom: 6px;
+        .brand-top {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 14px;
+        }
+        .brand-logo {
+          width: 84px;
+          height: 84px;
+          display: grid;
+          place-items: center;
+          border-radius: 24px;
+          background: linear-gradient(180deg, #EAF2FF 0%, #FFFFFF 100%);
+          box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+          overflow: hidden;
+        }
+        .brand-name {
+          font-size: 18px; font-weight: 900;
+          color: #0D0D0D;
+          letter-spacing: -0.4px;
         }
         .tagline {
           text-align: center;
@@ -261,7 +278,12 @@ export default function LoginPage() {
 
       <div className="page">
         <div className="card">
-          <div className="logo">BG Laundry</div>
+          <div className="brand-top">
+            <div className="brand-logo">
+              <Image src="/bglogo.png" alt="BG Laundry" width={68} height={68} priority />
+            </div>
+            <div className="brand-name">BG Laundry</div>
+          </div>
           <div className="tagline">
             {step === 'PHONE' && 'Enter your phone number to continue'}
             {step === 'OTP' && `Code sent to ${formatted}`}

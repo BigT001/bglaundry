@@ -56,7 +56,7 @@ export default function HowItWorksPage() {
         .nav-logo:active{transform:scale(0.96);}
         .hamburger{width:44px;height:44px;background:#0B1B3E;border-radius:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:white;transition:all 0.2s;box-shadow:0 2px 8px rgba(11,27,62,0.15);}
         .hamburger:active{transform:scale(0.94);}
-        .header-sec{padding:28px 20px;background:linear-gradient(165deg,#D6EAFF 0%,#E8F4FF 50%,#F0F9FF 100%);border-bottom:1px solid rgba(255,255,255,0.5);}
+        .header-sec{padding:28px 20px;background:#fff;border-bottom:1px solid #F1F5F9;}
         .header-sec h1{font-size:28px;font-weight:900;color:#0B1B3E;margin-bottom:8px;letter-spacing:-0.5px;}
         .header-sec p{font-size:13px;color:#4B5563;line-height:1.5;}
         .content{padding:24px 20px;flex:1;}
@@ -81,15 +81,21 @@ export default function HowItWorksPage() {
         .help-txt p{font-size:10.5px;color:rgba(255,255,255,0.8);}
         .btn-wa{height:42px;padding:0 16px;background:white;color:#0B1B3E;border:none;border-radius:100px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;font-family:'DM Sans',sans-serif;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
         .btn-wa:active{transform:scale(0.96);}
-        .drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2000;display:flex;justify-content:flex-end;animation:fadeIn 0.3s ease-out;}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .drawer-panel{background:white;width:280px;max-width:85vw;height:100%;padding:20px;display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,0.15);animation:slideIn 0.3s cubic-bezier(0.16,1,0.3,1);}
-        @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
-        .drawer-x{align-self:flex-end;background:none;border:none;cursor:pointer;color:#94A3B8;padding:8px;font-size:22px;transition:color 0.2s;}
-        .drawer-x:active{color:#64748B;}
-        .drawer-item{padding:16px 12px;border-bottom:1px solid #F1F5F9;font-size:15px;font-weight:700;color:#0B1B3E;background:none;border:none;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
-        .drawer-item:hover{color:#1565C0;padding-left:16px;}
-        .drawer-item.blue{color:#1565C0;font-weight:800;}
+        .drawer-ov{position:fixed;inset:0;background:rgba(10,22,44,0.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:2000;display:flex;justify-content:flex-end;animation:drawerFade 0.28s ease-out both;}
+        @keyframes drawerFade{from{opacity:0}to{opacity:1}}
+        .drawer-panel{background:linear-gradient(180deg,#FFFFFF 0%,#F9FBFF 100%);width:300px;max-width:85vw;height:100%;padding:0;display:flex;flex-direction:column;box-shadow:-12px 0 48px rgba(15,23,42,0.22);border-left:1px solid rgba(148,163,184,0.16);border-radius:0 24px 24px 0;transform:translateX(110%) scale(0.98);opacity:0;animation:drawerSlideIn 0.34s cubic-bezier(0.22,1,0.36,1) forwards;}
+        @keyframes drawerSlideIn{from{transform:translateX(110%) scale(0.98);opacity:0;}to{transform:translateX(0) scale(1);opacity:1;}}
+        .drawer-header{padding:22px 22px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E2E8F0;}
+        .drawer-header h3{font-size:16px;font-weight:900;color:#0B1B3E;}
+        .drawer-x{width:40px;height:40px;background:#F1F5F9;border:none;border-radius:14px;cursor:pointer;color:#475569;padding:0;font-size:20px;transition:transform 0.2s,background-color 0.2s,color 0.2s;display:flex;align-items:center;justify-content:center;}
+        .drawer-x:hover{background:#E2E8F0;color:#0B1B3E;}
+        .drawer-x:active{transform:scale(0.94);}
+        .drawer-items{flex:1;overflow-y:auto;padding:12px 0;}
+        .drawer-item{padding:16px 22px;margin:0 12px;border-radius:14px;border:none;font-size:15px;font-weight:700;color:#0B1B3E;background:transparent;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s ease;display:block;width:calc(100% - 24px);}
+        .drawer-item:last-child{margin-bottom:24px;}
+        .drawer-item:hover{background:#F8FAFC;color:#0F4BB6;padding-left:24px;box-shadow:inset 4px 0 0 rgba(21,101,192,0.18);}
+        .drawer-item.blue{color:#0F4BB6;font-weight:800;background:rgba(21,101,192,0.08);box-shadow:inset 4px 0 0 rgba(21,101,192,0.24);}
+        .drawer-item.blue:hover{background:rgba(21,101,192,0.12);}
       `}} />
 
       <header className="top-nav">
@@ -147,12 +153,17 @@ export default function HowItWorksPage() {
       {showDrawer && (
         <div className="drawer-ov" onClick={() => setShowDrawer(false)}>
           <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
-            <button className="drawer-x" onClick={() => setShowDrawer(false)}>✕</button>
-            <button className="drawer-item" onClick={() => router.push('/')}>Home</button>
-            <button className="drawer-item" onClick={() => router.push('/how-it-works')}>How It Works</button>
-            <button className="drawer-item" onClick={() => router.push('/services')}>Our Services</button>
-            <button className="drawer-item" onClick={() => router.push('/pricing')}>Price Catalog</button>
-            <button className="drawer-item blue" onClick={() => router.push('/login')}>🔐 Sign In</button>
+            <div className="drawer-header">
+              <h3>Menu</h3>
+              <button className="drawer-x" onClick={() => setShowDrawer(false)}>✕</button>
+            </div>
+            <div className="drawer-items">
+              <button className="drawer-item" onClick={() => { router.push('/'); setShowDrawer(false); }}>Home</button>
+              <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowDrawer(false); }}>How It Works</button>
+              <button className="drawer-item" onClick={() => { router.push('/services'); setShowDrawer(false); }}>Our Services</button>
+              <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowDrawer(false); }}>Price Catalog</button>
+              <button className="drawer-item blue" onClick={() => { router.push('/login'); setShowDrawer(false); }}>🔐 Sign In</button>
+            </div>
           </div>
         </div>
       )}

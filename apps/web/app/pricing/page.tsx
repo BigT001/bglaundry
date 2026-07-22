@@ -47,6 +47,7 @@ const fallbackServices: ServiceItem[] = [
 export default function PricingPage() {
   const router = useRouter();
   const [showDrawer, setShowDrawer] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(true);
   const [dbServices, setDbServices] = useState<ServiceItem[]>(fallbackServices);
   const [category, setCategory] = useState<'Clothing' | 'Household' | 'Additional'>('Clothing');
 
@@ -75,25 +76,41 @@ export default function PricingPage() {
         .nav-logo:active{transform:scale(0.96);}
         .hamburger{width:44px;height:44px;background:#0B1B3E;border-radius:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;color:white;transition:all 0.2s;box-shadow:0 2px 8px rgba(11,27,62,0.15);}
         .hamburger:active{transform:scale(0.94);}
-        .header-sec{padding:28px 20px;background:linear-gradient(165deg,#D6EAFF 0%,#E8F4FF 50%,#F0F9FF 100%);border-bottom:1px solid rgba(255,255,255,0.5);}
+        .header-sec{padding:28px 20px;background:#fff;border-bottom:1px solid #F1F5F9;}
         .header-sec h1{font-size:28px;font-weight:900;color:#0B1B3E;margin-bottom:8px;letter-spacing:-0.5px;}
         .header-sec p{font-size:13px;color:#4B5563;line-height:1.5;}
-        .content{padding:24px 20px;flex:1;}
-        .tabs{display:flex;gap:10px;margin-bottom:22px;overflow-x:auto;padding-bottom:4px;}
-        .tabs::-webkit-scrollbar{height:3px;}
-        .tabs::-webkit-scrollbar-track{background:transparent;}
-        .tabs::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:2px;}
-        .tab-btn{flex-shrink:0;padding:10px 20px;border-radius:100px;border:1.5px solid #E2E8F0;background:#fff;color:#64748B;font-weight:700;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;transition:all 0.2s;white-space:nowrap;}
-        .tab-btn:active{transform:scale(0.96);}
-        .tab-btn.active{background:linear-gradient(135deg,#1565C0 0%,#1a4dbe 100%);color:white;border-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,0.24);}
-        .price-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-        .price-table th{background:linear-gradient(135deg,#F8FAFC 0%,#F0F4F8 100%);color:#64748B;font-weight:800;padding:12px 10px;border-bottom:1.5px solid #E2E8F0;text-align:left;font-size:11px;letter-spacing:0.3px;}
-        .price-table td{padding:14px 10px;border-bottom:1px solid #F1F5F9;}
-        .price-table tbody tr:hover{background:#F8FAFC;}
-        .pm-name{font-weight:800;color:#0B1B3E;}
-        .pm-val{color:#1565C0;font-weight:800;font-size:13px;}
-        .pm-book{padding:8px 14px;border-radius:100px;border:none;background:linear-gradient(135deg,#1565C0 0%,#1a4dbe 100%);color:white;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(21,101,192,0.2);}
-        .pm-book:active{transform:scale(0.96);}
+        .content{padding:24px 20px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        .info-panel{background:#fff;border:1.5px solid #E2E8F0;border-radius:20px;padding:32px 24px;text-align:center;max-width:380px;box-shadow:0 2px 24px rgba(15,23,42,0.08);}
+        .info-panel h2{font-size:22px;font-weight:900;color:#0B1B3E;margin-bottom:10px;letter-spacing:-0.3px;}
+        .info-panel p{font-size:13px;color:#525F7F;line-height:1.6;margin:0;}
+        .cta-btn{height:50px;width:100%;background:linear-gradient(135deg,#1565C0 0%,#1a4dbe 100%);color:white;border:none;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;box-shadow:0 4px 16px rgba(21,101,192,0.28);letter-spacing:0.5px;text-transform:uppercase;}
+        .cta-btn:active{transform:scale(0.98);}
+        .pm-ov{position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:3000;display:flex;align-items:flex-end;justify-content:center;}
+        .pm-sheet{background:white;border-radius:24px 24px 0 0;padding:22px 18px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;position:relative;animation:slideUpSheet 0.32s cubic-bezier(0.16,1,0.3,1) both;box-shadow:0 -10px 40px rgba(0,0,0,0.18);}
+        @keyframes slideUpSheet{from{transform:translateY(100%);}to{transform:translateY(0);}}
+        .pm-handle{width:44px;height:4.5px;background:#CBD5E1;border-radius:3px;margin:0 auto 16px;}
+        .pm-x{position:absolute;top:16px;right:16px;background:#F1F5F9;border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748B;transition:all 0.2s;}
+        .pm-x:active{transform:scale(0.9);}
+        .pm-title{font-size:19px;font-weight:900;color:#0B1B3E;text-align:center;margin-bottom:14px;letter-spacing:-0.3px;}
+        .pm-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+        .pm-tab{padding:8px 18px;border-radius:100px;border:1.5px solid #E2E8F0;background:transparent;color:#64748B;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+        .pm-tab:active{transform:scale(0.96);}
+        .pm-tab.active{background:linear-gradient(135deg,#1565C0 0%,#1a4dbe 100%);color:white;border-color:transparent;box-shadow:0 4px 12px rgba(21,101,192,0.24);}
+        .pm-table{width:100%;border-collapse:collapse;font-size:12px;}
+        .pm-table th{background:#F8FAFC;color:#64748B;font-weight:800;padding:11px 10px;border-bottom:1.5px solid #E2E8F0;text-align:left;font-size:11px;letter-spacing:0.3px;}
+        .pm-table td{padding:12px 10px;border-bottom:1px solid #F1F5F9;}
+        .pm-table tr:last-child td{border-bottom:none;}
+        .pm-nm{font-weight:800;color:#0B1B3E;}
+        .pm-pr{color:#1565C0;font-weight:800;font-size:13px;}
+        .pm-bk{padding:8px 14px;border-radius:100px;border:none;background:linear-gradient(135deg,#1565C0 0%,#1a4dbe 100%);color:white;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(21,101,192,0.2);}
+        .pm-bk:active{transform:scale(0.96);}
+        .pm-grid{display:none;grid-template-columns:1fr 1fr;gap:8px;}
+        .pm-card{background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:10px;}
+        .pm-card-t{font-size:12px;font-weight:800;color:#0B1B3E;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid #F1F5F9;}
+        .pm-card-r{display:flex;justify-content:space-between;font-size:10.5px;color:#64748B;margin-bottom:3px;}
+        .pm-card-r .v{color:#1565C0;font-weight:700;}
+        .pm-card-bk{width:100%;height:30px;border-radius:100px;border:none;background:#1565C0;color:white;font-size:10.5px;font-weight:700;cursor:pointer;margin-top:7px;}
+        @media(max-width:400px){.pm-table{display:none;}.pm-grid{display:grid;}}
         .help-footer{position:sticky;bottom:0;background:linear-gradient(135deg,#0B1B3E 0%,#1a2d4d 100%);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:500;box-shadow:0 -2px 12px rgba(0,0,0,0.1);}
         .help-left{display:flex;align-items:center;gap:12px;}
         .help-ph-circle{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;color:white;flex-shrink:0;background:rgba(255,255,255,0.08);}
@@ -101,15 +118,21 @@ export default function PricingPage() {
         .help-txt p{font-size:10.5px;color:rgba(255,255,255,0.8);}
         .btn-wa{height:42px;padding:0 16px;background:white;color:#0B1B3E;border:none;border-radius:100px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;font-family:'DM Sans',sans-serif;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
         .btn-wa:active{transform:scale(0.96);}
-        .drawer-ov{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:2000;display:flex;justify-content:flex-end;animation:fadeIn 0.3s ease-out;}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .drawer-panel{background:white;width:280px;max-width:85vw;height:100%;padding:20px;display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,0.15);animation:slideIn 0.3s cubic-bezier(0.16,1,0.3,1);}
-        @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
-        .drawer-x{align-self:flex-end;background:none;border:none;cursor:pointer;color:#94A3B8;padding:8px;font-size:22px;transition:color 0.2s;}
-        .drawer-x:active{color:#64748B;}
-        .drawer-item{padding:16px 12px;border-bottom:1px solid #F1F5F9;font-size:15px;font-weight:700;color:#0B1B3E;background:none;border:none;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s;}
-        .drawer-item:hover{color:#1565C0;padding-left:16px;}
-        .drawer-item.blue{color:#1565C0;font-weight:800;}
+        .drawer-ov{position:fixed;inset:0;background:rgba(10,22,44,0.42);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:2000;display:flex;justify-content:flex-end;animation:drawerFade 0.28s ease-out both;}
+        @keyframes drawerFade{from{opacity:0}to{opacity:1}}
+        .drawer-panel{background:linear-gradient(180deg,#FFFFFF 0%,#F9FBFF 100%);width:300px;max-width:85vw;height:100%;padding:0;display:flex;flex-direction:column;box-shadow:-12px 0 48px rgba(15,23,42,0.22);border-left:1px solid rgba(148,163,184,0.16);border-radius:0 24px 24px 0;transform:translateX(110%) scale(0.98);opacity:0;animation:drawerSlideIn 0.34s cubic-bezier(0.22,1,0.36,1) forwards;}
+        @keyframes drawerSlideIn{from{transform:translateX(110%) scale(0.98);opacity:0;}to{transform:translateX(0) scale(1);opacity:1;}}
+        .drawer-header{padding:22px 22px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E2E8F0;}
+        .drawer-header h3{font-size:16px;font-weight:900;color:#0B1B3E;}
+        .drawer-x{width:40px;height:40px;background:#F1F5F9;border:none;border-radius:14px;cursor:pointer;color:#475569;padding:0;font-size:20px;transition:transform 0.2s,background-color 0.2s,color 0.2s;display:flex;align-items:center;justify-content:center;}
+        .drawer-x:hover{background:#E2E8F0;color:#0B1B3E;}
+        .drawer-x:active{transform:scale(0.94);}
+        .drawer-items{flex:1;overflow-y:auto;padding:12px 0;}
+        .drawer-item{padding:16px 22px;margin:0 12px;border-radius:14px;border:none;font-size:15px;font-weight:700;color:#0B1B3E;background:transparent;text-align:left;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s ease;display:block;width:calc(100% - 24px);}
+        .drawer-item:last-child{margin-bottom:24px;}
+        .drawer-item:hover{background:#F8FAFC;color:#0F4BB6;padding-left:24px;box-shadow:inset 4px 0 0 rgba(21,101,192,0.18);}
+        .drawer-item.blue{color:#0F4BB6;font-weight:800;background:rgba(21,101,192,0.08);box-shadow:inset 4px 0 0 rgba(21,101,192,0.24);}
+        .drawer-item.blue:hover{background:rgba(21,101,192,0.12);}
       `}} />
 
       <header className="top-nav">
@@ -127,44 +150,10 @@ export default function PricingPage() {
       </div>
 
       <div className="content">
-        <div className="tabs">
-          {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (
-            <button
-              key={cat}
-              className={`tab-btn${category === cat ? ' active' : ''}`}
-              onClick={() => setCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="info-panel">
+          <h2>Price Catalog</h2>
+          <p>Your full pricing list opens automatically in the slide-up catalog. Close it when you’re done browsing.</p>
         </div>
-
-        <table className="price-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Wash</th>
-              <th>Iron</th>
-              <th>Wash & Iron</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.name}>
-                <td className="pm-name">{item.name}</td>
-                <td className="pm-val">{item.hasWash && item.washPrice > 0 ? `₦${item.washPrice.toLocaleString()}` : '—'}</td>
-                <td className="pm-val">{item.hasIron && item.ironPrice > 0 ? `₦${item.ironPrice.toLocaleString()}` : '—'}</td>
-                <td className="pm-val">{item.hasWashIron && item.washIronPrice > 0 ? `₦${item.washIronPrice.toLocaleString()}` : '—'}</td>
-                <td>
-                  <button className="pm-book" onClick={() => router.push('/login')}>
-                    Book
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       <footer className="help-footer">
@@ -183,12 +172,57 @@ export default function PricingPage() {
       {showDrawer && (
         <div className="drawer-ov" onClick={() => setShowDrawer(false)}>
           <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
-            <button className="drawer-x" onClick={() => setShowDrawer(false)}>✕</button>
-            <button className="drawer-item" onClick={() => router.push('/')}>Home</button>
-            <button className="drawer-item" onClick={() => router.push('/how-it-works')}>How It Works</button>
-            <button className="drawer-item" onClick={() => router.push('/services')}>Our Services</button>
-            <button className="drawer-item" onClick={() => router.push('/pricing')}>Price Catalog</button>
-            <button className="drawer-item blue" onClick={() => router.push('/login')}>🔐 Sign In</button>
+            <div className="drawer-header">
+              <h3>Menu</h3>
+              <button className="drawer-x" onClick={() => setShowDrawer(false)}>✕</button>
+            </div>
+            <div className="drawer-items">
+              <button className="drawer-item" onClick={() => { router.push('/'); setShowDrawer(false); }}>Home</button>
+              <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowDrawer(false); }}>How It Works</button>
+              <button className="drawer-item" onClick={() => { router.push('/services'); setShowDrawer(false); }}>Our Services</button>
+              <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowDrawer(false); }}>Price Catalog</button>
+              <button className="drawer-item blue" onClick={() => { router.push('/login'); setShowDrawer(false); }}>🔐 Sign In</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPricingModal && (
+        <div className="pm-ov" onClick={() => setShowPricingModal(false)}>
+          <div className="pm-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="pm-handle" />
+            <button className="pm-x" onClick={() => setShowPricingModal(false)}>✕</button>
+            <p className="pm-title">Service Pricing</p>
+            <div className="pm-tabs">
+              {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (
+                <button key={cat} className={`pm-tab${category === cat ? ' active' : ''}`} onClick={() => setCategory(cat)}>{cat}</button>
+              ))}
+            </div>
+            <table className="pm-table">
+              <thead><tr><th>Item</th><th>Wash</th><th>Iron</th><th>Both</th><th></th></tr></thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.name}>
+                    <td className="pm-nm">{item.name}</td>
+                    <td className="pm-pr">{item.hasWash && item.washPrice > 0 ? `₦${item.washPrice.toLocaleString()}` : '—'}</td>
+                    <td className="pm-pr">{item.hasIron && item.ironPrice > 0 ? `₦${item.ironPrice.toLocaleString()}` : '—'}</td>
+                    <td className="pm-pr">{item.hasWashIron && item.washIronPrice > 0 ? `₦${item.washIronPrice.toLocaleString()}` : '—'}</td>
+                    <td><button className="pm-bk" onClick={() => router.push('/login')}>Book</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="pm-grid">
+              {items.map((item) => (
+                <div key={item.name} className="pm-card">
+                  <p className="pm-card-t">{item.name}</p>
+                  {item.hasWash && item.washPrice > 0 && <div className="pm-card-r"><span>Wash</span><span className="v">₦{item.washPrice.toLocaleString()}</span></div>}
+                  {item.hasIron && item.ironPrice > 0 && <div className="pm-card-r"><span>Iron</span><span className="v">₦{item.ironPrice.toLocaleString()}</span></div>}
+                  {item.hasWashIron && item.washIronPrice > 0 && <div className="pm-card-r"><span>Both</span><span className="v">₦{item.washIronPrice.toLocaleString()}</span></div>}
+                  <button className="pm-card-bk" onClick={() => router.push('/login')}>Book Now</button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
