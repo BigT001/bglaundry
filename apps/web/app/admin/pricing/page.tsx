@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import Sidebar from '../Sidebar';
 import { Sliders, Save, ShieldAlert, Check, Plus, Trash2, Tag, HelpCircle } from '@/lib/icons';
 
 interface ServiceItem {
@@ -23,6 +22,7 @@ const CATEGORIES = ['Clothing', 'Household', 'Additional'];
 export default function AdminPricingPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,8 +47,10 @@ export default function AdminPricingPage() {
     const token = localStorage.getItem('adminToken');
     if (!token) {
       router.push('/admin');
+      setAuthChecked(true);
     } else {
       setAuthorized(true);
+      setAuthChecked(true);
       fetchServices();
     }
   }, []);
@@ -143,8 +145,29 @@ export default function AdminPricingPage() {
     }
   };
 
-  if (!authorized) {
-    return null;
+  if (!authChecked) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100vh',
+          backgroundColor: '#F8FAFC',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'Inter', sans-serif",
+          padding: '32px',
+          textAlign: 'center',
+          color: '#0F172A',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading pricing controls…</h2>
+          <p style={{ marginTop: '12px', color: '#64748B' }}>
+            Validating admin access and loading service rates.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const categoryServices = services.filter((s) => s.category === activeCategory);
@@ -171,9 +194,6 @@ export default function AdminPricingPage() {
         overflow: 'hidden',
       }}
     >
-      {/* Shared Sidebar Component */}
-      <Sidebar />
-
       {/* Main Content */}
       <main style={{ flex: 1, padding: '40px', boxSizing: 'border-box', overflowY: 'auto', height: '100vh' }}>
 

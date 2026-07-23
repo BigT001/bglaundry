@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import Sidebar from '../Sidebar';
 import { Search, Shield, User, Bike, AlertCircle } from '@/lib/icons';
 
 interface UserItem {
@@ -16,6 +15,7 @@ interface UserItem {
 export default function AdminUsersPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,8 +25,10 @@ export default function AdminUsersPage() {
     const token = localStorage.getItem('adminToken');
     if (!token) {
       router.push('/admin');
+      setAuthChecked(true);
     } else {
       setAuthorized(true);
+      setAuthChecked(true);
       fetchUsers();
     }
   }, []);
@@ -43,8 +45,29 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (!authorized) {
-    return null;
+  if (!authChecked) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100vh',
+          backgroundColor: '#F8FAFC',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'Inter', sans-serif",
+          padding: '32px',
+          textAlign: 'center',
+          color: '#0F172A',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading users directory…</h2>
+          <p style={{ marginTop: '12px', color: '#64748B' }}>
+            Checking your admin session and fetching accounts.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Filtered Users List
@@ -100,9 +123,6 @@ export default function AdminUsersPage() {
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* Sidebar collapsible menu */}
-      <Sidebar />
-
       {/* Main Content Area */}
       <main style={{ flex: 1, padding: '40px', boxSizing: 'border-box', overflowY: 'auto' }}>
         <header style={{ marginBottom: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
-import Sidebar from '../Sidebar';
+import { getAdminCache, setAdminCache } from '../adminCache';
 import {
   ShoppingBag,
   Users,
@@ -46,15 +46,23 @@ interface Order {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [stats, setStats] = useState<KpiData>({
-    totalOrders: 0,
-    driversOnline: 0,
-    activePickups: 0,
-    totalRevenue: 0,
+  const [authChecked, setAuthChecked] = useState(false);
+  const [stats, setStats] = useState<KpiData>(() =>
+    getAdminCache<KpiData>('dashboard-stats') || {
+      totalOrders: 0,
+      driversOnline: 0,
+      activePickups: 0,
+      totalRevenue: 0,
+    },
+  );
+  const [drivers, setDrivers] = useState<Driver[]>(() => getAdminCache<Driver[]>('dashboard-drivers') || []);
+  const [orders, setOrders] = useState<Order[]>(() => getAdminCache<Order[]>('dashboard-orders') || []);
+  const [loading, setLoading] = useState(() => {
+    const cachedStats = getAdminCache<KpiData>('dashboard-stats');
+    const cachedDrivers = getAdminCache<Driver[]>('dashboard-drivers');
+    const cachedOrders = getAdminCache<Order[]>('dashboard-orders');
+    return !cachedStats || !cachedDrivers || !cachedOrders;
   });
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState({
     analytics: true,
     orders: false,
@@ -64,8 +72,10 @@ export default function AdminDashboardPage() {
     const token = localStorage.getItem('adminToken');
     if (!token) {
       router.push('/admin');
+      setAuthChecked(true);
     } else {
       setAuthorized(true);
+      setAuthChecked(true);
       fetchDashboardData();
     }
   }, []);
@@ -73,14 +83,18 @@ export default function AdminDashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const statsRes = await axios.get('/api/v1/admin/stats');
+      const [statsRes, driversRes, ordersRes] = await Promise.all([
+        axios.get('/api/v1/admin/stats'),
+        axios.get('/api/v1/drivers'),
+        axios.get('/api/v1/orders'),
+      ]);
+
       setStats(statsRes.data);
-
-      const driversRes = await axios.get('/api/v1/drivers');
+      setAdminCache('dashboard-stats', statsRes.data);
       setDrivers(driversRes.data);
-
-      const ordersRes = await axios.get('/api/v1/orders');
+      setAdminCache('dashboard-drivers', driversRes.data);
       setOrders(ordersRes.data);
+      setAdminCache('dashboard-orders', ordersRes.data);
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
     } finally {
@@ -96,8 +110,29 @@ export default function AdminDashboardPage() {
     return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
-  if (!authorized) {
-    return null;
+  if (!authChecked) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100vh',
+          backgroundColor: '#F8FAFC',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'Inter', sans-serif",
+          padding: '32px',
+          textAlign: 'center',
+          color: '#0F172A',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading admin dashboard…</h2>
+          <p style={{ marginTop: '12px', color: '#64748B' }}>
+            Checking your admin session and initializing dashboard data.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const kpis = [
@@ -141,19 +176,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="dashboardWrapper">
-      <Sidebar />
       <main className="dashboardMain">
         <header className="dashboardHeader">
           <div>
             <h1>Dashboard Overview</h1>
-            <p>Real-time analytics, rider tracking, and transaction flows</p>
-          </div>
-          <div className="profileChip">
-            <div className="profileInitial">AD</div>
-            <div>
-              <span>Admin Coordinator</span>
-              <span>Operations</span>
-            </div>
           </div>
         </header>
 
@@ -350,7 +376,7 @@ export default function AdminDashboardPage() {
           flex: 1;
           width: 100%;
           max-width: 100vw;
-          padding: 40px;
+          padding: 36px 40px 40px;
           overflow-y: auto;
           overflow-x: hidden;
           box-sizing: border-box;
@@ -360,10 +386,10 @@ export default function AdminDashboardPage() {
         .dashboardHeader {
           display: flex;
           flex-wrap: wrap;
-          justify-content: space-between;
           align-items: center;
-          gap: 24px;
-          margin-bottom: 36px;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 32px;
         }
 
         .dashboardHeader h1 {
@@ -372,51 +398,6 @@ export default function AdminDashboardPage() {
           color: #0F172A;
           margin: 0;
           letter-spacing: -0.025em;
-        }
-
-        .dashboardHeader p {
-          margin: 6px 0 0 0;
-          color: #64748B;
-          font-size: 14px;
-        }
-
-        .profileChip {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background-color: #FFFFFF;
-          padding: 8px 16px;
-          border-radius: 24px;
-          border: 1px solid #E2E8F0;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-        }
-
-        .profileInitial {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background-color: #38BDF8;
-          color: #0F172A;
-          display: grid;
-          place-items: center;
-          font-weight: 700;
-          font-size: 13px;
-        }
-
-        .profileChip span {
-          display: block;
-          line-height: 1.2;
-        }
-
-        .profileChip span:first-child {
-          font-size: 12.5px;
-          font-weight: 700;
-          color: #0F172A;
-        }
-
-        .profileChip span:last-child {
-          font-size: 10px;
-          color: #64748B;
         }
 
         .loadingCard {
@@ -442,9 +423,15 @@ export default function AdminDashboardPage() {
 
         .kpiGrid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 24px;
-          margin-bottom: 36px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 22px;
+          margin-bottom: 34px;
+        }
+
+        @media (max-width: 1200px) {
+          .kpiGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
 
         .metricCard {
@@ -742,22 +729,22 @@ export default function AdminDashboardPage() {
         }
 
         .orderList {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 16px;
         }
 
         .orderCard {
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
           gap: 16px;
           width: 100%;
           min-width: 0;
           background: #FFFFFF;
           border: 1px solid #E2E8F0;
           border-radius: 14px;
-          padding: 14px 16px;
+          padding: 18px 20px;
         }
 
         .orderCardMain {
@@ -813,6 +800,10 @@ export default function AdminDashboardPage() {
           .dashboardHeader {
             flex-direction: column;
             align-items: flex-start;
+          }
+
+          .kpiGrid {
+            grid-template-columns: 1fr;
           }
 
           .chartRow {
