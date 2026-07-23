@@ -5,30 +5,23 @@ import axios from 'axios';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !password) return;
+    if (!email || !password) return;
 
     setLoading(true);
     setError('');
     try {
-      const response = await axios.post('/api/v1/auth/login', {
-        phoneNumber: phone,
+      const response = await axios.post('/api/v1/admin/auth/login', {
+        email,
         password,
       });
       const { token, user } = response.data;
-
-      if (user.role !== 'ADMIN') {
-        setError(
-          'Access Denied: Only users with the ADMIN role can access this portal.',
-        );
-        return;
-      }
 
       localStorage.setItem('adminToken', token);
       localStorage.setItem('adminUser', JSON.stringify(user));
@@ -111,13 +104,14 @@ export default function AdminLoginPage() {
                 marginBottom: '8px',
               }}
             >
-              Phone Number
+              Admin Email
             </label>
             <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. 07058155555"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+              autoComplete="email"
               required
               disabled={loading}
               style={{
@@ -150,6 +144,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
+              autoComplete="current-password"
               required
               disabled={loading}
               style={{

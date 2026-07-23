@@ -10,8 +10,6 @@ import {
   Clock,
   TrendingUp,
   ArrowUpRight,
-  TrendingDown,
-  Navigation,
   Bike,
   Car,
 } from '@/lib/icons';
@@ -57,8 +55,11 @@ export default function AdminDashboardPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSections, setExpandedSections] = useState({
+    analytics: true,
+    orders: false,
+  });
 
-  // Authenticate Admin
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) {
@@ -85,6 +86,10 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSection = (section: 'analytics' | 'orders') => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   const formatNaira = (amount: number) => {
@@ -135,451 +140,747 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: '#F8FAFC',
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      {/* Sidebar Navigation */}
+    <div className="dashboardWrapper">
       <Sidebar />
-
-      {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '40px', overflowY: 'auto', boxSizing: 'border-box' }}>
-        <header
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '36px',
-          }}
-        >
+      <main className="dashboardMain">
+        <header className="dashboardHeader">
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.025em' }}>
-              Dashboard Overview
-            </h1>
-            <p style={{ color: '#64748B', margin: '6px 0 0 0', fontSize: '14px' }}>
-              Real-time analytics, rider tracking, and transaction flows
-            </p>
+            <h1>Dashboard Overview</h1>
+            <p>Real-time analytics, rider tracking, and transaction flows</p>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              backgroundColor: '#FFFFFF',
-              padding: '6px 16px 6px 6px',
-              borderRadius: '24px',
-              border: '1px solid #E2E8F0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-            }}
-          >
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                backgroundColor: '#38BDF8',
-                color: '#0F172A',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                fontSize: '13px',
-              }}
-            >
-              AD
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>
-                Admin Coordinator
-              </span>
-              <span style={{ fontSize: '10px', color: '#64748B' }}>
-                Operations
-              </span>
+          <div className="profileChip">
+            <div className="profileInitial">AD</div>
+            <div>
+              <span>Admin Coordinator</span>
+              <span>Operations</span>
             </div>
           </div>
         </header>
 
         {loading ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '80px',
-              fontSize: '15px',
-              color: '#64748B',
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              border: '1px solid #E2E8F0',
-              marginTop: '40px',
-            }}
-          >
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                border: '3px solid #E2E8F0',
-                borderTopColor: '#0066FF',
-                borderRadius: '50%',
-                margin: '0 auto 16px auto',
-                animation: 'spin 1s linear infinite',
-              }}
-            />
+          <div className="loadingCard">
+            <div className="spinner" />
             Loading operations database state...
           </div>
         ) : (
           <>
-            {/* KPI Grid */}
-            <section
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '24px',
-                marginBottom: '36px',
-              }}
-            >
+            <section className="kpiGrid">
               {kpis.map((kpi, idx) => {
                 const IconComponent = kpi.icon;
                 return (
-                  <div
-                    key={idx}
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '16px',
-                      padding: '24px',
-                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01)',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                      }}
-                    >
+                  <div className="metricCard" key={idx}>
+                    <div className="metricHeader">
                       <div>
-                        <span style={{ fontSize: '13px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {kpi.title}
-                        </span>
-                        <h3 style={{ fontSize: '28px', fontWeight: '800', color: '#0F172A', margin: '8px 0' }}>
-                          {kpi.val}
-                        </h3>
+                        <span>{kpi.title}</span>
+                        <h3>{kpi.val}</h3>
                       </div>
-                      <div
-                        style={{
-                          width: '44px',
-                          height: '44px',
-                          borderRadius: '12px',
-                          backgroundColor: kpi.bgColor,
-                          color: kpi.color,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
+                      <div className="metricIcon" style={{ backgroundColor: kpi.bgColor, color: kpi.color }}>
                         <IconComponent size={22} />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                      {kpi.trendUp ? (
-                        <ArrowUpRight size={14} style={{ color: '#10B981' }} />
-                      ) : null}
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: kpi.trendUp ? '#10B981' : '#64748B',
-                        }}
-                      >
-                        {kpi.trend}
-                      </span>
+                    <div className="metricTrend">
+                      {kpi.trendUp && <ArrowUpRight size={14} style={{ color: '#10B981' }} />}
+                      <span>{kpi.trend}</span>
                     </div>
                   </div>
                 );
               })}
             </section>
 
-            {/* Visual Analytics Rows */}
-            <section
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr',
-                gap: '32px',
-                marginBottom: '36px',
-              }}
-            >
-              {/* Overhauled Chart Area */}
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '16px',
-                  padding: '28px',
-                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
-                  minHeight: '340px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h3 style={{ margin: 0, color: '#0F172A', fontSize: '16px', fontWeight: '700' }}>
-                    Weekly Revenue Trend
-                  </h3>
-                  <span style={{ fontSize: '12px', color: '#0066FF', fontWeight: '600', backgroundColor: 'rgba(0,102,255,0.05)', padding: '4px 10px', borderRadius: '20px' }}>
-                    Auto-refreshing live
-                  </span>
+            <section className={`panelCard ${expandedSections.analytics ? 'expanded' : 'collapsed'}`}>
+              <button className="panelToggle" onClick={() => toggleSection('analytics')}>
+                <div>
+                  <span className="panelEyebrow">Operations Snapshot</span>
+                  <h3>Performance & rider activity</h3>
                 </div>
-                <div style={{ height: '240px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 10px', borderBottom: '1px solid #F1F5F9' }}>
-                  {/* Styled simulated chart bars */}
-                  {[
-                    { day: 'Mon', h: '60px', act: false },
-                    { day: 'Tue', h: '90px', act: false },
-                    { day: 'Wed', h: '140px', act: true, col: '#0066FF' },
-                    { day: 'Thu', h: '110px', act: false },
-                    { day: 'Fri', h: '180px', act: true, col: '#0F172A' },
-                    { day: 'Sat', h: '210px', act: true, col: '#10B981' },
-                  ].map((bar, i) => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                      <div
-                        style={{
-                          width: '32px',
-                          height: bar.h,
-                          backgroundColor: bar.col || '#E2E8F0',
-                          borderRadius: '6px 6px 0 0',
-                          transition: 'height 0.6s ease',
-                          cursor: 'pointer',
-                          opacity: bar.act ? 1 : 0.65,
-                          boxShadow: bar.act ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scaleY(1.05)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'scaleY(1)';
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '12px 10px 0 10px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#64748B',
-                  }}
-                >
-                  <span>Mon</span>
-                  <span>Tue</span>
-                  <span>Wed</span>
-                  <span>Thu</span>
-                  <span>Fri</span>
-                  <span>Sat</span>
-                </div>
-              </div>
+                <span className="toggleBadge">{expandedSections.analytics ? 'Collapse' : 'Expand'}</span>
+              </button>
 
-              {/* Overhauled Live Driver Grid */}
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '16px',
-                  padding: '28px',
-                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
-                }}
-              >
-                <h3 style={{ margin: '0 0 20px 0', color: '#0F172A', fontSize: '16px', fontWeight: '700' }}>
-                  Live Rider Status
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {drivers.length === 0 ? (
-                    <div style={{ color: '#64748B', fontSize: '14px', fontStyle: 'italic', textAlign: 'center', padding: '40px 0' }}>
-                      No drivers registered in DB.
-                    </div>
-                  ) : (
-                    drivers.map((driver) => {
-                      const isOnline = driver.driverProfile?.isOnline ?? false;
-                      const vehicle = driver.driverProfile?.vehicleType || 'Motorcycle';
-                      
-                      // Match vehicle icons
-                      let VehicleIcon = Bike;
-                      if (vehicle.toLowerCase().includes('van')) {
-                        VehicleIcon = Car;
-                      } else if (vehicle.toLowerCase().includes('motor')) {
-                        VehicleIcon = Bike;
-                      }
-
-                      return (
-                        <div
-                          key={driver.id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '12px 16px',
-                            backgroundColor: '#F8FAFC',
-                            borderRadius: '12px',
-                            border: '1px solid #F1F5F9',
-                            transition: 'transform 0.2s',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {expandedSections.analytics && (
+                <div className="panelBody">
+                  <div className="chartRow">
+                    <div className="chartCard">
+                      <div className="sectionHeader">
+                        <h3>Weekly Revenue Trend</h3>
+                        <span>Live pulse</span>
+                      </div>
+                      <div className="chartBars">
+                        {[
+                          { day: 'Mon', h: '60px', act: false },
+                          { day: 'Tue', h: '90px', act: false },
+                          { day: 'Wed', h: '140px', act: true, col: '#0066FF' },
+                          { day: 'Thu', h: '110px', act: false },
+                          { day: 'Fri', h: '180px', act: true, col: '#0F172A' },
+                          { day: 'Sat', h: '210px', act: true, col: '#10B981' },
+                        ].map((bar, i) => (
+                          <div key={i} className="barColumn">
                             <div
-                              style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '50%',
-                                backgroundColor: isOnline ? '#D1FAE5' : '#E2E8F0',
-                                color: isOnline ? '#065F46' : '#475569',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                              className="barFill"
+                              style={{ backgroundColor: bar.col || '#E2E8F0', height: bar.h, opacity: bar.act ? 1 : 0.65 }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'scaleY(1.05)';
                               }}
-                            >
-                              <VehicleIcon size={18} />
-                            </div>
-                            <div>
-                              <span style={{ fontSize: '13.5px', fontWeight: '700', display: 'block', color: '#0F172A' }}>
-                                {driver.fullName}
-                              </span>
-                              <span style={{ fontSize: '11px', color: '#64748B' }}>
-                                {vehicle}
-                              </span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span
-                              style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                backgroundColor: isOnline ? '#10B981' : '#94A3B8',
-                                display: 'inline-block',
-                                animation: isOnline ? 'pulse 2s infinite' : 'none',
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scaleY(1)';
                               }}
                             />
-                            <span style={{ color: isOnline ? '#10B981' : '#64748B', fontWeight: '700', fontSize: '11px' }}>
-                              {isOnline ? 'ONLINE' : 'OFFLINE'}
-                            </span>
+                            <span>{bar.day}</span>
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="liveDriverCard">
+                      <h3>Live Rider Status</h3>
+                      <div className="driverList">
+                        {drivers.length === 0 ? (
+                          <div className="emptyState">No drivers registered in DB.</div>
+                        ) : (
+                          drivers.map((driver) => {
+                            const isOnline = driver.driverProfile?.isOnline ?? false;
+                            const vehicle = driver.driverProfile?.vehicleType || 'Motorcycle';
+                            let VehicleIcon = Bike;
+                            if (vehicle.toLowerCase().includes('van')) {
+                              VehicleIcon = Car;
+                            } else if (vehicle.toLowerCase().includes('motor')) {
+                              VehicleIcon = Bike;
+                            }
+
+                            return (
+                              <div className="driverRow" key={driver.id}>
+                                <div className="driverMeta">
+                                  <div className="driverBadge" style={{ backgroundColor: isOnline ? '#D1FAE5' : '#E2E8F0', color: isOnline ? '#065F46' : '#475569' }}>
+                                    <VehicleIcon size={18} />
+                                  </div>
+                                  <div>
+                                    <span>{driver.fullName}</span>
+                                    <span>{vehicle}</span>
+                                  </div>
+                                </div>
+                                <div className="driverStatus">
+                                  <span className={isOnline ? 'onlineDot' : 'offlineDot'} />
+                                  <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
 
-            {/* Overhauled Table Section */}
-            <section
-              style={{
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                borderRadius: '16px',
-                padding: '28px',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ margin: 0, color: '#0F172A', fontSize: '16px', fontWeight: '700' }}>
-                  Recent Orders Registry
-                </h3>
-                <Link
-                  href="/admin/orders"
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: '#0066FF',
-                    textDecoration: 'none',
-                  }}
-                >
-                  View Active Queue →
-                </Link>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' }}>
-                    <th style={{ padding: '12px 16px' }}>Order ID</th>
-                    <th style={{ padding: '12px 16px' }}>Customer Name</th>
-                    <th style={{ padding: '12px 16px' }}>Service Type</th>
-                    <th style={{ padding: '12px 16px' }}>Amount</th>
-                    <th style={{ padding: '12px 16px' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '36px', textAlign: 'center', color: '#64748B', fontStyle: 'italic', fontSize: '14px' }}>
-                        No orders recorded yet. Submit orders from the mobile client.
-                      </td>
-                    </tr>
-                  ) : (
-                    orders.slice(0, 5).map((order) => {
-                      const serviceTypes = Array.from(
-                        new Set(order.items.map((item) => item.serviceName.split(' ')[0] || 'Laundry')),
-                      ).join(', ');
+            <section className={`panelCard ${expandedSections.orders ? 'expanded' : 'collapsed'}`}>
+              <button className="panelToggle" onClick={() => toggleSection('orders')}>
+                <div>
+                  <span className="panelEyebrow">Queue</span>
+                  <h3>Recent Orders</h3>
+                </div>
+                <span className="toggleBadge">{expandedSections.orders ? 'Collapse' : `Show ${orders.length} orders`}</span>
+              </button>
 
-                      // Status Badge Styling
-                      let badgeBg = '#F3F4F6';
-                      let badgeColor = '#374151';
-                      if (order.status === 'DELIVERED') {
-                        badgeBg = '#D1FAE5';
-                        badgeColor = '#065F46';
-                      } else if (order.status.includes('PENDING')) {
-                        badgeBg = '#FEF3C7';
-                        badgeColor = '#92400E';
-                      } else if (order.status.includes('PROGRESS') || order.status === 'PROCESSING') {
-                        badgeBg = '#E0F2FE';
-                        badgeColor = '#0369A1';
-                      }
+              {expandedSections.orders && (
+                <div className="panelBody">
+                  <div className="ordersHeader">
+                    <p>Latest requests from the customer app.</p>
+                    <Link href="/admin/orders">Open full queue →</Link>
+                  </div>
 
-                      return (
-                        <tr
-                          key={order.id}
-                          style={{
-                            borderBottom: '1px solid #F1F5F9',
-                            fontSize: '14px',
-                            transition: 'background-color 0.2s',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                        >
-                          <td style={{ padding: '16px', fontWeight: '700', color: '#0066FF' }}>
-                            {order.orderNumber}
-                          </td>
-                          <td style={{ padding: '16px', fontWeight: '600', color: '#0F172A' }}>
-                            {order.customer.fullName}
-                          </td>
-                          <td style={{ padding: '16px', color: '#475569' }}>
-                            {serviceTypes}
-                          </td>
-                          <td style={{ padding: '16px', fontWeight: '700', color: '#0F172A' }}>
-                            {formatNaira(order.totalAmount)}
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            <span style={{ padding: '6px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', backgroundColor: badgeBg, color: badgeColor, textTransform: 'capitalize' }}>
-                              {order.status.toLowerCase().replace('_', ' ')}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                  <div className="orderList">
+                    {orders.length === 0 ? (
+                      <div className="emptyState">No orders recorded yet. Submit orders from the mobile client.</div>
+                    ) : (
+                      orders.slice(0, 4).map((order) => {
+                        const serviceTypes = Array.from(
+                          new Set(order.items.map((item) => item.serviceName.split(' ')[0] || 'Laundry')),
+                        ).join(', ');
+
+                        let badgeBg = '#F3F4F6';
+                        let badgeColor = '#374151';
+                        if (order.status === 'DELIVERED') {
+                          badgeBg = '#D1FAE5';
+                          badgeColor = '#065F46';
+                        } else if (order.status.includes('PENDING')) {
+                          badgeBg = '#FEF3C7';
+                          badgeColor = '#92400E';
+                        } else if (order.status.includes('PROGRESS') || order.status === 'PROCESSING') {
+                          badgeBg = '#E0F2FE';
+                          badgeColor = '#0369A1';
+                        }
+
+                        return (
+                          <div className="orderCard" key={order.id}>
+                            <div className="orderCardMain">
+                              <div className="orderTitle">{order.orderNumber}</div>
+                              <div className="orderMeta">{order.customer.fullName}</div>
+                              <div className="orderMeta soft">{serviceTypes}</div>
+                            </div>
+                            <div className="orderCardSide">
+                              <div className="orderAmount">{formatNaira(order.totalAmount)}</div>
+                              <span className="statusBadge" style={{ backgroundColor: badgeBg, color: badgeColor }}>
+                                {order.status.toLowerCase().replace('_', ' ')}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           </>
         )}
       </main>
+
+      <style jsx>{`
+        .dashboardWrapper {
+          display: flex;
+          min-height: 100vh;
+          width: 100%;
+          max-width: 100vw;
+          background-color: #F8FAFC;
+          font-family: 'Inter', sans-serif;
+          overflow-x: hidden;
+        }
+
+        .dashboardMain {
+          flex: 1;
+          width: 100%;
+          max-width: 100vw;
+          padding: 40px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          box-sizing: border-box;
+          min-width: 0;
+        }
+
+        .dashboardHeader {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          align-items: center;
+          gap: 24px;
+          margin-bottom: 36px;
+        }
+
+        .dashboardHeader h1 {
+          font-size: 28px;
+          font-weight: 800;
+          color: #0F172A;
+          margin: 0;
+          letter-spacing: -0.025em;
+        }
+
+        .dashboardHeader p {
+          margin: 6px 0 0 0;
+          color: #64748B;
+          font-size: 14px;
+        }
+
+        .profileChip {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background-color: #FFFFFF;
+          padding: 8px 16px;
+          border-radius: 24px;
+          border: 1px solid #E2E8F0;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        .profileInitial {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: #38BDF8;
+          color: #0F172A;
+          display: grid;
+          place-items: center;
+          font-weight: 700;
+          font-size: 13px;
+        }
+
+        .profileChip span {
+          display: block;
+          line-height: 1.2;
+        }
+
+        .profileChip span:first-child {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #0F172A;
+        }
+
+        .profileChip span:last-child {
+          font-size: 10px;
+          color: #64748B;
+        }
+
+        .loadingCard {
+          text-align: center;
+          padding: 80px;
+          font-size: 15px;
+          color: #64748B;
+          background-color: #FFFFFF;
+          border-radius: 12px;
+          border: 1px solid #E2E8F0;
+          margin-top: 40px;
+        }
+
+        .spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid #E2E8F0;
+          border-top-color: #0066FF;
+          border-radius: 50%;
+          margin: 0 auto 16px auto;
+          animation: spin 1s linear infinite;
+        }
+
+        .kpiGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 24px;
+          margin-bottom: 36px;
+        }
+
+        .metricCard {
+          background-color: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);
+          overflow: hidden;
+        }
+
+        .metricHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .metricHeader span {
+          font-size: 13px;
+          color: #64748B;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .metricHeader h3 {
+          font-size: 28px;
+          font-weight: 800;
+          color: #0F172A;
+          margin: 8px 0 0 0;
+        }
+
+        .metricIcon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .metricTrend {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #64748B;
+        }
+
+        .metricTrend span {
+          color: inherit;
+        }
+
+        .panelCard {
+          background-color: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 20px;
+          box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
+          overflow: hidden;
+          margin-bottom: 18px;
+        }
+
+        .panelCard.collapsed {
+          padding: 0;
+        }
+
+        .panelToggle {
+          width: 100%;
+          border: none;
+          background: transparent;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 20px 24px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .panelEyebrow {
+          display: block;
+          font-size: 11px;
+          font-weight: 700;
+          color: #0066FF;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          margin-bottom: 4px;
+        }
+
+        .panelToggle h3 {
+          margin: 0;
+          color: #0F172A;
+          font-size: 16px;
+          font-weight: 700;
+        }
+
+        .toggleBadge {
+          font-size: 12px;
+          font-weight: 600;
+          color: #475569;
+          background-color: #F8FAFC;
+          padding: 7px 10px;
+          border-radius: 999px;
+          white-space: nowrap;
+        }
+
+        .panelBody {
+          padding: 0 24px 24px;
+          border-top: 1px solid #F1F5F9;
+          overflow-x: hidden;
+        }
+
+        .chartRow {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          padding-top: 20px;
+        }
+
+        .chartCard,
+        .liveDriverCard {
+          background-color: #F8FAFC;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 20px;
+          min-height: 280px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .sectionHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .sectionHeader h3 {
+          margin: 0;
+          color: #0F172A;
+          font-size: 16px;
+          font-weight: 700;
+        }
+
+        .sectionHeader span {
+          font-size: 12px;
+          color: #0066FF;
+          font-weight: 600;
+          background-color: rgba(0,102,255,0.05);
+          padding: 4px 10px;
+          border-radius: 20px;
+        }
+
+        .chartBars {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 0 10px;
+          border-bottom: 1px solid #F1F5F9;
+          flex-wrap: wrap;
+          min-height: 240px;
+          width: 100%;
+          overflow-x: hidden;
+        }
+
+        .barColumn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          flex: 1;
+          gap: 10px;
+        }
+
+        .barFill {
+          width: 32px;
+          border-radius: 6px 6px 0 0;
+          transition: transform 0.2s ease, height 0.4s ease;
+          cursor: pointer;
+        }
+
+        .barColumn span {
+          font-size: 12px;
+          color: #64748B;
+          font-weight: 600;
+        }
+
+        .liveDriverCard {
+          padding: 28px;
+        }
+
+        .driverList {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .emptyState {
+          color: #64748B;
+          font-size: 14px;
+          font-style: italic;
+          text-align: center;
+          padding: 40px 0;
+        }
+
+        .driverRow {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          background-color: #F8FAFC;
+          border-radius: 12px;
+          border: 1px solid #F1F5F9;
+          transition: transform 0.2s;
+        }
+
+        .driverMeta {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .driverBadge {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .driverMeta span:first-child {
+          display: block;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #0F172A;
+        }
+
+        .driverMeta span:last-child {
+          display: block;
+          font-size: 11px;
+          color: #64748B;
+        }
+
+        .driverStatus {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 88px;
+          justify-content: flex-end;
+        }
+
+        .onlineDot,
+        .offlineDot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .onlineDot {
+          background-color: #10B981;
+          animation: pulse 2s infinite;
+        }
+
+        .offlineDot {
+          background-color: #94A3B8;
+        }
+
+        .ordersHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .ordersHeader p {
+          margin: 0;
+          color: #64748B;
+          font-size: 13px;
+        }
+
+        .ordersHeader a {
+          font-size: 13px;
+          font-weight: 600;
+          color: #0066FF;
+          text-decoration: none;
+        }
+
+        .orderList {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .orderCard {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          width: 100%;
+          min-width: 0;
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 14px;
+          padding: 14px 16px;
+        }
+
+        .orderCardMain {
+          min-width: 0;
+          width: 100%;
+          overflow-wrap: anywhere;
+        }
+
+        .orderTitle {
+          font-weight: 700;
+          color: #0F172A;
+          margin-bottom: 4px;
+        }
+
+        .orderMeta {
+          font-size: 13px;
+          color: #475569;
+        }
+
+        .orderMeta.soft {
+          color: #64748B;
+          margin-top: 2px;
+        }
+
+        .orderCardSide {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 8px;
+          flex-shrink: 0;
+          min-width: 0;
+        }
+
+        .orderAmount {
+          font-weight: 700;
+          color: #0F172A;
+        }
+
+        .statusBadge {
+          display: inline-block;
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: capitalize;
+        }
+
+        @media (max-width: 980px) {
+          .dashboardMain {
+            padding: 28px 20px;
+          }
+
+          .dashboardHeader {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .chartRow {
+            grid-template-columns: 1fr;
+          }
+
+          .chartCard,
+          .liveDriverCard {
+            min-height: auto;
+          }
+
+          .orderCard {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .orderCardSide {
+            align-items: flex-start;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .dashboardMain {
+            padding: 20px 16px;
+          }
+
+          .profileChip {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .kpiGrid {
+            gap: 18px;
+          }
+
+          .metricCard,
+          .chartCard,
+          .liveDriverCard {
+            padding: 18px;
+          }
+
+          .panelBody {
+            padding: 0 16px 16px;
+          }
+
+          .panelToggle {
+            padding: 16px;
+          }
+
+          .dashboardHeader h1 {
+            font-size: 24px;
+          }
+
+          .dashboardHeader p {
+            font-size: 13px;
+          }
+        }
+      `}</style>
+
       <style jsx global>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

@@ -50,14 +50,22 @@ const IconChevronLeft = ({ size = 14, style, className }: IconProps) => (
     <polyline points="15 18 9 12 15 6" />
   </svg>
 );
+const IconMenu = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+    <line x1="4" y1="17" x2="20" y2="17" />
+  </svg>
+);
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [adminName, setAdminName] = useState('Blessed Admin');
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Load collapse state and user details from localStorage
   useEffect(() => {
     const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     setIsCollapsed(collapsed);
@@ -73,6 +81,17 @@ export default function Sidebar() {
         console.error('Failed to parse admin user info:', err);
       }
     }
+
+    const resizeHandler = () => {
+      setIsMobile(window.innerWidth <= 900);
+      if (window.innerWidth > 900) {
+        setMobileOpen(false);
+      }
+    };
+
+    resizeHandler();
+    window.addEventListener('resize', resizeHandler);
+    return () => window.removeEventListener('resize', resizeHandler);
   }, []);
 
   const toggleCollapse = () => {
@@ -116,251 +135,305 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside
-      style={{
-        width: isCollapsed ? '72px' : '260px',
-        height: '100vh',
-        backgroundColor: '#000000',
-        color: '#FFFFFF',
-        padding: '24px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'sticky',
-        top: 0,
-        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '4px 0 24px rgba(0, 0, 0, 0.05)',
-        borderRight: '1px solid #1E293B',
-        boxSizing: 'border-box',
-        zIndex: 50,
-      }}
-    >
-      {/* Collapse Toggle Handle */}
-      <button
-        onClick={toggleCollapse}
-        style={{
-          position: 'absolute',
-          top: '32px',
-          right: '-12px',
-          width: '24px',
-          height: '24px',
-          borderRadius: '50%',
-          backgroundColor: '#0066FF',
-          border: '1px solid #1E293B',
-          color: '#FFFFFF',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-          outline: 'none',
-          transition: 'background-color 0.2s',
-          zIndex: 60,
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0052CC')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0066FF')}
-      >
-        {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
-      </button>
+    <>
+      {isMobile && !mobileOpen && (
+        <button className="mobileMenuButton" onClick={() => setMobileOpen(true)}>
+          <IconMenu />
+        </button>
+      )}
+      {isMobile && mobileOpen && <div className="overlay" onClick={() => setMobileOpen(false)} />}
+      <aside className={`sidebar ${mobileOpen ? 'sidebarOpen' : ''}`}>
+        <div className="sidebarInner" style={{ width: isCollapsed ? '72px' : '260px' }}>
+          <button className="collapseButton" onClick={toggleCollapse}>
+            {isCollapsed ? <IconChevronRight /> : <IconChevronLeft />}
+          </button>
 
-      {/* Brand Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '40px',
-          paddingLeft: '8px',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <div
-          style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#0066FF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold',
-            fontSize: '16px',
-            color: '#FFFFFF',
-            flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(0, 102, 255, 0.3)',
-          }}
-        >
-          BG
-        </div>
-        {!isCollapsed && (
-          <span
-            style={{
-              fontSize: '18px',
-              fontWeight: '700',
-              color: '#FFFFFF',
-              letterSpacing: '-0.025em',
-              transition: 'opacity 0.2s ease',
-            }}
-          >
-            BG Laundry
-          </span>
-        )}
-      </div>
+          <div className="brandHeader">
+            <div className="brandLogo">BG</div>
+            {!isCollapsed && <span className="brandTitle">BG Laundry</span>}
+          </div>
 
-      {/* Nav List */}
-      <nav
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          flex: 1,
-        }}
-      >
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
+          <nav className="sidebarNav">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} title={isCollapsed ? item.name : undefined} className={`navItem ${isActive ? 'active' : ''}`}>
+                  <Icon size={20} />
+                  {!isCollapsed && (
+                    <div className="navMeta">
+                      <span>{item.name}</span>
+                      <span>{item.desc}</span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={isCollapsed ? item.name : undefined}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px',
-                borderRadius: '8px',
-                color: isActive ? '#FFFFFF' : '#94A3B8',
-                backgroundColor: isActive ? '#0066FF' : 'transparent',
-                textDecoration: 'none',
-                fontWeight: isActive ? '600' : '500',
-                fontSize: '14px',
-                transition: 'all 0.2s ease-in-out',
-                borderLeft: isActive ? '3px solid #FFFFFF' : '3px solid transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-                  e.currentTarget.style.color = '#FFFFFF';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#94A3B8';
-                }
-              }}
-            >
-              <Icon
-                size={20}
-                style={{
-                  color: isActive ? '#FFFFFF' : '#64748B',
-                  flexShrink: 0,
-                  transition: 'color 0.2s',
-                }}
-              />
+          <div className="sidebarFooter">
+            <div className="profileContainer">
+              <div className="profileBadge">{adminName.slice(0, 2).toUpperCase()}</div>
               {!isCollapsed && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span>{item.name}</span>
-                  <span style={{ fontSize: '11px', color: isActive ? 'rgba(255, 255, 255, 0.7)' : '#475569', fontWeight: 'normal' }}>
-                    {item.desc}
-                  </span>
+                <div className="profileText">
+                  <div className="profileName">{adminName}</div>
+                  <div className="profileRole">Admin Coordinator</div>
                 </div>
               )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Admin Profile Widget at Bottom */}
-      <div
-        style={{
-          borderTop: '1px solid #1E293B',
-          paddingTop: '20px',
-          marginTop: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              backgroundColor: '#0066FF',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: '700',
-              fontSize: '13px',
-              flexShrink: 0,
-              boxShadow: '0 4px 10px rgba(0, 102, 255, 0.2)',
-            }}
-          >
-            {adminName.substring(0, 2).toUpperCase()}
-          </div>
-          {!isCollapsed && (
-            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <span
-                style={{
-                  fontSize: '13.5px',
-                  fontWeight: '600',
-                  color: '#F1F5F9',
-                  whiteSpace: 'nowrap',
-                  textOverflow: 'ellipsis',
-                  overflow: 'hidden',
-                }}
-              >
-                {adminName}
-              </span>
-              <span style={{ fontSize: '11px', color: '#64748B', whiteSpace: 'nowrap' }}>
-                Admin Coordinator
-              </span>
             </div>
-          )}
+            <button className="logoutButton" onClick={handleLogout}>
+              <IconLogOut />
+              {!isCollapsed && 'Log Out'}
+            </button>
+          </div>
         </div>
+      </aside>
 
-        {/* Action button */}
-        <a
-          href="#"
-          onClick={handleLogout}
-          title={isCollapsed ? 'Log Out' : undefined}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: '6px',
-            color: '#FDA4AF',
-            fontSize: '13.5px',
-            textDecoration: 'none',
-            fontWeight: '500',
-            transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(244, 63, 94, 0.15)';
-            e.currentTarget.style.color = '#F43F5E';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = '#FDA4AF';
-          }}
-        >
-          <IconLogOut size={16} />
-          {!isCollapsed && <span>Log Out</span>}
-        </a>
-      </div>
-    </aside>
+      <style jsx>{`
+        .sidebar {
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          background-color: #000000;
+          color: #ffffff;
+          display: flex;
+          z-index: 50;
+          min-width: 72px;
+          max-width: 260px;
+          box-shadow: 4px 0 24px rgba(0, 0, 0, 0.05);
+          border-right: 1px solid #1e293b;
+        }
+
+        .sidebarInner {
+          width: 100%;
+          padding: 24px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          box-sizing: border-box;
+          position: relative;
+        }
+
+        .collapseButton {
+          position: absolute;
+          top: 32px;
+          right: -12px;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background-color: #0066ff;
+          border: 1px solid #1e293b;
+          color: #ffffff;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          z-index: 60;
+        }
+
+        .brandHeader {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 8px;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+
+        .brandLogo {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background-color: #0066ff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 16px;
+          color: #ffffff;
+          box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+          flex-shrink: 0;
+        }
+
+        .brandTitle {
+          font-size: 18px;
+          font-weight: 700;
+          color: #ffffff;
+          letter-spacing: -0.025em;
+        }
+
+        .sidebarNav {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex: 1;
+        }
+
+        .navItem {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          border-radius: 8px;
+          color: #94a3b8;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 14px;
+          transition: all 0.2s ease-in-out;
+          border-left: 3px solid transparent;
+        }
+
+        .navItem:hover {
+          background-color: rgba(255, 255, 255, 0.04);
+          color: #ffffff;
+        }
+
+        .active {
+          color: #ffffff;
+          background-color: #0066ff;
+          border-left-color: #ffffff;
+          font-weight: 600;
+        }
+
+        .navMeta {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .navMeta span:last-child {
+          font-size: 11px;
+          color: #cbd5e1;
+        }
+
+        .sidebarFooter {
+          margin-top: auto;
+          border-top: 1px solid rgba(148, 163, 184, 0.15);
+          padding-top: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .profileContainer {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          border-radius: 12px;
+          background-color: #111827;
+        }
+
+        .profileBadge {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background-color: #0f172a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 14px;
+          color: #ffffff;
+        }
+
+        .profileText {
+          min-width: 0;
+        }
+
+        .profileName {
+          font-size: 13px;
+          font-weight: 700;
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .profileRole {
+          font-size: 11px;
+          color: #94a3b8;
+          margin-top: 2px;
+        }
+
+        .logoutButton {
+          width: 100%;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(148, 163, 184, 0.3);
+          background-color: #111827;
+          color: #fecaca;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .logoutButton:hover {
+          background-color: rgba(244, 63, 94, 0.12);
+        }
+
+        .mobileMenuButton {
+          position: fixed;
+          top: 18px;
+          left: 18px;
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
+          border: none;
+          background-color: #0066ff;
+          color: #ffffff;
+          display: grid;
+          place-items: center;
+          z-index: 110;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+          cursor: pointer;
+        }
+
+        .overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.45);
+          z-index: 90;
+        }
+
+        @media (max-width: 900px) {
+          .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            width: 280px;
+            box-shadow: 14px 0 60px rgba(0, 0, 0, 0.24);
+            border-right: none;
+          }
+
+          .sidebarOpen {
+            transform: translateX(0);
+          }
+
+          .sidebarInner {
+            padding: 20px 18px;
+          }
+
+          .collapseButton {
+            display: none;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .mobileMenuButton {
+            width: 40px;
+            height: 40px;
+            left: 14px;
+            top: 14px;
+          }
+        }
+      `}</style>
+    </>
   );
 }
