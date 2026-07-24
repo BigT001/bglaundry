@@ -40,6 +40,8 @@ export default function AdminInvoicesPage() {
   const [dueDate, setDueDate] = useState('');
   const [serviceQuery, setServiceQuery] = useState('');
   const [notice, setNotice] = useState('');
+  const [preparedFile, setPreparedFile] = useState<{ invoiceId: string; file: File } | null>(null);
+  const [preparingPdf, setPreparingPdf] = useState(false);
   const invoicePaperRef = useRef<HTMLElement>(null);
 
   const adminHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}` });
@@ -59,6 +61,26 @@ export default function AdminInvoicesPage() {
     setAuthorized(true);
     void loadData();
   }, []);
+
+  useEffect(() => {
+    setPreparedFile(null);
+    if (!preview) return;
+    let cancelled = false;
+    setPreparingPdf(true);
+    const prepare = async () => {
+      try {
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        const { blob, filename } = await createInvoicePdf(preview);
+        if (!cancelled) setPreparedFile({ invoiceId: preview.id, file: new File([blob], filename, { type: 'application/pdf' }) });
+      } catch (error) {
+        if (!cancelled) setNotice(error instanceof Error ? error.message : 'Unable to prepare this invoice document.');
+      } finally {
+        if (!cancelled) setPreparingPdf(false);
+      }
+    };
+    void prepare();
+    return () => { cancelled = true; };
+  }, [preview?.id, preview?.status]);
 
   async function loadData() {
     if (!getAdminCache<Invoice[]>('admin-invoices')) setLoading(true);
@@ -163,31 +185,31 @@ export default function AdminInvoicesPage() {
   }
 
   async function shareInvoice(invoice: Invoice) {
-    setSaving(true); setNotice('');
+    if (!preparedFile || preparedFile.invoiceId !== invoice.id) {
+      setNotice('The invoice PDF is still being prepared. Please tap Share again in a moment.');
+      return;
+    }
+    setNotice('');
     try {
-      const current = invoice.status === 'DRAFT' ? await updateStatus(invoice, 'SENT') : invoice;
-      if (!current) return;
-      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const { blob, filename } = await createInvoicePdf(current);
-      const file = new File([blob], filename, { type: 'application/pdf' });
+      const file = preparedFile.file;
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
         try {
-          await navigator.share({ title: `BG Laundry invoice ${current.invoiceNumber}`, files: [file] });
-          setNotice(`${current.invoiceNumber} was shared as a PDF document.`);
+          await navigator.share({ title: `BG Laundry invoice ${invoice.invoiceNumber}`, files: [file] });
+          if (invoice.status === 'DRAFT') await updateStatus(invoice, 'SENT');
+          setNotice(`${invoice.invoiceNumber} was shared as a PDF document.`);
           return;
         }
         catch (error: any) { if (error?.name === 'AbortError') return; }
       }
-      const downloadUrl = URL.createObjectURL(blob);
+      const downloadUrl = URL.createObjectURL(file);
       const download = document.createElement('a');
-      download.href = downloadUrl; download.download = filename; download.click();
+      download.href = downloadUrl; download.download = file.name; download.click();
       window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 30_000);
-      const phone = current.customer.phoneNumber.replace(/\D/g, '').replace(/^0/, '234');
-      window.open(`https://wa.me/${phone}`, '_blank', 'noopener,noreferrer');
-      setNotice(`${filename} was downloaded. Attach the PDF in the WhatsApp conversation that opened.`);
+      window.open('https://web.whatsapp.com/', '_blank', 'noopener,noreferrer');
+      setNotice(`${file.name} was downloaded. Choose any WhatsApp conversation and attach the PDF.`);
     } catch (error: any) {
-      setNotice(error instanceof Error ? error.message : 'Unable to create this invoice document.');
-    } finally { setSaving(false); }
+      setNotice(error instanceof Error ? error.message : 'Unable to share this invoice document.');
+    }
   }
 
   async function downloadInvoice(invoice: Invoice) {
@@ -211,7 +233,7 @@ export default function AdminInvoicesPage() {
     {loading ? <div className={styles.empty}>Loading invoices…</div> : filtered.length === 0 ? <div className={styles.empty}><strong>No invoices found</strong><span>Create an invoice or try another filter.</span></div> :
       <section className={styles.tableShell}><div className={styles.tableHead}><span>Invoice</span><span>Customer</span><span>Issued</span><span>Due date</span><span>Status</span><span>Amount</span><span>Actions</span></div>{filtered.map((invoice) => <article className={styles.invoiceRow} key={invoice.id}><div><strong>{invoice.invoiceNumber}</strong><span>{invoice.items.length} line items</span></div><div><strong>{invoice.customer.fullName}</strong><span>{invoice.customer.phoneNumber}</span></div><div><strong>{new Date(invoice.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong><span>{new Date(invoice.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div><div><strong>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set'}</strong><span>{invoice.dueDate && new Date(invoice.dueDate) < new Date() && !['PAID', 'VOID'].includes(invoice.status) ? 'Overdue' : '—'}</span></div><span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>{invoice.status}</span><strong className={styles.amount}>{money.format(invoice.totalAmount)}</strong><div className={styles.actions}><button onClick={() => setPreview(invoice)}>View</button><button onClick={() => { setPreview(invoice); setNotice('Review the invoice, then use Share invoice to send the PDF.'); }}>Share</button><button className={styles.more} onClick={() => { setPreview(invoice); setNotice('Open the preview and choose Save PDF.'); }}>PDF</button></div></article>)}</section>}
 
-    {preview && <div className={styles.backdrop} onMouseDown={() => setPreview(null)}><section className={styles.previewModal} onMouseDown={(event) => event.stopPropagation()}><button className={styles.close} onClick={() => setPreview(null)}><X size={18} /></button><article ref={invoicePaperRef} className={styles.invoicePaper}><header><div><div className={styles.invoiceLogo}>BG</div><strong>BG Laundry</strong><span>Premium Laundry & Dry Cleaning</span></div><div><span>INVOICE</span><h2>{preview.invoiceNumber}</h2><b className={`${styles.status} ${styles[preview.status.toLowerCase()]}`}>{preview.status}</b></div></header><section className={styles.billMeta}><div><span>BILL TO</span><strong>{preview.customer.fullName}</strong><p>{preview.customer.phoneNumber}<br />{preview.customer.email || 'No email provided'}</p></div><div><span>INVOICE DETAILS</span><p><b>Issued:</b> {new Date(preview.createdAt).toLocaleDateString('en-GB', { dateStyle: 'long' })}<br /><b>Due:</b> {preview.dueDate ? new Date(preview.dueDate).toLocaleDateString('en-GB', { dateStyle: 'long' }) : 'Due on receipt'}</p></div></section><div className={styles.previewTable}><div><span>Description</span><span>Qty</span><span>Rate</span><span>Amount</span></div>{preview.items.map((item, index) => <div key={item.id || index}><strong>{item.description}</strong><span>{item.quantity}</span><span>{money.format(item.unitPrice)}</span><strong>{money.format(item.lineTotal ?? item.quantity * item.unitPrice)}</strong></div>)}</div><section className={styles.invoiceTotals}><div><span>Subtotal</span><strong>{money.format(preview.subtotal)}</strong></div><div><span>Total due</span><strong>{money.format(preview.totalAmount)}</strong></div></section>{preview.notes && <div className={styles.notes}><span>NOTES</span><p>{preview.notes}</p></div>}<footer><strong>Thank you for choosing BG Laundry.</strong><span>0705 815 5555 · 0805 825 5555</span></footer></article><div className={styles.previewActions}><select value={preview.status} onChange={(event) => { void updateStatus(preview, event.target.value as InvoiceStatus); }} disabled={saving}><option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="PAID">Paid</option><option value="VOID">Void</option></select><button disabled={saving} onClick={() => { void downloadInvoice(preview); }}>{saving ? 'Preparing…' : 'Save PDF'}</button><button disabled={saving} className={styles.primary} onClick={() => { void shareInvoice(preview); }}>{saving ? 'Preparing PDF…' : 'Share invoice'}</button></div></section></div>}
+    {preview && <div className={styles.backdrop} onMouseDown={() => setPreview(null)}><section className={styles.previewModal} onMouseDown={(event) => event.stopPropagation()}><button className={styles.close} onClick={() => setPreview(null)}><X size={18} /></button><article ref={invoicePaperRef} className={styles.invoicePaper}><header><div><div className={styles.invoiceLogo}>BG</div><strong>BG Laundry</strong><span>Premium Laundry & Dry Cleaning</span></div><div><span>INVOICE</span><h2>{preview.invoiceNumber}</h2><b className={`${styles.status} ${styles[preview.status.toLowerCase()]}`}>{preview.status}</b></div></header><section className={styles.billMeta}><div><span>BILL TO</span><strong>{preview.customer.fullName}</strong><p>{preview.customer.phoneNumber}<br />{preview.customer.email || 'No email provided'}</p></div><div><span>INVOICE DETAILS</span><p><b>Issued:</b> {new Date(preview.createdAt).toLocaleDateString('en-GB', { dateStyle: 'long' })}<br /><b>Due:</b> {preview.dueDate ? new Date(preview.dueDate).toLocaleDateString('en-GB', { dateStyle: 'long' }) : 'Due on receipt'}</p></div></section><div className={styles.previewTable}><div><span>Description</span><span>Qty</span><span>Rate</span><span>Amount</span></div>{preview.items.map((item, index) => <div key={item.id || index}><strong>{item.description}</strong><span>{item.quantity}</span><span>{money.format(item.unitPrice)}</span><strong>{money.format(item.lineTotal ?? item.quantity * item.unitPrice)}</strong></div>)}</div><section className={styles.invoiceTotals}><div><span>Subtotal</span><strong>{money.format(preview.subtotal)}</strong></div><div><span>Total due</span><strong>{money.format(preview.totalAmount)}</strong></div></section>{preview.notes && <div className={styles.notes}><span>NOTES</span><p>{preview.notes}</p></div>}<footer><strong>Thank you for choosing BG Laundry.</strong><span>0705 815 5555 · 0805 825 5555</span></footer></article><div className={styles.previewActions}><select value={preview.status} onChange={(event) => { void updateStatus(preview, event.target.value as InvoiceStatus); }} disabled={saving}><option value="DRAFT">Draft</option><option value="SENT">Sent</option><option value="PAID">Paid</option><option value="VOID">Void</option></select><button disabled={saving} onClick={() => { void downloadInvoice(preview); }}>{saving ? 'Preparing…' : 'Save PDF'}</button><button disabled={saving || preparingPdf || !preparedFile} className={styles.primary} onClick={() => { void shareInvoice(preview); }}>{preparingPdf ? 'Preparing PDF…' : preparedFile ? 'Share PDF' : 'PDF unavailable'}</button></div></section></div>}
 
     {creating && <div className={styles.backdrop} onMouseDown={() => !saving && setCreating(false)}><form className={styles.createModal} onSubmit={createInvoice} onMouseDown={(event) => event.stopPropagation()}><div className={styles.modalTop}><div><span className={styles.eyebrow}>New billing record</span><h2>Create invoice</h2><p>Build a professional invoice from your service catalogue.</p></div><button type="button" onClick={() => setCreating(false)}><X size={18} /></button></div><section className={styles.customerChoice}><div><button type="button" className={customerMode === "EXISTING" ? styles.customerModeActive : ""} onClick={() => setCustomerMode("EXISTING")}>Existing customer</button><button type="button" className={customerMode === "NEW" ? styles.customerModeActive : ""} onClick={() => setCustomerMode("NEW")}>+ New customer</button></div>{customerMode === "EXISTING" ? <label>Customer<select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required><option value="">Select a customer</option>{customers.map((customer) => <option value={customer.id} key={customer.id}>{customer.fullName} — {customer.phoneNumber}</option>)}</select></label> : <div className={styles.newCustomerGrid}><label>Full name<input value={newCustomer.fullName} onChange={(event) => setNewCustomer(current => ({ ...current, fullName: event.target.value }))} placeholder="Customer name" required /></label><label>WhatsApp phone<input type="tel" value={newCustomer.phoneNumber} onChange={(event) => setNewCustomer(current => ({ ...current, phoneNumber: event.target.value }))} placeholder="080 1234 5678" required /></label><label>Email (optional)<input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer(current => ({ ...current, email: event.target.value }))} placeholder="customer@example.com" /></label></div>}</section><section className={styles.catalog}><div><strong>Add from service catalogue</strong><span>Choose a treatment to add it as an invoice line.</span></div><input value={serviceQuery} onChange={(event) => setServiceQuery(event.target.value)} placeholder="Search services…" />{matchingServices.length === 0 ? <p>No matching services.</p> : <div className={styles.catalogResults}>{matchingServices.map((service) => <div key={service.id}><strong>{service.name}</strong><span>{service.category}</span><section>{service.hasWash && <button type="button" onClick={() => addCatalogItem(service, 'Wash only', service.washPrice)}>Wash · {money.format(service.washPrice)}</button>}{service.hasIron && <button type="button" onClick={() => addCatalogItem(service, 'Iron only', service.ironPrice)}>Iron · {money.format(service.ironPrice)}</button>}{service.hasWashIron && <button type="button" onClick={() => addCatalogItem(service, 'Wash & iron', service.washIronPrice)}>Both · {money.format(service.washIronPrice)}</button>}</section></div>)}</div>}</section><div className={styles.itemTitle}><strong>Invoice items</strong><button type="button" onClick={() => setItems((current) => [...current, blankItem()])}><Plus size={14} />Custom item</button></div>{items.length === 0 ? <div className={styles.noItems}>Select a service above or add a custom item.</div> : items.map((item, index) => <div className={styles.itemRow} key={index}><input value={item.description} onChange={(event) => updateItem(index, { description: event.target.value })} placeholder="Description" required /><input type="number" min="1" value={item.quantity} onChange={(event) => updateItem(index, { quantity: Number(event.target.value) })} required /><input type="number" min="0" value={item.unitPrice} onChange={(event) => updateItem(index, { unitPrice: Number(event.target.value) })} required /><button type="button" onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Minus size={15} /></button></div>)}<div className={styles.formSplit}><label>Due date<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label><label>Notes<input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional instructions" /></label></div><div className={styles.createTotal}><span>Invoice total</span><strong>{money.format(total)}</strong></div><div className={styles.modalActions}><button type="button" onClick={() => setCreating(false)}>Cancel</button><button className={styles.primary} disabled={saving || !items.length}><Save size={16} />{saving ? 'Creating…' : 'Create invoice'}</button></div></form></div>}
   </main>;
