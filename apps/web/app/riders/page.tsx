@@ -85,6 +85,12 @@ function Login({ onLogin }: { onLogin: (session: RiderSession) => void }) {
 function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; orders: RiderOrder[]; position: Coordinates | null; onSelect: (id: string) => void }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<import('mapbox-gl').Map | null>(null);
+  const riderMapMarkerRef = useRef<import('mapbox-gl').Marker | null>(null);
+  const mapboxRef = useRef<typeof import('mapbox-gl').default | null>(null);
+  const locatedStopsRef = useRef<Array<[number, number]>>([]);
+  const lastRouteRefreshRef = useRef(0);
+  const [mapReady, setMapReady] = useState(false);
   const [routeMeta, setRouteMeta] = useState<{ distance: string; duration: string } | null>(null);
   const address = destinationFor(order);
   const routeKey = orders.map(item => `${item.id}:${item.status}`).join('|');
@@ -117,8 +123,13 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
         }
         const destination = located[0]?.coordinates;
         if (!destination || cancelled || !containerRef.current) return;
+        mapboxRef.current = mapboxgl;
         mapboxgl.accessToken = token;
         map = new mapboxgl.Map({ container: containerRef.current, style: 'mapbox://styles/mapbox/streets-v12', center: destination, zoom: 12, attributionControl: true });
+        mapRef.current = map;
+        lastRouteRefreshRef.current = 0;
+        setMapReady(true);
+        locatedStopsRef.current = located.map(stop => stop.coordinates);
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
         const bounds = new mapboxgl.LngLatBounds();
         located.forEach((stop, index) => {
@@ -133,28 +144,60 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
         if (position) {
           const riderCoordinates: [number, number] = [position.longitude, position.latitude];
           const rider = document.createElement('div'); rider.className = styles.riderMarker; rider.title = 'Your current location';
-          new mapboxgl.Marker({ element: rider }).setLngLat(riderCoordinates).addTo(map);
+          riderMapMarkerRef.current = new mapboxgl.Marker({ element: rider }).setLngLat(riderCoordinates).addTo(map);
           bounds.extend(riderCoordinates);
         }
         if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 55, maxZoom: 15, duration: 0 });
-        if (position) {
-          const routeStops = located.slice(0, 9).map(stop => stop.coordinates);
-          const coordinates = [[position.longitude, position.latitude] as [number, number], ...routeStops].map(point => `${point[0]},${point[1]}`).join(';');
-          const directions = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?geometries=geojson&overview=full&steps=false&access_token=${token}`).then(r => r.json());
-          const route = directions.routes?.[0];
-          if (route && map) {
-            setRouteMeta({ distance: `${Math.max(0.1, route.distance / 1000).toFixed(1)} km`, duration: `${Math.max(1, Math.round(route.duration / 60))} min` });
-            map.on('load', () => {
-              if (!map || cancelled) return;
-              map.addSource('rider-route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: route.geometry } });
-              map.addLayer({ id: 'rider-route', type: 'line', source: 'rider-route', paint: { 'line-color': '#102b72', 'line-width': 5, 'line-opacity': .85 } });
-            });
-          }
-        }
       } catch { /* The address remains usable if Mapbox is temporarily unavailable. */ }
     })();
-    return () => { cancelled = true; map?.remove(); };
-  }, [address, onSelect, order.id, position?.latitude, position?.longitude, routeKey, token]);
+    return () => {
+      cancelled = true;
+      mapRef.current = null;
+      setMapReady(false);
+      riderMapMarkerRef.current = null;
+      locatedStopsRef.current = [];
+      map?.remove();
+    };
+  }, [address, onSelect, order.id, routeKey, token]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapboxgl = mapboxRef.current;
+    if (!map || !mapboxgl || !position || !token) return;
+    const riderCoordinates: [number, number] = [position.longitude, position.latitude];
+    if (riderMapMarkerRef.current) riderMapMarkerRef.current.setLngLat(riderCoordinates);
+    else {
+      const rider = document.createElement('div'); rider.className = styles.riderMarker; rider.title = 'Your current location';
+      riderMapMarkerRef.current = new mapboxgl.Marker({ element: rider }).setLngLat(riderCoordinates).addTo(map);
+    }
+    if (Date.now() - lastRouteRefreshRef.current < 15000 || !locatedStopsRef.current.length) return;
+    lastRouteRefreshRef.current = Date.now();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const routeStops = locatedStopsRef.current.slice(0, 9);
+        const coordinates = [riderCoordinates, ...routeStops].map(point => `${point[0]},${point[1]}`).join(';');
+        const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?geometries=geojson&overview=full&steps=false&access_token=${token}`);
+        if (!response.ok || cancelled) return;
+        const route = (await response.json()).routes?.[0];
+        if (!route || cancelled || !mapRef.current) return;
+        setRouteMeta({ distance: `${Math.max(0.1, route.distance / 1000).toFixed(1)} km`, duration: `${Math.max(1, Math.round(route.duration / 60))} min` });
+        const data = { type: 'Feature' as const, properties: {}, geometry: route.geometry };
+        const draw = () => {
+          const activeMap = mapRef.current;
+          if (!activeMap || cancelled) return;
+          const source = activeMap.getSource('rider-route') as import('mapbox-gl').GeoJSONSource | undefined;
+          if (source) source.setData(data);
+          else {
+            activeMap.addSource('rider-route', { type: 'geojson', data });
+            activeMap.addLayer({ id: 'rider-route', type: 'line', source: 'rider-route', paint: { 'line-color': '#102b72', 'line-width': 5, 'line-opacity': .85 } });
+          }
+        };
+        if (map.loaded()) draw(); else map.once('load', draw);
+      } catch { /* Keep the existing map and retry on the next GPS update. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [mapReady, position?.latitude, position?.longitude, token]);
 
   return <div className={styles.map}>
     {token ? <div ref={containerRef} className={styles.mapCanvas} aria-label={`Route map to ${address}`}/> : <div className={styles.mapFallback}><Icon name="route"/><strong>Mapbox setup required</strong><span>Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to show live routes.</span></div>}
