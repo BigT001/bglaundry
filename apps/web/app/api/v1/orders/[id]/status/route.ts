@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!verifyAdminToken(bearerToken(request))) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, otp } = body;
+    const { status } = body;
 
     if (!id || !status) {
       return NextResponse.json(
         { error: 'Order ID and Status are required' },
         { status: 400 },
+      );
+    }
+    if ([OrderStatus.PICKED_UP, OrderStatus.DELIVERED].includes(status)) {
+      return NextResponse.json(
+        { error: `${status === OrderStatus.PICKED_UP ? 'Pickup' : 'Delivery'} can only be confirmed by the rider using the customer PIN.` },
+        { status: 403 },
       );
     }
 
@@ -29,38 +39,6 @@ export async function PATCH(
       );
     }
 
-    // If changing to PICKED_UP, require matching pickupOTP
-    if (status === OrderStatus.PICKED_UP) {
-      if (!otp) {
-        return NextResponse.json(
-          { error: 'Verification OTP required to confirm laundry pickup' },
-          { status: 400 },
-        );
-      }
-      if (order.pickupOTP !== otp && otp !== '1234') {
-        return NextResponse.json(
-          { error: 'Invalid pickup verification OTP' },
-          { status: 400 },
-        );
-      }
-    }
-
-    // If changing to DELIVERED, require matching deliveryOTP
-    if (status === OrderStatus.DELIVERED) {
-      if (!otp) {
-        return NextResponse.json(
-          { error: 'Verification OTP required to confirm laundry delivery' },
-          { status: 400 },
-        );
-      }
-      if (order.deliveryOTP !== otp && otp !== '1234') {
-        return NextResponse.json(
-          { error: 'Invalid delivery verification OTP' },
-          { status: 400 },
-        );
-      }
-    }
-
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
@@ -68,7 +46,7 @@ export async function PATCH(
         trackingHistory: {
           create: {
             status,
-            note: `Status updated to: ${status}`,
+            note: `Status changed by admin to ${status}.`,
           },
         },
       },

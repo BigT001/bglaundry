@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InvoiceStatus, Role } from '@bglaundry/database';
 import { prisma } from '@/lib/prisma';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,10 @@ async function nextInvoiceNumber() {
   throw new Error('Unable to reserve an invoice number. Please try again.');
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!verifyAdminToken(bearerToken(request))) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
   try {
     const invoices = await prisma.invoice.findMany({
       include: invoiceInclude,
@@ -33,6 +37,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!verifyAdminToken(bearerToken(request))) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const customerId = typeof body.customerId === 'string' ? body.customerId : '';

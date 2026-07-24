@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!verifyAdminToken(bearerToken(request))) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const body = await request.json();
@@ -31,11 +35,10 @@ export async function PATCH(
       where: { id },
       data: {
         driverId,
-        status: OrderStatus.PICKUP_IN_PROGRESS,
         trackingHistory: {
           create: {
-            status: OrderStatus.PICKUP_IN_PROGRESS,
-            note: 'Driver assigned and is en-route for pickup.',
+            status: OrderStatus.PICKUP_PENDING,
+            note: 'Rider assigned. Waiting for the rider to start the pickup route.',
           },
         },
       },

@@ -208,6 +208,16 @@ export default function CustomerDashboard() {
       .finally(() => setOrdersLoading(false));
   };
 
+  useEffect(() => {
+    if (!token || !user?.id) return;
+    const timer = window.setInterval(() => {
+      axios.get(`/api/v1/orders/customer/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then((res) => setActiveOrders(res.data || [])).catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [token, user?.id]);
+
   const handleLogout = () => {
     localStorage.removeItem('customerToken');
     localStorage.removeItem('customerUser');

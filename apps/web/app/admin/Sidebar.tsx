@@ -217,6 +217,7 @@ export default function Sidebar() {
                   onClick={() => setMobileOpen(false)}
                   aria-current={isActive ? 'page' : undefined}
                 >
+                  {isActive && <span className="activeMarker" aria-hidden="true" />}
                   <span className="iconWrap">
                     <Icon size={20} />
                   </span>
@@ -273,13 +274,13 @@ export default function Sidebar() {
         }
 
         .sidebar.sidebarCollapsed .brandHeader,
-        .sidebar.sidebarCollapsed .navItem,
+        .sidebar.sidebarCollapsed :global(.navItem),
         .sidebar.sidebarCollapsed .profileContainer,
         .sidebar.sidebarCollapsed .logoutButton {
           justify-content: center !important;
         }
 
-        .sidebar.sidebarCollapsed .navItem {
+        .sidebar.sidebarCollapsed :global(.navItem) {
           padding-left: 8px !important;
           padding-right: 8px !important;
         }
@@ -370,12 +371,14 @@ export default function Sidebar() {
           flex: 1;
         }
 
-        .sidebar a {
+        .sidebar :global(a) {
           color: inherit;
           text-decoration: none;
         }
 
-        .navItem {
+        :global(.navItem) {
+          position: relative !important;
+          overflow: hidden !important;
           display: flex !important;
           flex-direction: row !important;
           align-items: center !important;
@@ -387,29 +390,53 @@ export default function Sidebar() {
           text-decoration: none !important;
           font-size: 14px !important;
           font-weight: 700 !important;
-          transition: background-color 0.18s ease, transform 0.18s ease !important;
-          background-color: #F8F8F8 !important;
+          transition: background-color 0.22s ease, color 0.22s ease, transform 0.18s ease, box-shadow 0.22s ease !important;
+          background-color: transparent !important;
           border: 1px solid transparent !important;
           min-height: 50px !important;
           white-space: nowrap !important;
           flex-wrap: nowrap !important;
         }
 
-        .navItem:hover {
-          background-color: #E5E7EB;
+        :global(.navItem:hover) {
+          background-color: #F1F5F9 !important;
           color: #000000;
+          transform: translateX(2px);
         }
 
-        .navItem.active {
-          background-color: #0F172A !important;
-          border-color: #0F172A !important;
+        :global(.navItem.active) {
+          background: linear-gradient(100deg, #102B72 0%, #19469A 100%) !important;
+          border-color: #102B72 !important;
           color: #FFFFFF !important;
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+          box-shadow: 0 9px 22px rgba(16, 43, 114, 0.24);
+          transform: translateX(3px);
+          animation: activeNavIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        .navItem.active .iconWrap,
-        .navItem.active .navLabel {
+        @keyframes activeNavIn {
+          from { opacity: 0.72; transform: translateX(-7px); }
+          to { opacity: 1; transform: translateX(3px); }
+        }
+
+        .activeMarker {
+          position: absolute;
+          left: 0;
+          top: 11px;
+          bottom: 11px;
+          width: 3px;
+          border-radius: 0 4px 4px 0;
+          background: #7DD3FC;
+          box-shadow: 0 0 12px rgba(125, 211, 252, 0.8);
+        }
+
+        :global(.navItem.active) .iconWrap,
+        :global(.navItem.active) .navLabel {
           color: #FFFFFF !important;
+        }
+
+        :global(.navItem.active) .iconWrap {
+          background: rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
         }
 
         .iconWrap {
@@ -570,7 +597,7 @@ export default function Sidebar() {
         }
 
         @media (max-width: 640px) {
-          .navItem {
+          :global(.navItem) {
             padding: 12px 14px;
           }
 

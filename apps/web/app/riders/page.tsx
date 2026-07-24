@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RiderOrder, RiderSession } from '@bglaundry/rider-core';
 import {
   RIDER_SESSION_KEY, canStart, destinationFor, jobKind,
@@ -9,6 +9,7 @@ import {
 import styles from './riders.module.css';
 
 type Coordinates = { latitude: number; longitude: number };
+const geocodeCache = new Map<string, [number, number]>();
 
 async function api<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -20,7 +21,7 @@ async function api<T>(path: string, token: string, init?: RequestInit): Promise<
   return data;
 }
 
-function Icon({ name }: { name: 'pin' | 'route' | 'phone' | 'bag' | 'logout' | 'clock' }) {
+function Icon({ name }: { name: 'pin' | 'route' | 'phone' | 'bag' | 'logout' | 'clock' | 'search' | 'locate' }) {
   const paths = {
     pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
     route: <><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h2a4 4 0 0 0 4-4V9a4 4 0 0 1 4-4"/></>,
@@ -28,6 +29,8 @@ function Icon({ name }: { name: 'pin' | 'route' | 'phone' | 'bag' | 'logout' | '
     bag: <><path d="M6 8h12l1 13H5L6 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></>,
     logout: <><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
+    locate: <><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -79,41 +82,83 @@ function Login({ onLogin }: { onLogin: (session: RiderSession) => void }) {
   </main>;
 }
 
-function RouteMap({ order, position }: { order: RiderOrder; position: Coordinates | null }) {
+function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; orders: RiderOrder[]; position: Coordinates | null; onSelect: (id: string) => void }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-  const [mapUrl, setMapUrl] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
   const [routeMeta, setRouteMeta] = useState<{ distance: string; duration: string } | null>(null);
   const address = destinationFor(order);
+  const routeKey = orders.map(item => `${item.id}:${item.status}`).join('|');
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !containerRef.current) return;
     let cancelled = false;
+    let map: import('mapbox-gl').Map | null = null;
     (async () => {
       try {
-        const result = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?country=ng&limit=1&access_token=${token}`).then(r => r.json());
-        const destination = result.features?.[0]?.center;
-        if (!destination || cancelled) return;
-        const start = position ? [position.longitude, position.latitude] : destination;
-        let overlay = `pin-s+102b72(${destination[0]},${destination[1]})`;
+        const mapboxgl = (await import('mapbox-gl')).default;
+        setRouteMeta(null);
+        const planned = [order, ...orders.filter(item => item.id !== order.id)];
+        const located: { order: RiderOrder; coordinates: [number, number] }[] = [];
+        for (let index = 0; index < planned.length; index += 5) {
+          const batch = await Promise.all(planned.slice(index, index + 5).map(async item => {
+            const destinationAddress = destinationFor(item);
+            let coordinates = geocodeCache.get(destinationAddress);
+            if (!coordinates) {
+              const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationAddress)}.json?country=ng&limit=1&access_token=${token}`);
+              if (!response.ok) return null;
+              const result = await response.json();
+              coordinates = result.features?.[0]?.center;
+              if (coordinates) geocodeCache.set(destinationAddress, coordinates);
+            }
+            return coordinates ? { order: item, coordinates } : null;
+          }));
+          located.push(...batch.filter((item): item is { order: RiderOrder; coordinates: [number, number] } => Boolean(item)));
+          if (cancelled) return;
+        }
+        const destination = located[0]?.coordinates;
+        if (!destination || cancelled || !containerRef.current) return;
+        mapboxgl.accessToken = token;
+        map = new mapboxgl.Map({ container: containerRef.current, style: 'mapbox://styles/mapbox/streets-v12', center: destination, zoom: 12, attributionControl: true });
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+        const bounds = new mapboxgl.LngLatBounds();
+        located.forEach((stop, index) => {
+          const marker = document.createElement('button');
+          marker.className = `${styles.stopMarker} ${stop.order.id === order.id ? styles.nextMarker : ''}`;
+          marker.textContent = String(index + 1);
+          marker.title = `${stop.order.customer.fullName} — ${destinationFor(stop.order)}`;
+          marker.onclick = () => onSelect(stop.order.id);
+          new mapboxgl.Marker({ element: marker }).setLngLat(stop.coordinates).addTo(map!);
+          bounds.extend(stop.coordinates);
+        });
         if (position) {
-          const directions = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${start[0]},${start[1]};${destination[0]},${destination[1]}?geometries=geojson&overview=full&access_token=${token}`).then(r => r.json());
+          const riderCoordinates: [number, number] = [position.longitude, position.latitude];
+          const rider = document.createElement('div'); rider.className = styles.riderMarker; rider.title = 'Your current location';
+          new mapboxgl.Marker({ element: rider }).setLngLat(riderCoordinates).addTo(map);
+          bounds.extend(riderCoordinates);
+        }
+        if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 55, maxZoom: 15, duration: 0 });
+        if (position) {
+          const routeStops = located.slice(0, 9).map(stop => stop.coordinates);
+          const coordinates = [[position.longitude, position.latitude] as [number, number], ...routeStops].map(point => `${point[0]},${point[1]}`).join(';');
+          const directions = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?geometries=geojson&overview=full&steps=false&access_token=${token}`).then(r => r.json());
           const route = directions.routes?.[0];
-          if (route) {
-            const encoded = encodeURIComponent(JSON.stringify({ type: 'Feature', properties: { stroke: '#102b72', 'stroke-width': 5 }, geometry: route.geometry }));
-            overlay = `geojson(${encoded}),pin-s-a+16a36a(${start[0]},${start[1]}),${overlay}`;
+          if (route && map) {
             setRouteMeta({ distance: `${Math.max(0.1, route.distance / 1000).toFixed(1)} km`, duration: `${Math.max(1, Math.round(route.duration / 60))} min` });
+            map.on('load', () => {
+              if (!map || cancelled) return;
+              map.addSource('rider-route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: route.geometry } });
+              map.addLayer({ id: 'rider-route', type: 'line', source: 'rider-route', paint: { 'line-color': '#102b72', 'line-width': 5, 'line-opacity': .85 } });
+            });
           }
         }
-        if (!cancelled) setMapUrl(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlay}/auto/900x500@2x?padding=70&access_token=${token}`);
       } catch { /* The address remains usable if Mapbox is temporarily unavailable. */ }
     })();
-    return () => { cancelled = true; };
-  }, [address, position?.latitude, position?.longitude, token]);
+    return () => { cancelled = true; map?.remove(); };
+  }, [address, onSelect, order.id, position?.latitude, position?.longitude, routeKey, token]);
 
   return <div className={styles.map}>
-    {mapUrl ? <img src={mapUrl} alt={`Route map to ${address}`} /> : <div className={styles.mapFallback}><Icon name="route"/><strong>{token ? 'Finding the best route…' : 'Mapbox setup required'}</strong><span>{token ? address : 'Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to show live routes.'}</span></div>}
-    {routeMeta && <div className={styles.routeMeta}><strong>{routeMeta.duration}</strong><span>{routeMeta.distance}</span></div>}
-    <div className={styles.mapAttribution}>Powered by Mapbox</div>
+    {token ? <div ref={containerRef} className={styles.mapCanvas} aria-label={`Route map to ${address}`}/> : <div className={styles.mapFallback}><Icon name="route"/><strong>Mapbox setup required</strong><span>Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to show live routes.</span></div>}
+    {routeMeta && <div className={styles.routeMeta}><strong>{routeMeta.duration}</strong><span>{routeMeta.distance} · {orders.length} stops mapped</span></div>}
   </div>;
 }
 
@@ -127,6 +172,13 @@ function Dashboard({ session, onLogout }: { session: RiderSession; onLogout: () 
   const [confirming, setConfirming] = useState(false);
   const [code, setCode] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'PICKUP' | 'DELIVERY'>('ALL');
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [activeView, setActiveView] = useState<'assignments' | 'route'>('assignments');
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const locationWatchRef = useRef<number | null>(null);
+  const lastLocationSyncRef = useRef(0);
 
   const loadOrders = useCallback(async (quiet = false) => {
     try {
@@ -147,17 +199,64 @@ function Dashboard({ session, onLogout }: { session: RiderSession; onLogout: () 
     return () => window.clearInterval(timer);
   }, [loadOrders]);
 
+  const syncLocation = useCallback(async (result: GeolocationPosition) => {
+    const next = { latitude: result.coords.latitude, longitude: result.coords.longitude };
+    setPosition(next);
+    setLocationAccuracy(Math.round(result.coords.accuracy));
+    setMessage('');
+    if (Date.now() - lastLocationSyncRef.current < 5000) return;
+    lastLocationSyncRef.current = Date.now();
+    try {
+      await api('/api/v1/riders/me', session.token, {
+        method: 'PATCH',
+        body: JSON.stringify({ currentLat: next.latitude, currentLng: next.longitude, isOnline: true }),
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Your location could not be synced with dispatch.');
+    }
+  }, [session.token]);
+
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation || !online) {
+      setMessage(!navigator.geolocation ? 'Location is not supported on this device. Address navigation is still available.' : 'Go online to share your live location.');
+      return;
+    }
+    if (!window.isSecureContext && location.hostname !== 'localhost') {
+      setMessage('Live GPS requires a secure HTTPS connection.');
+      return;
+    }
+    if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    const onError = (error: GeolocationPositionError) => {
+      if (error.code === error.PERMISSION_DENIED) setMessage('Location permission is blocked. Enable Precise Location for this site in your browser settings, then tap Enable GPS.');
+      else if (error.code === error.POSITION_UNAVAILABLE) setMessage('Your device cannot determine its position yet. Move outdoors and tap Enable GPS again.');
+      else setMessage('GPS is taking longer than expected. Tap Enable GPS to retry.');
+    };
+    navigator.geolocation.getCurrentPosition(result => { void syncLocation(result); }, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    locationWatchRef.current = navigator.geolocation.watchPosition(result => { void syncLocation(result); }, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+  }, [online, syncLocation]);
+
   useEffect(() => {
-    if (!navigator.geolocation || !online) return;
-    const watch = navigator.geolocation.watchPosition(async result => {
-      const next = { latitude: result.coords.latitude, longitude: result.coords.longitude };
-      setPosition(next);
-      try { await api('/api/v1/riders/me', session.token, { method: 'PATCH', body: JSON.stringify({ currentLat: next.latitude, currentLng: next.longitude, isOnline: true }) }); } catch {}
-    }, () => setMessage('Location access is off. Routes can still use the destination address.'), { enableHighAccuracy: true, maximumAge: 15000 });
-    return () => navigator.geolocation.clearWatch(watch);
-  }, [online, session.token]);
+    requestLocation();
+    const resume = () => { if (document.visibilityState === 'visible') requestLocation(); };
+    document.addEventListener('visibilitychange', resume);
+    return () => {
+      document.removeEventListener('visibilitychange', resume);
+      if (locationWatchRef.current !== null) navigator.geolocation.clearWatch(locationWatchRef.current);
+    };
+  }, [requestLocation]);
 
   const selected = useMemo(() => orders.find(o => o.id === selectedId) || orders[0], [orders, selectedId]);
+  const filteredOrders = useMemo(() => orders.filter(order => {
+    const matchesKind = filter === 'ALL' || jobKind(order.status) === filter;
+    const search = `${order.orderNumber} ${order.customer.fullName} ${order.customer.phoneNumber} ${destinationFor(order)}`.toLowerCase();
+    return matchesKind && search.includes(query.trim().toLowerCase());
+  }), [filter, orders, query]);
+  const visibleOrders = filteredOrders.slice(0, visibleCount);
+
+  function openNavigation(order: RiderOrder) {
+    const destination = encodeURIComponent(destinationFor(order));
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`, '_blank', 'noopener,noreferrer');
+  }
 
   async function setAvailability(value: boolean) {
     setOnline(value);
@@ -182,7 +281,7 @@ function Dashboard({ session, onLogout }: { session: RiderSession; onLogout: () 
   return <main className={styles.appShell}>
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}><div className={styles.logo}>BG</div><div><strong>Rider</strong><span>Operations</span></div></div>
-      <nav><button className={styles.navActive}><Icon name="bag"/>Assignments <span>{orders.length}</span></button><button><Icon name="route"/>Route</button></nav>
+      <nav><button className={activeView === 'assignments' ? styles.navActive : ''} onClick={() => setActiveView('assignments')}><Icon name="bag"/>Assignments <span>{orders.length}</span></button><button className={activeView === 'route' ? styles.navActive : ''} onClick={() => setActiveView('route')}><Icon name="route"/>Route</button></nav>
       <div className={styles.riderCard}><div className={styles.avatar}>{session.rider.fullName.slice(0, 2).toUpperCase()}</div><div><strong>{session.rider.fullName}</strong><span>{online ? 'Online' : 'Offline'}</span></div><button onClick={onLogout} aria-label="Sign out"><Icon name="logout"/></button></div>
     </aside>
     <section className={styles.workspace}>
@@ -191,22 +290,35 @@ function Dashboard({ session, onLogout }: { session: RiderSession; onLogout: () 
         <label className={styles.availability}><span><i className={online ? styles.onlineDot : ''}/>{online ? 'You’re online' : 'You’re offline'}</span><input type="checkbox" checked={online} onChange={e => setAvailability(e.target.checked)}/><b/></label>
       </header>
       {message && <button className={styles.toast} onClick={() => setMessage('')}>{message}<span>×</span></button>}
-      <div className={styles.contentGrid}>
+      <section className={styles.routeSummary}>
+        <div><small>Remaining stops</small><strong>{orders.length}</strong></div>
+        <div><small>Pickups</small><strong>{orders.filter(order => jobKind(order.status) === 'PICKUP').length}</strong></div>
+        <div><small>Deliveries</small><strong>{orders.filter(order => jobKind(order.status) === 'DELIVERY').length}</strong></div>
+        <button onClick={() => requestLocation()}><Icon name="locate"/>{position ? `GPS active · ±${locationAccuracy || '—'}m` : 'Enable GPS'}</button>
+      </section>
+      <div className={`${styles.contentGrid} ${activeView === 'route' ? styles.routeView : styles.assignmentsView}`}>
         <section className={styles.queue}>
           <div className={styles.sectionHead}><div><p className={styles.eyebrow}>Today</p><h2>Assigned jobs</h2></div><span>{orders.length} active</span></div>
+          <div className={styles.queueTools}>
+            <label><Icon name="search"/><input value={query} onChange={event => { setQuery(event.target.value); setVisibleCount(20); }} placeholder="Search customer, order or address"/></label>
+            <div>{(['ALL', 'PICKUP', 'DELIVERY'] as const).map(value => <button key={value} className={filter === value ? styles.filterActive : ''} onClick={() => { setFilter(value); setVisibleCount(20); }}>{value === 'ALL' ? 'All' : value === 'PICKUP' ? 'Pickups' : 'Deliveries'}</button>)}</div>
+          </div>
           {loading ? <div className={styles.empty}>Loading your assignments…</div> : orders.length === 0 ? <div className={styles.empty}><Icon name="bag"/><strong>You’re all caught up</strong><span>New assignments from dispatch will appear here automatically.</span></div> :
-            orders.map(order => <button key={order.id} onClick={() => setSelectedId(order.id)} className={`${styles.jobCard} ${selected?.id === order.id ? styles.selected : ''}`}>
+            filteredOrders.length === 0 ? <div className={styles.empty}><strong>No matching stops</strong><span>Try a different name, address, or job type.</span></div> : <>
+            {visibleOrders.map((order, index) => <button key={order.id} onClick={() => { setSelectedId(order.id); if (window.innerWidth <= 760) setActiveView('route'); }} className={`${styles.jobCard} ${selected?.id === order.id ? styles.selected : ''}`}>
               <div className={styles.jobTop}><span className={jobKind(order.status) === 'PICKUP' ? styles.pickup : styles.delivery}>{jobKind(order.status)}</span><small>{order.orderNumber}</small></div>
-              <strong>{order.customer.fullName}</strong><p><Icon name="pin"/>{destinationFor(order)}</p>
+              <strong><i>{index + 1}</i>{order.customer.fullName}</strong><p><Icon name="pin"/>{destinationFor(order)}</p>
               <div><span><Icon name="clock"/>{new Date(order.pickupDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span><b>View job →</b></div>
             </button>)}
+            {visibleCount < filteredOrders.length && <button className={styles.loadMore} onClick={() => setVisibleCount(count => count + 20)}>Show 20 more <span>{filteredOrders.length - visibleCount} remaining</span></button>}</>}
         </section>
         <section className={styles.detail}>
           {!selected ? <div className={styles.detailEmpty}><Icon name="route"/><h2>No active route</h2><p>Your next assigned pickup or delivery will show here.</p></div> : <>
-            <RouteMap order={selected} position={position}/>
+            <RouteMap order={selected} orders={orders} position={position} onSelect={setSelectedId}/>
             <article className={styles.jobDetail}>
               <div className={styles.detailTitle}><div><span className={kind === 'PICKUP' ? styles.pickup : styles.delivery}>{kind}</span><h2>{selected.customer.fullName}</h2><p>{selected.orderNumber}</p></div><a href={`tel:${selected.customer.phoneNumber}`}><Icon name="phone"/>Call customer</a></div>
               <div className={styles.address}><Icon name="pin"/><div><small>{kind === 'DELIVERY' ? 'DELIVERY ADDRESS' : 'PICKUP ADDRESS'}</small><strong>{destinationFor(selected)}</strong></div></div>
+              <button className={styles.navigate} onClick={() => openNavigation(selected)}><Icon name="route"/><span><b>Navigate to this stop</b><small>Open turn-by-turn directions</small></span><strong>→</strong></button>
               <div className={styles.items}><small>ORDER SUMMARY</small><div>{selected.items.map(item => <span key={item.id}><b>{item.quantity}×</b>{item.serviceName}</span>)}</div></div>
               {canStart(selected.status) ? <button className={styles.action} disabled={actionBusy || !online} onClick={() => updateStatus(nextStartedStatus(selected.status)!)}><Icon name="route"/>{online ? `Start ${kind.toLowerCase()} route` : 'Go online to start'}<span>→</span></button>
                 : (kind === 'PICKUP' || kind === 'DELIVERY') && <button className={styles.action} onClick={() => setConfirming(true)}><Icon name="bag"/>Confirm {kind.toLowerCase()}<span>→</span></button>}

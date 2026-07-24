@@ -16,6 +16,14 @@ export default function ServicesPage() {
   const router = useRouter();
   const [showDrawer, setShowDrawer] = useState(false);
 
+  const openPricing = () => {
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      sessionStorage.setItem('pricingReturnTo', window.location.pathname);
+    }
+    router.push('/pricing');
+    setShowDrawer(false);
+  };
+
   return (
     <div className="shell">
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -94,7 +102,7 @@ export default function ServicesPage() {
                 <div className="svc-badge">{s.cat}</div>
                 <h3>{s.title}</h3>
                 <p>{s.desc}</p>
-                <button className="btn-view-price" onClick={() => router.push('/pricing')}>
+                <button className="btn-view-price" onClick={openPricing}>
                   View Pricing & Rates →
                 </button>
               </div>
@@ -127,7 +135,7 @@ export default function ServicesPage() {
               <button className="drawer-item" onClick={() => { router.push('/'); setShowDrawer(false); }}>Home</button>
               <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowDrawer(false); }}>How It Works</button>
               <button className="drawer-item" onClick={() => { router.push('/services'); setShowDrawer(false); }}>Our Services</button>
-              <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowDrawer(false); }}>Price Catalog</button>
+              <button className="drawer-item" onClick={openPricing}>Price Catalog</button>
               <button className="drawer-item blue" onClick={() => { router.push('/login'); setShowDrawer(false); }}>🔐 Sign In</button>
             </div>
           </div>

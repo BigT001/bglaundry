@@ -1,856 +1,267 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { Activity, ChevronDown, Clock, MapPin, Search, ShoppingBag, User } from '@/lib/icons';
 import { getAdminCache, setAdminCache } from '../adminCache';
-import {
-  Search,
-  SlidersHorizontal,
-  ChevronDown,
-  User,
-  MapPin,
-} from '@/lib/icons';
+import styles from './orders.module.css';
 
 interface Driver {
   id: string;
   fullName: string;
-  driverProfile?: {
-    vehicleType: string | null;
-    isOnline: boolean;
-  } | null;
+  phoneNumber: string;
+  driverProfile?: { vehicleType: string | null; isOnline: boolean; currentLat: number | null; currentLng: number | null } | null;
 }
 
 interface Order {
   id: string;
   orderNumber: string;
-  customerId: string;
-  customer: {
-    fullName: string;
-    phoneNumber: string;
-  };
+  status: string;
+  totalAmount: number;
   pickupAddress: string;
   deliveryAddress: string;
-  totalAmount: number;
-  status: string;
-  driverId: string | null;
-  driver: {
-    fullName: string;
-  } | null;
+  pickupDate: string;
+  deliveryDate: string | null;
   createdAt: string;
+  updatedAt: string;
+  driverId: string | null;
+  customer: { id: string; fullName: string; phoneNumber: string; email: string | null };
+  driver: Driver | null;
+  items: Array<{ id: string; serviceName: string; quantity: number; price: number }>;
+  payments: Array<{ id: string; amount: number; status: string; gateway: string; createdAt: string }>;
+  trackingHistory: Array<{ id: string; status: string; note: string | null; createdAt: string }>;
 }
 
 const ORDER_STATUSES = [
-  'PICKUP_PENDING',
-  'PICKUP_IN_PROGRESS',
-  'PICKED_UP',
-  'PROCESSING',
-  'DELIVERY_PENDING',
-  'DELIVERY_IN_PROGRESS',
-  'DELIVERED',
-  'CANCELLED',
+  'PICKUP_PENDING', 'PICKUP_IN_PROGRESS', 'PROCESSING',
+  'DELIVERY_PENDING', 'DELIVERY_IN_PROGRESS', 'CANCELLED',
 ];
+
+const money = new Intl.NumberFormat('en-NG', {
+  style: 'currency', currency: 'NGN', maximumFractionDigits: 0,
+});
+
+function readable(value: string) {
+  return value.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+}
+
+function statusGroup(status: string) {
+  if (status.startsWith('PICKUP') || status === 'PICKED_UP') return 'PICKUP';
+  if (status === 'PROCESSING') return 'PROCESSING';
+  if (status.startsWith('DELIVERY')) return 'DELIVERY';
+  if (status === 'DELIVERED') return 'COMPLETED';
+  return status;
+}
+
+function DriverLocationMap({ order }: { order: Order }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const profile = order.driver?.driverProfile;
+  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+  useEffect(() => {
+    if (!token || !containerRef.current || profile?.currentLat == null || profile.currentLng == null) return;
+    let map: import('mapbox-gl').Map | null = null;
+    let cancelled = false;
+    void import('mapbox-gl').then(({ default: mapboxgl }) => {
+      if (cancelled || !containerRef.current) return;
+      mapboxgl.accessToken = token;
+      const coordinates: [number, number] = [profile.currentLng!, profile.currentLat!];
+      map = new mapboxgl.Map({ container: containerRef.current, style: 'mapbox://styles/mapbox/streets-v12', center: coordinates, zoom: 15 });
+      const marker = document.createElement('div'); marker.className = styles.liveRiderMarker;
+      new mapboxgl.Marker({ element: marker }).setLngLat(coordinates).addTo(map);
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+    });
+    return () => { cancelled = true; map?.remove(); };
+  }, [profile?.currentLat, profile?.currentLng, token]);
+
+  if (!order.driver) return null;
+  return <section className={styles.driverTracking}>
+    <div><span><i className={profile?.isOnline ? styles.trackingOnline : ''}/>{profile?.isOnline ? 'Live rider location' : 'Last rider location'}</span><strong>{order.driver.fullName}</strong><small>{profile?.currentLat == null ? 'Waiting for the rider to enable precise GPS.' : `Position refreshes every 15 seconds · ${readable(order.status)}`}</small></div>
+    {profile?.currentLat != null && profile.currentLng != null ? <div ref={containerRef} className={styles.driverMap}/> : <div className={styles.noDriverMap}><MapPin size={20}/>No GPS position received yet</div>}
+  </section>;
+}
 
 export default function AdminOrdersPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const [orders, setOrders] = useState<Order[]>(() => getAdminCache<Order[]>('dashboard-orders') || []);
   const [drivers, setDrivers] = useState<Driver[]>(() => getAdminCache<Driver[]>('dashboard-drivers') || []);
-  const [loading, setLoading] = useState(() => {
-    const cachedOrders = getAdminCache<Order[]>('dashboard-orders');
-    const cachedDrivers = getAdminCache<Driver[]>('dashboard-drivers');
-    return !cachedOrders || !cachedDrivers;
-  });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(() => !getAdminCache<Order[]>('dashboard-orders'));
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'PICKUP' | 'PROCESSING' | 'DELIVERY' | 'COMPLETED'>('ALL');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
 
-  // Authenticate Admin
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      router.push('/admin');
-      setAuthChecked(true);
-    } else {
-      setAuthorized(true);
-      setAuthChecked(true);
-      fetchOrdersAndDrivers();
-    }
-  }, []);
+  const headers = useCallback(() => ({
+    Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
+  }), []);
 
-  useEffect(() => {
-    if (!authorized) return;
-    const refreshTimer = window.setInterval(fetchOrdersAndDrivers, 15000);
-    return () => window.clearInterval(refreshTimer);
-  }, [authorized]);
-
-  const fetchOrdersAndDrivers = async () => {
-    const hasCachedData = Boolean(
-      getAdminCache<Order[]>('dashboard-orders') && getAdminCache<Driver[]>('dashboard-drivers'),
-    );
-    if (!hasCachedData) setLoading(true);
+  const fetchOrdersAndDrivers = useCallback(async (quiet = false) => {
+    if (!quiet && !getAdminCache<Order[]>('dashboard-orders')) setLoading(true);
     try {
-      const ordersRes = await axios.get('/api/v1/orders');
-      setOrders(ordersRes.data);
-      setAdminCache('dashboard-orders', ordersRes.data);
-
-      const driversRes = await axios.get('/api/v1/drivers', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
-      });
-      setDrivers(driversRes.data);
-      setAdminCache('dashboard-drivers', driversRes.data);
-    } catch (err) {
-      console.error('Failed to load orders or drivers:', err);
+      const [ordersResponse, driversResponse] = await Promise.all([
+        axios.get('/api/v1/orders', { headers: headers() }),
+        axios.get('/api/v1/drivers', { headers: headers() }),
+      ]);
+      setOrders(ordersResponse.data || []);
+      setDrivers(driversResponse.data || []);
+      setAdminCache('dashboard-orders', ordersResponse.data || []);
+      setAdminCache('dashboard-drivers', driversResponse.data || []);
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        router.replace('/admin');
+        return;
+      }
+      if (!quiet) setNotice(error.response?.data?.error || 'Unable to load order operations.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [headers, router]);
 
-  const handleAssignDriver = async (orderId: string, driverId: string) => {
+  useEffect(() => {
+    if (!localStorage.getItem('adminToken')) {
+      router.replace('/admin');
+      return;
+    }
+    setAuthorized(true);
+    fetchOrdersAndDrivers();
+    const timer = window.setInterval(() => fetchOrdersAndDrivers(true), 15000);
+    return () => window.clearInterval(timer);
+  }, [fetchOrdersAndDrivers, router]);
+
+  async function assignDriver(orderId: string, driverId: string) {
     if (!driverId) return;
+    setSavingId(orderId); setNotice('');
     try {
-      await axios.patch(`/api/v1/orders/${orderId}/assign`, { driverId });
-      alert('Driver assigned successfully!');
-      fetchOrdersAndDrivers();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to assign driver.');
+      await axios.patch(`/api/v1/orders/${orderId}/assign`, { driverId }, { headers: headers() });
+      setNotice('Rider assigned. The route will activate when the rider taps Start.');
+      await fetchOrdersAndDrivers(true);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || 'Unable to assign this rider.');
+    } finally {
+      setSavingId(null);
     }
-  };
-
-  const handleStatusChange = async (orderId: string, status: string) => {
-    try {
-      await axios.patch(`/api/v1/orders/${orderId}/status`, {
-        status,
-        otp: '1234', // Bypass OTP code for dev simulation
-      });
-      alert(`Order status updated to ${status}!`);
-      fetchOrdersAndDrivers();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update order status.');
-    }
-  };
-
-  const formatNaira = (amount: number) => {
-    return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
-
-  if (!authChecked) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          minHeight: '100vh',
-          backgroundColor: '#F8FAFC',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: "'Inter', sans-serif",
-          padding: '32px',
-          textAlign: 'center',
-          color: '#0F172A',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading orders page…</h2>
-          <p style={{ marginTop: '12px', color: '#64748B' }}>
-            Preparing order details and driver assignments.
-          </p>
-        </div>
-      </div>
-    );
   }
 
-  // Filter online drivers
-  const onlineDrivers = drivers.filter(
-    (d) => d.driverProfile?.isOnline === true,
-  );
+  async function changeStatus(orderId: string, status: string) {
+    setSavingId(orderId); setNotice('');
+    try {
+      await axios.patch(`/api/v1/orders/${orderId}/status`, { status }, { headers: headers() });
+      setNotice(`Order updated to ${readable(status)}.`);
+      await fetchOrdersAndDrivers(true);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || 'Unable to update this order.');
+    } finally {
+      setSavingId(null);
+    }
+  }
 
-  // Search filter
-  const filteredOrders = orders.filter((o) => {
-    const term = searchQuery.toLowerCase();
-    return (
-      o.orderNumber.toLowerCase().includes(term) ||
-      o.customer.fullName.toLowerCase().includes(term) ||
-      o.pickupAddress.toLowerCase().includes(term)
-    );
-  });
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return orders.filter((order) => {
+      const matchesFilter = filter === 'ALL' || statusGroup(order.status) === filter;
+      const matchesSearch = !query || [
+        order.orderNumber, order.customer.fullName, order.customer.phoneNumber,
+        order.pickupAddress, order.deliveryAddress, order.driver?.fullName,
+      ].some((value) => value?.toLowerCase().includes(query));
+      return matchesFilter && matchesSearch;
+    });
+  }, [filter, orders, search]);
+
+  const metrics = useMemo(() => ({
+    active: orders.filter((order) => !['DELIVERED', 'CANCELLED'].includes(order.status)).length,
+    unassigned: orders.filter((order) => !order.driverId && !['DELIVERED', 'CANCELLED'].includes(order.status)).length,
+    processing: orders.filter((order) => order.status === 'PROCESSING').length,
+    completed: orders.filter((order) => order.status === 'DELIVERED').length,
+  }), [orders]);
+
+  const availableDrivers = drivers.filter((driver) => driver.driverProfile?.isOnline);
+
+  if (!authorized) return <div className={styles.loadingPage}>Checking admin access…</div>;
 
   return (
-    <div className="ordersPage">
-      <main className="ordersMain">
-        <header className="ordersHeader">
-          <div>
-            <h1>
-              Active Orders Queue
-            </h1>
-            <p>
-              Dispatch riders, sync deliveries, and manage laundry states
-            </p>
-          </div>
-        </header>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div><span className={styles.eyebrow}>Operations / Orders</span><h1>Order operations</h1><p>Track every handoff, dispatch riders, and manage the laundry lifecycle.</p></div>
+        <div className={styles.live}><i />Live updates<span>Every 15 seconds</span></div>
+      </header>
 
-        <section className="ordersToolbar">
-          <div className="searchWrapper">
-            <Search size={18} className="searchIcon" />
-            <input
-              type="text"
-              placeholder="Search by Order ID, customer, address..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="searchInput"
-            />
-          </div>
-          <button className="filterButton">
-            <SlidersHorizontal size={16} />
-            Filters
-          </button>
+      {notice && <button className={styles.notice} onClick={() => setNotice('')}>{notice}<span>×</span></button>}
+
+      <section className={styles.metrics}>
+        <article><div className={styles.metricIcon}><ShoppingBag size={19} /></div><div><span>Active orders</span><strong>{metrics.active}</strong><small>Currently in operation</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.amber}`}><User size={19} /></div><div><span>Need a rider</span><strong>{metrics.unassigned}</strong><small>Awaiting dispatch</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.violet}`}><Activity size={19} /></div><div><span>Processing</span><strong>{metrics.processing}</strong><small>At the laundry facility</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.green}`}>✓</div><div><span>Delivered</span><strong>{metrics.completed}</strong><small>All-time completion</small></div></article>
+      </section>
+
+      <section className={styles.toolbar}>
+        <div className={styles.search}><Search size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order, customer, address or rider…" /></div>
+        <div className={styles.filters}>
+          {(['ALL', 'PICKUP', 'PROCESSING', 'DELIVERY', 'COMPLETED'] as const).map((value) => (
+            <button key={value} className={filter === value ? styles.activeFilter : ''} onClick={() => setFilter(value)}>{value.charAt(0) + value.slice(1).toLowerCase()}</button>
+          ))}
+        </div>
+      </section>
+
+      {loading ? (
+        <div className={styles.empty}>Loading order operations…</div>
+      ) : filteredOrders.length === 0 ? (
+        <div className={styles.empty}><ShoppingBag size={28} /><h2>No orders found</h2><p>Try another search or lifecycle filter.</p></div>
+      ) : (
+        <section className={styles.orderList}>
+          <div className={styles.listHeader}><span>Order & customer</span><span>Stage</span><span>Rider</span><span>Value</span><span>Updated</span><span /></div>
+          {filteredOrders.map((order) => {
+            const expanded = order.id === expandedId;
+            const paid = order.payments.filter((payment) => payment.status === 'SUCCESSFUL').reduce((sum, payment) => sum + payment.amount, 0);
+            return (
+              <article className={`${styles.orderCard} ${expanded ? styles.expanded : ''}`} key={order.id}>
+                <button className={styles.orderSummary} onClick={() => setExpandedId(expanded ? null : order.id)} aria-expanded={expanded}>
+                  <div className={styles.orderCustomer}>
+                    <div className={styles.avatar}>{initials(order.customer.fullName)}</div>
+                    <div><strong>{order.orderNumber}</strong><span>{order.customer.fullName} · {order.customer.phoneNumber}</span></div>
+                  </div>
+                  <span className={`${styles.status} ${styles[order.status.toLowerCase()] || ''}`}><i />{readable(order.status)}</span>
+                  <div className={styles.rider}>{order.driver ? <><strong>{order.driver.fullName}</strong><span>{order.driver.driverProfile?.vehicleType || 'Assigned rider'}</span></> : <><strong className={styles.unassigned}>Unassigned</strong><span>Dispatch required</span></>}</div>
+                  <div className={styles.value}><strong>{money.format(order.totalAmount)}</strong><span>{paid ? `${money.format(paid)} paid` : 'Payment pending'}</span></div>
+                  <div className={styles.updated}><strong>{new Date(order.updatedAt).toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })}</strong><span>{new Date(order.updatedAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                  <ChevronDown size={18} className={styles.chevron} />
+                </button>
+
+                {expanded && (
+                  <div className={styles.details}>
+                    <div className={styles.detailTop}>
+                      <div className={styles.addresses}>
+                        <div><span className={styles.addressIcon}><MapPin size={16} /></span><div><small>PICKUP ADDRESS</small><strong>{order.pickupAddress}</strong><span>{new Date(order.pickupDate).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}</span></div></div>
+                        <div><span className={`${styles.addressIcon} ${styles.deliveryIcon}`}><MapPin size={16} /></span><div><small>DELIVERY ADDRESS</small><strong>{order.deliveryAddress}</strong><span>{order.deliveryDate ? new Date(order.deliveryDate).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }) : 'Delivery time not scheduled'}</span></div></div>
+                      </div>
+                      <div className={styles.controls}>
+                        <label>Assigned rider<select value={order.driverId || ''} onChange={(event) => assignDriver(order.id, event.target.value)} disabled={savingId === order.id}><option value="" disabled>{availableDrivers.length ? 'Select an online rider' : 'No online riders'}</option>{availableDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.fullName} · {driver.driverProfile?.vehicleType || 'Rider'}</option>)}</select></label>
+                        <label>Order status<select value={order.status} onChange={(event) => changeStatus(order.id, event.target.value)} disabled={savingId === order.id}>{ORDER_STATUSES.map((status) => <option key={status} value={status}>{readable(status)}</option>)}</select></label>
+                      </div>
+                    </div>
+                    <DriverLocationMap order={order} />
+
+                    <div className={styles.detailGrid}>
+                      <section><div className={styles.sectionTitle}><div><h3>Order items</h3><p>{order.items.reduce((sum, item) => sum + item.quantity, 0)} total pieces</p></div><strong>{money.format(order.totalAmount)}</strong></div><div className={styles.items}>{order.items.map((item) => <div key={item.id}><span><b>{item.quantity}×</b>{item.serviceName}</span><strong>{money.format(item.price * item.quantity)}</strong></div>)}</div></section>
+                      <section><div className={styles.sectionTitle}><div><h3>Tracking timeline</h3><p>Latest operational events</p></div><Clock size={17} /></div><div className={styles.timeline}>{order.trackingHistory.length ? order.trackingHistory.slice(0, 5).map((event, index) => <div key={event.id}><i className={index === 0 ? styles.currentEvent : ''} /><span><strong>{readable(event.status)}</strong><small>{event.note || 'Order status updated'}</small></span><time>{new Date(event.createdAt).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></div>) : <p>No tracking events recorded.</p>}</div></section>
+                    </div>
+
+                    <footer className={styles.detailFooter}><div><span>Customer contact</span><a href={`tel:${order.customer.phoneNumber}`}>{order.customer.phoneNumber}</a>{order.customer.email && <a href={`mailto:${order.customer.email}`}>{order.customer.email}</a>}</div><div><span>Payment</span><strong className={paid >= order.totalAmount ? styles.paid : styles.pending}>{paid >= order.totalAmount ? 'Paid in full' : `${money.format(Math.max(0, order.totalAmount - paid))} outstanding`}</strong></div><div><span>Created</span><strong>{new Date(order.createdAt).toLocaleDateString('en-NG', { dateStyle: 'long' })}</strong></div></footer>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </section>
-
-        {loading ? (
-          <div className="loadingState">
-            <div className="spinner" />
-            Fetching live queue details...
-          </div>
-        ) : (
-          <div className="ordersTableShell">
-            {filteredOrders.length === 0 ? (
-              <div className="emptyState">
-                No matching active orders in queue.
-              </div>
-            ) : (
-              <>
-                <div className="desktopTable">
-                  <table className="ordersTable">
-                    <colgroup>
-                      <col className="orderIdColumn" />
-                      <col className="customerColumn" />
-                      <col className="addressColumn" />
-                      <col className="amountColumn" />
-                      <col className="riderColumn" />
-                      <col className="dispatchColumn" />
-                      <col className="statusColumn" />
-                    </colgroup>
-                    <thead>
-                      <tr className="tableHeaderRow">
-                        <th>Order ID</th>
-                        <th>Customer</th>
-                        <th>Pickup Address</th>
-                        <th>Amount</th>
-                        <th>Assigned Rider</th>
-                        <th>Dispatch Action</th>
-                        <th>Order Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredOrders.map((order) => {
-                        let badgeBg = '#F3F4F6';
-                        let badgeColor = '#374151';
-                        if (order.status === 'DELIVERED') {
-                          badgeBg = '#D1FAE5';
-                          badgeColor = '#065F46';
-                        } else if (order.status.includes('PENDING')) {
-                          badgeBg = '#FEF3C7';
-                          badgeColor = '#92400E';
-                        } else if (order.status.includes('PROGRESS') || order.status === 'PROCESSING' || order.status === 'PICKED_UP') {
-                          badgeBg = '#E0F2FE';
-                          badgeColor = '#0369A1';
-                        } else if (order.status === 'CANCELLED') {
-                          badgeBg = '#FEE2E2';
-                          badgeColor = '#991B1B';
-                        }
-
-                        return (
-                          <tr
-                            key={order.id}
-                            className="tableRow"
-                          >
-                            <td className="tableCell idCell">{order.orderNumber}</td>
-                            <td className="tableCell customerCell">
-                              <div className="customerCellInner">
-                                <div className="customerAvatar">
-                                  {order.customer.fullName.substring(0, 2).toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="customerName">{order.customer.fullName}</span>
-                                  <span className="customerPhone">{order.customer.phoneNumber}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="tableCell addressCell">
-                              <div className="addressText">
-                                <MapPin size={14} className="addressIcon" />
-                                <span>{order.pickupAddress}</span>
-                              </div>
-                            </td>
-                            <td className="tableCell amountCell">{formatNaira(order.totalAmount)}</td>
-                            <td className="tableCell riderCell">
-                              {order.driver ? (
-                                <div className="driverNameWrap">
-                                  <User size={14} className="driverIcon" />
-                                  <span>{order.driver.fullName}</span>
-                                </div>
-                              ) : (
-                                'Unassigned'
-                              )}
-                            </td>
-                            <td className="tableCell selectCell">
-                              {!order.driver ? (
-                                <div className="selectWrapper">
-                                  <select
-                                    defaultValue=""
-                                    onChange={(e) => handleAssignDriver(order.id, e.target.value)}
-                                    className="selectInput"
-                                  >
-                                    <option value="" disabled>
-                                      Select Rider...
-                                    </option>
-                                    {onlineDrivers.map((d) => (
-                                      <option key={d.id} value={d.id}>
-                                        {d.fullName}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <ChevronDown size={12} className="selectChevron" />
-                                </div>
-                              ) : (
-                                <span className="statusLabel">Dispatched</span>
-                              )}
-                            </td>
-                            <td className="tableCell selectCell">
-                              <div className="selectWrapper">
-                                <select
-                                  value={order.status}
-                                  onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                                  className="selectInput"
-                                  style={{ backgroundColor: badgeBg, color: badgeColor }}
-                                >
-                                  {ORDER_STATUSES.map((status) => (
-                                    <option key={status} value={status}>
-                                      {status.replace('_', ' ')}
-                                    </option>
-                                  ))}
-                                </select>
-                                <ChevronDown size={12} className="selectChevron" style={{ color: badgeColor }} />
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mobileList">
-                  {filteredOrders.map((order) => {
-                    let badgeBg = '#F3F4F6';
-                    let badgeColor = '#374151';
-                    if (order.status === 'DELIVERED') {
-                      badgeBg = '#D1FAE5';
-                      badgeColor = '#065F46';
-                    } else if (order.status.includes('PENDING')) {
-                      badgeBg = '#FEF3C7';
-                      badgeColor = '#92400E';
-                    } else if (order.status.includes('PROGRESS') || order.status === 'PROCESSING' || order.status === 'PICKED_UP') {
-                      badgeBg = '#E0F2FE';
-                      badgeColor = '#0369A1';
-                    } else if (order.status === 'CANCELLED') {
-                      badgeBg = '#FEE2E2';
-                      badgeColor = '#991B1B';
-                    }
-
-                    return (
-                      <article className="orderCardMobile" key={order.id}>
-                        <div className="orderCardTop">
-                          <div>
-                            <div className="orderMobileId">{order.orderNumber}</div>
-                            <div className="orderMobileLabel">Customer</div>
-                            <div className="orderMobileValue">{order.customer.fullName}</div>
-                          </div>
-                          <span className="statusBadge" style={{ backgroundColor: badgeBg, color: badgeColor }}>
-                            {order.status.replace('_', ' ').toLowerCase()}
-                          </span>
-                        </div>
-                        <div className="orderMobileField">
-                          <span>Pickup</span>
-                          <span>{order.pickupAddress}</span>
-                        </div>
-                        <div className="orderMobileField">
-                          <span>Amount</span>
-                          <strong>{formatNaira(order.totalAmount)}</strong>
-                        </div>
-                        <div className="orderMobileField">
-                          <span>Rider</span>
-                          <span>{order.driver ? order.driver.fullName : 'Unassigned'}</span>
-                        </div>
-                        <div className="orderMobileActions">
-                          {!order.driver ? (
-                            <div className="selectWrapper">
-                              <select
-                                defaultValue=""
-                                onChange={(e) => handleAssignDriver(order.id, e.target.value)}
-                                className="selectInput"
-                              >
-                                <option value="" disabled>
-                                  Select Rider...
-                                </option>
-                                {onlineDrivers.map((d) => (
-                                  <option key={d.id} value={d.id}>
-                                    {d.fullName}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown size={12} className="selectChevron" />
-                            </div>
-                          ) : (
-                            <span className="statusLabel">Dispatched</span>
-                          )}
-                          <div className="selectWrapper">
-                            <select
-                              value={order.status}
-                              onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                              className="selectInput"
-                              style={{ backgroundColor: badgeBg, color: badgeColor }}
-                            >
-                              {ORDER_STATUSES.map((status) => (
-                                <option key={status} value={status}>
-                                  {status.replace('_', ' ')}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown size={12} className="selectChevron" style={{ color: badgeColor }} />
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </main>
-
-      <style jsx>{`
-        .ordersPage {
-          display: flex;
-          min-height: 100vh;
-          width: 100%;
-          background-color: #F8FAFC;
-          font-family: 'Inter', sans-serif;
-          overflow-x: hidden;
-        }
-
-        .ordersMain {
-          flex: 1;
-          padding: 40px;
-          box-sizing: border-box;
-          overflow-y: auto;
-          min-width: 0;
-          max-width: 100%;
-        }
-
-        .ordersHeader {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .ordersHeader h1 {
-          font-size: 28px;
-          font-weight: 800;
-          color: #0F172A;
-          margin: 0;
-          letter-spacing: -0.025em;
-        }
-
-        .ordersHeader p {
-          margin: 6px 0 0 0;
-          color: #64748B;
-          font-size: 14px;
-        }
-
-        .ordersToolbar {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 24px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-
-        .searchWrapper {
-          position: relative;
-          flex: 1;
-          min-width: 220px;
-          max-width: 460px;
-        }
-
-        .searchIcon {
-          position: absolute;
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #94A3B8;
-        }
-
-        .searchInput {
-          width: 100%;
-          padding: 12px 14px 12px 40px;
-          box-sizing: border-box;
-          border: 1px solid #E2E8F0;
-          border-radius: 10px;
-          font-size: 14px;
-          outline: none;
-          background-color: #FFFFFF;
-          color: #0F172A;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-        }
-
-        .filterButton {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 18px;
-          border-radius: 10px;
-          border: 1px solid #E2E8F0;
-          background-color: #FFFFFF;
-          color: #475569;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          transition: transform 0.2s ease, background-color 0.2s ease;
-        }
-
-        .filterButton:hover {
-          transform: translateY(-1px);
-          background-color: #F8FAFC;
-        }
-
-        .loadingState {
-          text-align: center;
-          padding: 80px;
-          font-size: 15px;
-          color: #64748B;
-          background-color: #FFFFFF;
-          border-radius: 12px;
-          border: 1px solid #E2E8F0;
-        }
-
-        .spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid #E2E8F0;
-          border-top-color: #0066FF;
-          border-radius: 50%;
-          margin: 0 auto 16px auto;
-          animation: spin 1s linear infinite;
-        }
-
-        .ordersTableShell {
-          background-color: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 16px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-          overflow: hidden;
-        }
-
-        .desktopTable {
-          width: 100%;
-          overflow-x: auto;
-        }
-
-        .ordersTable {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-          min-width: 900px;
-          table-layout: fixed;
-        }
-
-        .orderIdColumn { width: 8%; }
-        .customerColumn { width: 14%; }
-        .addressColumn { width: 34%; }
-        .amountColumn { width: 8%; }
-        .riderColumn { width: 10%; }
-        .dispatchColumn { width: 13%; }
-        .statusColumn { width: 13%; }
-
-        .tableHeaderRow {
-          border-bottom: 1px solid #E2E8F0;
-          background-color: #F8FAFC;
-          color: #64748B;
-          font-size: 12px;
-          font-weight: 700;
-          text-transform: uppercase;
-        }
-
-        .ordersTable th,
-        .ordersTable td {
-          padding: 16px 14px;
-          vertical-align: middle;
-          overflow: hidden;
-        }
-
-        .tableRow {
-          border-bottom: 1px solid #F1F5F9;
-          font-size: 14px;
-          transition: background-color 0.2s;
-        }
-
-        .tableRow:hover {
-          background-color: #F8FAFC;
-        }
-
-        .idCell {
-          font-weight: 700;
-          color: #0066FF;
-        }
-
-        .customerCellInner {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .customerAvatar {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background-color: #E2E8F0;
-          color: #475569;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .customerName {
-          display: block;
-          font-weight: 700;
-          color: #0F172A;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .customerPhone {
-          display: block;
-          font-size: 11px;
-          color: #64748B;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .addressText {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          text-overflow: ellipsis;
-          overflow: hidden;
-          white-space: nowrap;
-          color: #475569;
-        }
-
-        .addressIcon {
-          color: #94A3B8;
-          flex-shrink: 0;
-        }
-
-        .driverNameWrap {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          min-width: 0;
-        }
-
-        .driverNameWrap span {
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .driverIcon {
-          color: #0066FF;
-        }
-
-        .selectCell {
-          min-width: 0;
-        }
-
-        .selectWrapper {
-          position: relative;
-          display: inline-block;
-          width: 100%;
-          max-width: none;
-        }
-
-        .selectInput {
-          width: 100%;
-          padding: 10px 32px 10px 12px;
-          border-radius: 8px;
-          border: 1px solid #CBD5E1;
-          font-size: 13px;
-          outline: none;
-          background-color: #FFFFFF;
-          color: #0F172A;
-          appearance: none;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .selectChevron {
-          position: absolute;
-          right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #64748B;
-          pointer-events: none;
-        }
-
-        .statusLabel {
-          font-size: 13px;
-          color: #64748B;
-          font-weight: 500;
-        }
-
-        .statusBadge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          padding: 8px 14px;
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: capitalize;
-        }
-
-        .mobileList {
-          display: none;
-        }
-
-        .orderCardMobile {
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 18px;
-          padding: 20px;
-          display: grid;
-          gap: 14px;
-          margin: 16px;
-        }
-
-        .orderCardTop {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .orderMobileId {
-          font-weight: 700;
-          color: #0F172A;
-          margin-bottom: 6px;
-        }
-
-        .orderMobileLabel {
-          font-size: 12px;
-          color: #94A3B8;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          margin-bottom: 4px;
-        }
-
-        .orderMobileValue {
-          color: #0F172A;
-          font-weight: 700;
-        }
-
-        .orderMobileField {
-          display: grid;
-          gap: 6px;
-          color: #475569;
-          font-size: 14px;
-        }
-
-        .orderMobileField span:first-child {
-          font-size: 12px;
-          color: #94A3B8;
-          font-weight: 700;
-        }
-
-        .orderMobileActions {
-          display: grid;
-          gap: 14px;
-        }
-
-        .emptyState {
-          padding: 48px;
-          text-align: center;
-          color: #64748B;
-          font-style: italic;
-          font-size: 14px;
-        }
-
-        @media (max-width: 1080px) {
-          .ordersMain {
-            padding: 28px 20px;
-          }
-
-          .desktopTable {
-            display: none;
-          }
-
-          .mobileList {
-            display: block;
-          }
-
-          .orderCardMobile {
-            margin: 16px 0;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .ordersMain {
-            padding: 20px 16px;
-          }
-
-          /* Leave a clear lane for the fixed mobile navigation control. */
-          .ordersHeader {
-            padding-left: 56px;
-            margin-bottom: 24px;
-            min-height: 44px;
-          }
-
-          .ordersHeader h1 {
-            font-size: 22px;
-            line-height: 1.15;
-            letter-spacing: -0.02em;
-          }
-
-          .ordersHeader p {
-            margin-top: 5px;
-            font-size: 13px;
-            line-height: 1.4;
-          }
-
-          .ordersToolbar {
-            justify-content: stretch;
-          }
-
-          .filterButton {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .orderCardMobile {
-            padding: 18px;
-          }
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+      )}
+    </main>
   );
 }

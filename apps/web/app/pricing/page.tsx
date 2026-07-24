@@ -48,6 +48,7 @@ export default function PricingPage() {
   const router = useRouter();
   const [showDrawer, setShowDrawer] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [dbServices, setDbServices] = useState<ServiceItem[]>(fallbackServices);
   const [category, setCategory] = useState<'Clothing' | 'Household' | 'Additional'>('Clothing');
 
@@ -57,6 +58,35 @@ export default function PricingPage() {
       .then((d) => { if (d.services?.length > 0) setDbServices(d.services); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+    const updateViewport = () => setIsMobile(media.matches);
+    updateViewport();
+    media.addEventListener?.('change', updateViewport);
+    return () => media.removeEventListener?.('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !showPricingModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, showPricingModal]);
+
+  const closePricing = () => {
+    setShowPricingModal(false);
+    if (!isMobile) return;
+    const returnTo = sessionStorage.getItem('pricingReturnTo');
+    sessionStorage.removeItem('pricingReturnTo');
+    if (returnTo && returnTo !== '/pricing') {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
 
   const items = dbServices.filter((s) => s.category === category);
 
@@ -133,9 +163,13 @@ export default function PricingPage() {
         .drawer-item:hover{background:#F8FAFC;color:#0F4BB6;padding-left:24px;box-shadow:inset 4px 0 0 rgba(21,101,192,0.18);}
         .drawer-item.blue{color:#0F4BB6;font-weight:800;background:rgba(21,101,192,0.08);box-shadow:inset 4px 0 0 rgba(21,101,192,0.24);}
         .drawer-item.blue:hover{background:rgba(21,101,192,0.12);}
+        @media(max-width:1023px){
+          .pricing-route-page{display:none!important;}
+          .shell{min-height:100dvh;box-shadow:none;}
+        }
       `}} />
 
-      <header className="top-nav">
+      <header className="top-nav pricing-route-page">
         <div className="nav-logo" onClick={() => router.push('/')}>
           <Image src="/bglogo.png" alt="BG Laundry" width={64} height={64} style={{ objectFit: 'contain' }} priority />
         </div>
@@ -144,19 +178,19 @@ export default function PricingPage() {
         </button>
       </header>
 
-      <div className="header-sec">
+      <div className="header-sec pricing-route-page">
         <h1>Price Catalog</h1>
         <p>Transparent rates for all our laundry, dry cleaning, and pressing services.</p>
       </div>
 
-      <div className="content">
+      <div className="content pricing-route-page">
         <div className="info-panel">
           <h2>Price Catalog</h2>
           <p>Your full pricing list opens automatically in the slide-up catalog. Close it when you’re done browsing.</p>
         </div>
       </div>
 
-      <footer className="help-footer">
+      <footer className="help-footer pricing-route-page">
         <div className="help-left">
           <div className="help-ph-circle">📞</div>
           <div className="help-txt">
@@ -180,7 +214,7 @@ export default function PricingPage() {
               <button className="drawer-item" onClick={() => { router.push('/'); setShowDrawer(false); }}>Home</button>
               <button className="drawer-item" onClick={() => { router.push('/how-it-works'); setShowDrawer(false); }}>How It Works</button>
               <button className="drawer-item" onClick={() => { router.push('/services'); setShowDrawer(false); }}>Our Services</button>
-              <button className="drawer-item" onClick={() => { router.push('/pricing'); setShowDrawer(false); }}>Price Catalog</button>
+              <button className="drawer-item" onClick={() => { setShowPricingModal(true); setShowDrawer(false); }}>Price Catalog</button>
               <button className="drawer-item blue" onClick={() => { router.push('/login'); setShowDrawer(false); }}>🔐 Sign In</button>
             </div>
           </div>
@@ -188,10 +222,10 @@ export default function PricingPage() {
       )}
 
       {showPricingModal && (
-        <div className="pm-ov" onClick={() => setShowPricingModal(false)}>
+        <div className="pm-ov" onClick={closePricing}>
           <div className="pm-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="pm-handle" />
-            <button className="pm-x" onClick={() => setShowPricingModal(false)}>✕</button>
+            <button className="pm-x" onClick={closePricing}>✕</button>
             <p className="pm-title">Service Pricing</p>
             <div className="pm-tabs">
               {(['Clothing', 'Household', 'Additional'] as const).map((cat) => (

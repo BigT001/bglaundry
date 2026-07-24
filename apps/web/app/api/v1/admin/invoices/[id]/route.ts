@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InvoiceStatus } from '@bglaundry/database';
 import { prisma } from '@/lib/prisma';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 const invoiceInclude = {
   customer: { select: { id: true, fullName: true, phoneNumber: true, email: true } },
@@ -8,6 +9,9 @@ const invoiceInclude = {
 } as const;
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!verifyAdminToken(bearerToken(request))) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const { status } = await request.json();

@@ -93,7 +93,9 @@ export default function AdminDashboardPage() {
         axios.get('/api/v1/drivers', {
           headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
         }),
-        axios.get('/api/v1/orders'),
+        axios.get('/api/v1/orders', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+        }),
       ]);
 
       setStats(statsRes.data);
