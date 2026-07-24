@@ -81,11 +81,18 @@ export default function AdminDashboardPage() {
   }, []);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
+    const hasCachedData = Boolean(
+      getAdminCache<KpiData>('dashboard-stats') &&
+      getAdminCache<Driver[]>('dashboard-drivers') &&
+      getAdminCache<Order[]>('dashboard-orders'),
+    );
+    if (!hasCachedData) setLoading(true);
     try {
       const [statsRes, driversRes, ordersRes] = await Promise.all([
         axios.get('/api/v1/admin/stats'),
-        axios.get('/api/v1/drivers'),
+        axios.get('/api/v1/drivers', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+        }),
         axios.get('/api/v1/orders'),
       ]);
 

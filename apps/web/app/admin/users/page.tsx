@@ -1,325 +1,251 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Search, Shield, User, Bike, AlertCircle } from '@/lib/icons';
+import { ChevronDown, Clock, MapPin, Search, ShoppingBag, TrendingUp, User } from '@/lib/icons';
+import { getAdminCache, setAdminCache } from '../adminCache';
+import styles from './customers.module.css';
 
-interface UserItem {
+type CustomerOrder = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  paidAmount: number;
+  itemCount: number;
+  pickupAddress: string;
+  deliveryAddress: string;
+  pickupDate: string;
+  deliveryDate: string | null;
+  createdAt: string;
+};
+
+type Customer = {
   id: string;
   fullName: string;
   phoneNumber: string;
-  role: 'CUSTOMER' | 'DRIVER' | 'ADMIN';
+  email: string | null;
+  pickupAddress: string | null;
+  addressType: string | null;
   createdAt: string;
+  totalOrders: number;
+  completedOrders: number;
+  lifetimeRevenue: number;
+  bookedValue: number;
+  averageOrderValue: number;
+  firstOrderAt: string | null;
+  lastOrderAt: string | null;
+  ordersPerMonth: number;
+  isRepeatCustomer: boolean;
+  orders: CustomerOrder[];
+};
+
+const money = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+});
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'C';
 }
 
-export default function AdminUsersPage() {
+function readableStatus(status: string) {
+  return status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function frequencyLabel(customer: Customer) {
+  if (!customer.totalOrders) return 'No orders yet';
+  if (customer.ordersPerMonth >= 4) return 'Very frequent';
+  if (customer.ordersPerMonth >= 2) return 'Frequent';
+  if (customer.ordersPerMonth >= 1) return 'Monthly';
+  if (customer.isRepeatCustomer) return 'Occasional';
+  return 'New customer';
+}
+
+function relativeDate(date: string | null) {
+  if (!date) return 'Never';
+  const days = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 86400000));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days} days ago`;
+  return new Date(date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export default function AdminCustomersPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>(() => getAdminCache<Customer[]>('admin-users') || []);
+  const [loading, setLoading] = useState(() => !getAdminCache<Customer[]>('admin-users'));
+  const [search, setSearch] = useState('');
+  const [segment, setSegment] = useState<'ALL' | 'REPEAT' | 'NEW' | 'INACTIVE'>('ALL');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  // Authenticate Admin
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      router.push('/admin');
-      setAuthChecked(true);
-    } else {
-      setAuthorized(true);
-      setAuthChecked(true);
-      fetchUsers();
-    }
-  }, []);
-
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchCustomers = useCallback(async (quiet = false) => {
+    if (!quiet && !getAdminCache<Customer[]>('admin-users')) setLoading(true);
     try {
-      const response = await axios.get('/api/v1/admin/users');
-      setUsers(response.data.users || []);
-    } catch (err) {
-      console.error('Failed to load registered users:', err);
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get('/api/v1/admin/users', {
+        headers: { Authorization: `Bearer ${token || ''}` },
+      });
+      const next = response.data.users || [];
+      setCustomers(next);
+      setAdminCache('admin-users', next);
+    } catch (requestError: any) {
+      if (requestError.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        router.replace('/admin');
+        return;
+      }
+      if (!quiet) setError(requestError.response?.data?.error || 'Unable to load customer insights.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  if (!authChecked) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          minHeight: '100vh',
-          backgroundColor: '#F8FAFC',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: "'Inter', sans-serif",
-          padding: '32px',
-          textAlign: 'center',
-          color: '#0F172A',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading users directory…</h2>
-          <p style={{ marginTop: '12px', color: '#64748B' }}>
-            Checking your admin session and fetching accounts.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Filtered Users List
-  const filteredUsers = users.filter((u) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      u.fullName.toLowerCase().includes(query) ||
-      u.phoneNumber.includes(query) ||
-      u.role.toLowerCase().includes(query)
-    );
-  });
-
-  const getRoleIcon = (role: 'CUSTOMER' | 'DRIVER' | 'ADMIN') => {
-    switch (role) {
-      case 'ADMIN':
-        return <Shield size={16} style={{ color: '#F43F5E', marginRight: '6px' }} />;
-      case 'DRIVER':
-        return <Bike size={16} style={{ color: '#10B981', marginRight: '6px' }} />;
-      default:
-        return <User size={16} style={{ color: '#3B82F6', marginRight: '6px' }} />;
+  useEffect(() => {
+    if (!localStorage.getItem('adminToken')) {
+      router.replace('/admin');
+      return;
     }
-  };
+    setAuthorized(true);
+    fetchCustomers();
+    const refresh = window.setInterval(() => fetchCustomers(true), 30000);
+    return () => window.clearInterval(refresh);
+  }, [fetchCustomers, router]);
 
-  const getRoleBadgeStyle = (role: 'CUSTOMER' | 'DRIVER' | 'ADMIN') => {
-    switch (role) {
-      case 'ADMIN':
-        return {
-          backgroundColor: '#FFE4E6',
-          color: '#E11D48',
-          border: '1px solid #FDA4AF',
-        };
-      case 'DRIVER':
-        return {
-          backgroundColor: '#D1FAE5',
-          color: '#059669',
-          border: '1px solid #A7F3D0',
-        };
-      default:
-        return {
-          backgroundColor: '#DBEAFE',
-          color: '#2563EB',
-          border: '1px solid #BFDBFE',
-        };
-    }
-  };
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return customers.filter((customer) => {
+      const inactive = !customer.lastOrderAt || Date.now() - new Date(customer.lastOrderAt).getTime() > 90 * 86400000;
+      const matchesSegment = segment === 'ALL'
+        || (segment === 'REPEAT' && customer.isRepeatCustomer)
+        || (segment === 'NEW' && customer.totalOrders <= 1)
+        || (segment === 'INACTIVE' && inactive);
+      const matchesSearch = !query || [
+        customer.fullName,
+        customer.phoneNumber,
+        customer.email,
+        customer.pickupAddress,
+      ].some((value) => value?.toLowerCase().includes(query));
+      return matchesSegment && matchesSearch;
+    });
+  }, [customers, search, segment]);
+
+  const portfolio = useMemo(() => {
+    const revenue = customers.reduce((sum, customer) => sum + customer.lifetimeRevenue, 0);
+    const bookedValue = customers.reduce((sum, customer) => sum + customer.bookedValue, 0);
+    const orderCount = customers.reduce((sum, customer) => sum + customer.totalOrders, 0);
+    const repeat = customers.filter((customer) => customer.isRepeatCustomer).length;
+    return {
+      revenue,
+      repeat,
+      repeatRate: customers.length ? Math.round((repeat / customers.length) * 100) : 0,
+      averageValue: orderCount ? bookedValue / orderCount : 0,
+    };
+  }, [customers]);
+
+  if (!authorized) return <div className={styles.loadingPage}>Checking admin access…</div>;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: '#F8FAFC',
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '40px', boxSizing: 'border-box', overflowY: 'auto' }}>
-        <header style={{ marginBottom: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0F172A', margin: 0, letterSpacing: '-0.025em' }}>
-              Registered Users Directory
-            </h1>
-            <p style={{ color: '#64748B', margin: '6px 0 0 0', fontSize: '14px' }}>
-              View and audit customer accounts, driver operators, and administrators
-            </p>
-          </div>
-          <div style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', backgroundColor: '#EDF2F7', padding: '8px 16px', borderRadius: '8px' }}>
-            Total Registered: {users.length}
-          </div>
-        </header>
-
-        {/* Search controls */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: '#FFFFFF',
-            borderRadius: '12px',
-            border: '1px solid #E2E8F0',
-            padding: '10px 16px',
-            marginBottom: '24px',
-            boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
-          }}
-        >
-          <Search size={18} color="#94A3B8" style={{ marginRight: '12px' }} />
-          <input
-            type="text"
-            placeholder="Search by full name, phone number or system role..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              border: 'none',
-              outline: 'none',
-              fontSize: '14.5px',
-              color: '#0F172A',
-              width: '100%',
-            }}
-          />
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <span className={styles.eyebrow}>Customers / Insights</span>
+          <h1>Customer directory</h1>
+          <p>Understand customer value, loyalty, activity and complete order history.</p>
         </div>
+        <div className={styles.customerCount}><User size={16} /><strong>{customers.length}</strong><span>customers</span></div>
+      </header>
 
-        {/* Users Datagrid Table */}
-        <div
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '16px',
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-            overflow: 'hidden',
-          }}
-        >
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 0' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  border: '3px solid #E2E8F0',
-                  borderTopColor: '#0066FF',
-                  animation: 'spin 1s linear infinite',
-                  marginBottom: '16px',
-                }}
-              />
-              <span style={{ color: '#64748B', fontSize: '14px', fontWeight: '500' }}>
-                Fetching registered account lists from cloud storage...
-              </span>
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 20px', textAlign: 'center' }}>
-              <AlertCircle size={44} color="#94A3B8" style={{ marginBottom: '16px' }} />
-              <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>
-                No Registered Accounts Found
-              </span>
-              <span style={{ color: '#64748B', fontSize: '13.5px' }}>
-                Try adjusting your search queries or check database connections
-              </span>
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #F1F5F9', backgroundColor: '#F8FAFC' }}>
-                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                      Profile User
-                    </th>
-                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                      Phone Contact
-                    </th>
-                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                      Access Role
-                    </th>
-                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                      Database ID
-                    </th>
-                    <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                      Registration Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((user, idx) => {
-                    const initials = user.fullName
-                      ? user.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2)
-                      : 'C';
+      <section className={styles.metrics}>
+        <article><div className={styles.metricIcon}><User size={19} /></div><div><span>Total customers</span><strong>{customers.length}</strong><small>Customer accounts only</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.green}`}><TrendingUp size={19} /></div><div><span>Customer revenue</span><strong>{money.format(portfolio.revenue)}</strong><small>Successful payments</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.violet}`}><ShoppingBag size={19} /></div><div><span>Repeat customers</span><strong>{portfolio.repeat}</strong><small>{portfolio.repeatRate}% retention base</small></div></article>
+        <article><div className={`${styles.metricIcon} ${styles.amber}`}><span>₦</span></div><div><span>Average order value</span><strong>{money.format(portfolio.averageValue)}</strong><small>Across customer profiles</small></div></article>
+      </section>
 
-                    return (
-                      <tr
-                        key={user.id}
-                        style={{
-                          borderBottom: idx === filteredUsers.length - 1 ? 'none' : '1px solid #F1F5F9',
-                          transition: 'background-color 0.2s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                      >
-                        {/* Profile User avatar/name */}
-                        <td style={{ padding: '16px 24px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <div
-                              style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '50%',
-                                backgroundColor: user.role === 'ADMIN' ? '#FFE4E6' : user.role === 'DRIVER' ? '#D1FAE5' : '#DBEAFE',
-                                color: user.role === 'ADMIN' ? '#E11D48' : user.role === 'DRIVER' ? '#059669' : '#2563EB',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontWeight: '700',
-                                fontSize: '14px',
-                              }}
-                            >
-                              {initials}
-                            </div>
-                            <span style={{ fontSize: '14.5px', fontWeight: '600', color: '#0F172A' }}>
-                              {user.fullName || 'Unnamed Customer'}
-                            </span>
+      <section className={styles.toolbar}>
+        <div className={styles.search}><Search size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, phone, email or address…" /></div>
+        <div className={styles.segments}>
+          {(['ALL', 'REPEAT', 'NEW', 'INACTIVE'] as const).map((value) => (
+            <button key={value} className={segment === value ? styles.selectedSegment : ''} onClick={() => setSegment(value)}>
+              {value.charAt(0) + value.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {error && <div className={styles.error}>{error}<button onClick={() => fetchCustomers()}>Try again</button></div>}
+
+      {loading ? (
+        <div className={styles.empty}>Loading customer intelligence…</div>
+      ) : filtered.length === 0 ? (
+        <div className={styles.empty}><div><User size={28} /></div><h2>No customers found</h2><p>Try a different search or customer segment.</p></div>
+      ) : (
+        <section className={styles.list}>
+          <div className={styles.listHeader}><span>Customer</span><span>Patronage</span><span>Lifetime revenue</span><span>Last activity</span><span /></div>
+          {filtered.map((customer) => {
+            const expanded = expandedId === customer.id;
+            return (
+              <article className={`${styles.customerCard} ${expanded ? styles.expanded : ''}`} key={customer.id}>
+                <button className={styles.summary} onClick={() => setExpandedId(expanded ? null : customer.id)} aria-expanded={expanded}>
+                  <div className={styles.profile}>
+                    <div className={styles.avatar}>{initials(customer.fullName)}</div>
+                    <div><strong>{customer.fullName || 'Unnamed customer'}</strong><span>{customer.phoneNumber}</span></div>
+                    {customer.isRepeatCustomer && <i>Repeat</i>}
+                  </div>
+                  <div className={styles.patronage}><strong>{customer.totalOrders}</strong><span>{customer.totalOrders === 1 ? 'order' : 'orders'} · {frequencyLabel(customer)}</span></div>
+                  <div className={styles.revenue}><strong>{money.format(customer.lifetimeRevenue)}</strong><span>{money.format(customer.bookedValue)} booked</span></div>
+                  <div className={styles.activity}><strong>{relativeDate(customer.lastOrderAt)}</strong><span>{customer.completedOrders} completed</span></div>
+                  <ChevronDown size={18} className={styles.chevron} />
+                </button>
+
+                {expanded && (
+                  <div className={styles.details}>
+                    <div className={styles.insightGrid}>
+                      <div><span>Average order</span><strong>{money.format(customer.averageOrderValue)}</strong></div>
+                      <div><span>Order frequency</span><strong>{customer.ordersPerMonth ? `${customer.ordersPerMonth.toFixed(1)} / month` : 'No history'}</strong></div>
+                      <div><span>First patronage</span><strong>{relativeDate(customer.firstOrderAt)}</strong></div>
+                      <div><span>Completion rate</span><strong>{customer.totalOrders ? `${Math.round((customer.completedOrders / customer.totalOrders) * 100)}%` : '—'}</strong></div>
+                    </div>
+
+                    <div className={styles.customerInfo}>
+                      <div><span>Contact</span><strong>{customer.phoneNumber}</strong><small>{customer.email || 'No email provided'}</small></div>
+                      <div><span>Default address</span><strong>{customer.pickupAddress || 'No default address'}</strong><small>{customer.addressType ? customer.addressType.toLowerCase() : 'Address type not set'}</small></div>
+                      <div><span>Customer since</span><strong>{new Date(customer.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}</strong><small>ID · {customer.id.slice(0, 8)}</small></div>
+                    </div>
+
+                    <div className={styles.historyHeader}><div><h3>Order history</h3><p>Most recent orders and payment performance.</p></div><span>{customer.orders.length} records</span></div>
+                    {customer.orders.length === 0 ? (
+                      <div className={styles.noOrders}><ShoppingBag size={22} />This customer has not placed an order yet.</div>
+                    ) : (
+                      <div className={styles.orderTable}>
+                        <div className={styles.orderHead}><span>Order</span><span>Date</span><span>Items</span><span>Status</span><span>Order value</span><span>Paid</span></div>
+                        {customer.orders.map((order) => (
+                          <div className={styles.orderRow} key={order.id}>
+                            <strong>{order.orderNumber}</strong>
+                            <span>{new Date(order.createdAt).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            <span>{order.itemCount}</span>
+                            <span className={`${styles.orderStatus} ${styles[order.status.toLowerCase()] || ''}`}>{readableStatus(order.status)}</span>
+                            <strong>{money.format(order.totalAmount)}</strong>
+                            <strong className={order.paidAmount > 0 ? styles.paid : styles.unpaid}>{order.paidAmount > 0 ? money.format(order.paidAmount) : 'Unpaid'}</strong>
                           </div>
-                        </td>
-
-                        {/* Phone contact */}
-                        <td style={{ padding: '16px 24px', fontSize: '14px', color: '#334155', fontWeight: '500' }}>
-                          {user.phoneNumber}
-                        </td>
-
-                        {/* Access Role Badge */}
-                        <td style={{ padding: '16px 24px' }}>
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '5px 10px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              ...getRoleBadgeStyle(user.role),
-                            }}
-                          >
-                            {getRoleIcon(user.role)}
-                            {user.role}
-                          </span>
-                        </td>
-
-                        {/* DB UUID */}
-                        <td style={{ padding: '16px 24px', fontSize: '13.5px', color: '#64748B', fontFamily: 'monospace' }}>
-                          {user.id}
-                        </td>
-
-                        {/* Joined Date */}
-                        <td style={{ padding: '16px 24px', fontSize: '14px', color: '#475569' }}>
-                          {new Date(user.createdAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
-
-      <style jsx global>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+                        ))}
+                      </div>
+                    )}
+                    {customer.orders[0] && (
+                      <div className={styles.lastLocation}><MapPin size={15} /><span>Most recent pickup:</span><strong>{customer.orders[0].pickupAddress}</strong><Clock size={14} /><span>{relativeDate(customer.orders[0].createdAt)}</span></div>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </main>
   );
 }

@@ -76,14 +76,25 @@ export default function AdminOrdersPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!authorized) return;
+    const refreshTimer = window.setInterval(fetchOrdersAndDrivers, 15000);
+    return () => window.clearInterval(refreshTimer);
+  }, [authorized]);
+
   const fetchOrdersAndDrivers = async () => {
-    setLoading(true);
+    const hasCachedData = Boolean(
+      getAdminCache<Order[]>('dashboard-orders') && getAdminCache<Driver[]>('dashboard-drivers'),
+    );
+    if (!hasCachedData) setLoading(true);
     try {
       const ordersRes = await axios.get('/api/v1/orders');
       setOrders(ordersRes.data);
       setAdminCache('dashboard-orders', ordersRes.data);
 
-      const driversRes = await axios.get('/api/v1/drivers');
+      const driversRes = await axios.get('/api/v1/drivers', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+      });
       setDrivers(driversRes.data);
       setAdminCache('dashboard-drivers', driversRes.data);
     } catch (err) {

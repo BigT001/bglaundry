@@ -10,6 +10,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@bglaundry/rider-core": "workspace:*",
     "@expo/metro-runtime": "~6.1.2",
     "axios": "^1.6.0",
     "expo": "~54.0.0",

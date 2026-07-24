@@ -2,19 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
+import { normalizePhone } from '@/lib/phone';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret-key-for-dev-bglaundry-change-this-in-production';
-
-function normalizePhone(phone: string) {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('0') && digits.length === 11) {
-    return '+234' + digits.slice(1);
-  } else if (digits.startsWith('234') && digits.length >= 13) {
-    return '+' + digits;
-  } else {
-    return phone.startsWith('+') ? phone : '+' + digits;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {

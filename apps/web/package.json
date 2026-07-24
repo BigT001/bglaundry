@@ -10,6 +10,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
     "@bglaundry/database": "workspace:*",
+    "@bglaundry/rider-core": "workspace:*",
     "axios": "^1.6.0",
     "bcrypt": "^6.0.0",
     "firebase": "^12.16.0",

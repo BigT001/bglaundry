@@ -31,6 +31,13 @@ enum PaymentStatus {
   FAILED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
 model User {
   id              String    @id @default(uuid())
   phoneNumber     String    @unique
@@ -50,6 +57,7 @@ model User {
   driverOrders    Order[]   @relation("DriverOrders")
   driverEarnings  Earning[]
   driverProfile   DriverProfile?
+  invoices        Invoice[]
 }
 
 model DriverProfile {
@@ -124,6 +132,36 @@ model Earning {
   amount      Float
   description String
   createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  customerId    String
+  customer      User          @relation(fields: [customerId], references: [id])
+  status        InvoiceStatus @default(DRAFT)
+  currency      String        @default("NGN")
+  subtotal      Float
+  totalAmount   Float
+  notes         String?
+  dueDate       DateTime?
+  sentAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InvoiceItem[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int
+  unitPrice   Float
+  lineTotal   Float
 }
 
 model Service {

@@ -100,6 +100,9 @@ importers:
 
   apps/driver-app:
     dependencies:
+      '@bglaundry/rider-core':
+        specifier: workspace:*
+        version: link:../../packages/rider-core
       '@expo/metro-runtime':
         specifier: ~6.1.2
         version: 6.1.2(expo@54.0.36)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -164,6 +167,9 @@ importers:
       '@bglaundry/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@bglaundry/rider-core':
+        specifier: workspace:*
+        version: link:../../packages/rider-core
       axios:
         specifier: ^1.6.0
         version: 1.18.1
@@ -220,6 +226,8 @@ importers:
       typescript:
         specifier: ^5.0.4
         version: 5.9.3
+
+  packages/rider-core: {}
 
 packages:
 

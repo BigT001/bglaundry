@@ -18,3 +18,23 @@ export function verifyAdminToken(
   }
   return null;
 }
+
+export type AuthUser = { id: string; role: string; phoneNumber: string };
+
+export function verifyRiderToken(token: string | null): AuthUser | null {
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded.role === 'DRIVER' && decoded.id) {
+      return { id: decoded.id, role: decoded.role, phoneNumber: decoded.phoneNumber };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function bearerToken(request: { headers: Headers }) {
+  const value = request.headers.get('authorization');
+  return value?.startsWith('Bearer ') ? value.slice(7) : null;
+}

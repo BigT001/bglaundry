@@ -16,6 +16,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <style jsx>{`
         .adminLayout {
           display: flex;
+          height: 100vh;
+          height: 100dvh;
           min-height: 100vh;
           width: 100%;
           overflow: hidden;
@@ -25,9 +27,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .adminContent {
           width: 100%;
           min-width: 0;
+          height: 100%;
           display: flex;
           flex-direction: column;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: auto;
+          overscroll-behavior-y: contain;
+          -webkit-overflow-scrolling: touch;
         }
 
         .withSidebar {
@@ -41,6 +47,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         @media (max-width: 900px) {
           .adminLayout {
             flex-direction: column;
+          }
+
+          .adminContent {
+            height: 100dvh;
           }
         }
       `}</style>

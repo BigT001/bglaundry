@@ -1,465 +1,314 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Search, Bike, MapPin } from '@/lib/icons';
-import { clearAdminCache } from '../adminCache';
+import { Bike, MapPin, Search, Trash2, User, X } from '@/lib/icons';
+import { getAdminCache, setAdminCache } from '../adminCache';
+import styles from './riders.module.css';
 
 interface Driver {
   id: string;
   fullName: string;
   phoneNumber: string;
+  createdAt: string;
+  activeOrderCount: number;
+  completedOrderCount: number;
   driverProfile?: {
     vehicleType: string | null;
     isOnline: boolean;
     licenseNumber: string | null;
+    currentLat: number | null;
+    currentLng: number | null;
   } | null;
+}
+
+type RiderForm = {
+  fullName: string;
+  phoneNumber: string;
+  password: string;
+  vehicleType: string;
+  licenseNumber: string;
+};
+
+const EMPTY_FORM: RiderForm = {
+  fullName: '',
+  phoneNumber: '',
+  password: '',
+  vehicleType: '',
+  licenseNumber: '',
+};
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
 export default function AdminRidersPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [drivers, setDrivers] = useState<Driver[]>(() => getAdminCache<Driver[]>('dashboard-drivers') || []);
+  const [loading, setLoading] = useState(() => !getAdminCache<Driver[]>('dashboard-drivers'));
   const [search, setSearch] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'ONLINE' | 'OFFLINE'>('ALL');
+  const [modal, setModal] = useState<'CREATE' | 'EDIT' | null>(null);
+  const [selected, setSelected] = useState<Driver | null>(null);
+  const [deleting, setDeleting] = useState<Driver | null>(null);
+  const [form, setForm] = useState<RiderForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      router.push('/admin');
-      setAuthChecked(true);
-      return;
-    }
-    setAuthorized(true);
-    setAuthChecked(true);
-    fetchDrivers();
-  }, []);
+  const authHeaders = useCallback(() => ({
+    Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
+  }), []);
 
-  const fetchDrivers = async () => {
-    setLoading(true);
+  const fetchDrivers = useCallback(async (quiet = false) => {
+    if (!quiet && !getAdminCache<Driver[]>('dashboard-drivers')) setLoading(true);
     try {
-      const response = await axios.get('/api/v1/drivers');
-      setDrivers(response.data || []);
-    } catch (error) {
-      console.error('Unable to load riders:', error);
+      const response = await axios.get('/api/v1/drivers', { headers: authHeaders() });
+      const nextDrivers = response.data || [];
+      setDrivers(nextDrivers);
+      setAdminCache('dashboard-drivers', nextDrivers);
+    } catch (requestError: any) {
+      if (requestError.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        router.replace('/admin');
+        return;
+      }
+      if (!quiet) setNotice(requestError.response?.data?.error || 'Unable to load the rider fleet.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [authHeaders, router]);
 
-  const handleRegisterRider = async (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!localStorage.getItem('adminToken')) {
+      router.replace('/admin');
+      return;
+    }
+    setAuthorized(true);
+    fetchDrivers();
+    const refresh = window.setInterval(() => fetchDrivers(true), 15000);
+    return () => window.clearInterval(refresh);
+  }, [fetchDrivers, router]);
+
+  const filteredDrivers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return drivers.filter((driver) => {
+      const matchesFilter = filter === 'ALL'
+        || (filter === 'ONLINE' && driver.driverProfile?.isOnline)
+        || (filter === 'OFFLINE' && !driver.driverProfile?.isOnline);
+      const matchesSearch = !term || [
+        driver.fullName,
+        driver.phoneNumber,
+        driver.driverProfile?.vehicleType,
+        driver.driverProfile?.licenseNumber,
+      ].some((value) => value?.toLowerCase().includes(term));
+      return matchesFilter && matchesSearch;
+    });
+  }, [drivers, filter, search]);
+
+  const onlineCount = drivers.filter((driver) => driver.driverProfile?.isOnline).length;
+  const activeJobs = drivers.reduce((sum, driver) => sum + (driver.activeOrderCount || 0), 0);
+
+  function openCreate() {
+    setSelected(null);
+    setForm(EMPTY_FORM);
+    setError('');
+    setModal('CREATE');
+  }
+
+  function openEdit(driver: Driver) {
+    setSelected(driver);
+    setForm({
+      fullName: driver.fullName,
+      phoneNumber: driver.phoneNumber,
+      password: '',
+      vehicleType: driver.driverProfile?.vehicleType || '',
+      licenseNumber: driver.driverProfile?.licenseNumber || '',
+    });
+    setError('');
+    setModal('EDIT');
+  }
+
+  function updateField(field: keyof RiderForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveRider(event: React.FormEvent) {
     event.preventDefault();
+    setError('');
     setSaving(true);
     try {
-      const response = await axios.post('/api/v1/drivers', { fullName, phoneNumber });
-      setDrivers((current) => [response.data, ...current]);
-      clearAdminCache('dashboard-drivers');
-      setFullName('');
-      setPhoneNumber('');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Unable to register rider.');
+      const isEdit = modal === 'EDIT' && selected;
+      const response = isEdit
+        ? await axios.patch(`/api/v1/drivers/${selected.id}`, form, { headers: authHeaders() })
+        : await axios.post('/api/v1/drivers', form, { headers: authHeaders() });
+      const nextDrivers = isEdit
+        ? drivers.map((driver) => driver.id === response.data.id ? response.data : driver)
+        : [response.data, ...drivers];
+      setDrivers(nextDrivers);
+      setAdminCache('dashboard-drivers', nextDrivers);
+      setModal(null);
+      setNotice(isEdit ? `${response.data.fullName} was updated.` : `${response.data.fullName} can now sign in at /riders.`);
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.error || 'Unable to save this rider.');
     } finally {
       setSaving(false);
     }
-  };
-
-  if (!authChecked) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          minHeight: '100vh',
-          backgroundColor: '#F8FAFC',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: "'Inter', sans-serif",
-          padding: '32px',
-          textAlign: 'center',
-          color: '#0F172A',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Loading rider fleet…</h2>
-          <p style={{ marginTop: '12px', color: '#64748B' }}>
-            Loading rider details and availability status.
-          </p>
-        </div>
-      </div>
-    );
   }
 
-  const filteredDrivers = drivers.filter((driver) => {
-    const term = search.toLowerCase();
-    return (
-      driver.fullName.toLowerCase().includes(term) ||
-      driver.phoneNumber.toLowerCase().includes(term) ||
-      driver.driverProfile?.vehicleType?.toLowerCase().includes(term) ||
-      driver.driverProfile?.licenseNumber?.toLowerCase().includes(term)
-    );
-  });
+  async function deleteRider() {
+    if (!deleting) return;
+    setSaving(true);
+    setError('');
+    try {
+      await axios.delete(`/api/v1/drivers/${deleting.id}`, { headers: authHeaders() });
+      const nextDrivers = drivers.filter((driver) => driver.id !== deleting.id);
+      setDrivers(nextDrivers);
+      setAdminCache('dashboard-drivers', nextDrivers);
+      setNotice(`${deleting.fullName} was removed from the fleet.`);
+      setDeleting(null);
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.error || 'Unable to delete this rider.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!authorized) {
+    return <div className={styles.loadingPage}>Checking admin access…</div>;
+  }
 
   return (
-    <div className="ridersPage">
-      <main className="ridersMain">
-        <header className="ridersHeader">
-          <div>
-            <h1>Rider Fleet</h1>
-            <p>View active riders, vehicle type, and current availability.</p>
-          </div>
-          <div className="riderSummary">
-            <div>
-              <span>Total Riders</span>
-              <strong>{drivers.length}</strong>
-            </div>
-            <div>
-              <span>Currently Online</span>
-              <strong>{drivers.filter((driver) => driver.driverProfile?.isOnline).length}</strong>
-            </div>
-          </div>
-        </header>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <span className={styles.eyebrow}>Operations / Fleet</span>
+          <h1>Rider management</h1>
+          <p>Manage rider access, assignments, vehicle details and availability.</p>
+        </div>
+        <button className={styles.addButton} onClick={openCreate}>
+          <span>+</span> Add rider
+        </button>
+      </header>
 
-        <form className="registerRider" onSubmit={handleRegisterRider}>
-          <div className="registerIntro">
-            <strong>Register a rider</strong>
-            <span>Add a rider with their name and phone number.</span>
-          </div>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
-            placeholder="Rider name"
-            aria-label="Rider name"
-            required
-          />
-          <input
-            type="tel"
-            value={phoneNumber}
-            onChange={(event) => setPhoneNumber(event.target.value)}
-            placeholder="Phone number"
-            aria-label="Rider phone number"
-            required
-          />
-          <button type="submit" disabled={saving}>{saving ? 'Adding…' : 'Add rider'}</button>
-        </form>
+      {notice && (
+        <button className={styles.notice} onClick={() => setNotice('')}>
+          <span>{notice}</span><X size={16} />
+        </button>
+      )}
 
-        <section className="searchPanel">
+      <section className={styles.metrics}>
+        <article>
+          <div className={styles.metricIcon}><User size={20} /></div>
+          <div><span>Total riders</span><strong>{drivers.length}</strong></div>
+          <small>Registered fleet</small>
+        </article>
+        <article>
+          <div className={`${styles.metricIcon} ${styles.green}`}><span className={styles.liveDot} /></div>
+          <div><span>Online now</span><strong>{onlineCount}</strong></div>
+          <small>{drivers.length ? `${Math.round((onlineCount / drivers.length) * 100)}% availability` : 'No riders yet'}</small>
+        </article>
+        <article>
+          <div className={`${styles.metricIcon} ${styles.amber}`}><Bike size={20} /></div>
+          <div><span>Active jobs</span><strong>{activeJobs}</strong></div>
+          <small>Across the fleet</small>
+        </article>
+      </section>
+
+      <section className={styles.toolbar}>
+        <div className={styles.search}>
           <Search size={18} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, vehicle or license"
-          />
-        </section>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, phone, vehicle or license…" />
+        </div>
+        <div className={styles.filters}>
+          {(['ALL', 'ONLINE', 'OFFLINE'] as const).map((value) => (
+            <button key={value} className={filter === value ? styles.activeFilter : ''} onClick={() => setFilter(value)}>
+              {value.charAt(0) + value.slice(1).toLowerCase()}
+              {value === 'ALL' && <span>{drivers.length}</span>}
+            </button>
+          ))}
+        </div>
+      </section>
 
-        <section className="riderCards">
-          {loading ? (
-            <div className="loadingState">Loading riders...</div>
-          ) : filteredDrivers.length === 0 ? (
-            <div className="emptyState">
-              <strong>No riders found.</strong>
-              <span>Register your first rider above.</span>
+      {loading ? (
+        <div className={styles.emptyState}>Loading rider fleet…</div>
+      ) : filteredDrivers.length === 0 ? (
+        <div className={styles.emptyState}>
+          <div className={styles.emptyIcon}><Bike size={28} /></div>
+          <h2>{drivers.length ? 'No riders match your search' : 'Build your rider fleet'}</h2>
+          <p>{drivers.length ? 'Try another search or availability filter.' : 'Add a rider and create their secure portal credentials.'}</p>
+          {!drivers.length && <button onClick={openCreate}>Add your first rider</button>}
+        </div>
+      ) : (
+        <section className={styles.grid}>
+          {filteredDrivers.map((driver) => {
+            const profile = driver.driverProfile;
+            const online = Boolean(profile?.isOnline);
+            return (
+              <article className={styles.card} key={driver.id}>
+                <div className={styles.cardTop}>
+                  <div className={styles.avatar}>{initials(driver.fullName)}</div>
+                  <div className={styles.identity}>
+                    <div><h2>{driver.fullName}</h2><span className={`${styles.status} ${online ? styles.online : styles.offline}`}><i />{online ? 'Online' : 'Offline'}</span></div>
+                    <p>{profile?.vehicleType || 'Vehicle not configured'}</p>
+                  </div>
+                  <button className={styles.editButton} onClick={() => openEdit(driver)}>Edit</button>
+                </div>
+
+                <div className={styles.contact}>
+                  <div><span>Phone number</span><strong>{driver.phoneNumber}</strong></div>
+                  <div><span>License / ID</span><strong>{profile?.licenseNumber || 'Not provided'}</strong></div>
+                </div>
+
+                <div className={styles.cardStats}>
+                  <div><strong>{driver.activeOrderCount || 0}</strong><span>Active jobs</span></div>
+                  <div><strong>{driver.completedOrderCount || 0}</strong><span>Completed</span></div>
+                  <div><strong>{profile?.currentLat && profile?.currentLng ? 'Live' : '—'}</strong><span>Location</span></div>
+                </div>
+
+                <div className={styles.cardFooter}>
+                  <span><MapPin size={14} />{profile?.currentLat && profile?.currentLng ? 'Location sharing enabled' : 'No location shared yet'}</span>
+                  <button onClick={() => { setError(''); setDeleting(driver); }} aria-label={`Delete ${driver.fullName}`}><Trash2 size={16} /></button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {modal && (
+        <div className={styles.backdrop} onMouseDown={() => !saving && setModal(null)}>
+          <form className={styles.modal} onSubmit={saveRider} onMouseDown={(event) => event.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div><span>{modal === 'EDIT' ? 'Rider profile' : 'New rider'}</span><h2>{modal === 'EDIT' ? 'Edit rider' : 'Add a rider'}</h2><p>{modal === 'EDIT' ? 'Changes sync with the rider portal immediately.' : 'Create access for the rider web and mobile apps.'}</p></div>
+              <button type="button" onClick={() => setModal(null)} disabled={saving}><X size={18} /></button>
             </div>
-          ) : (
-            filteredDrivers.map((driver) => {
-              const isOnline = driver.driverProfile?.isOnline;
-              const vehicle = driver.driverProfile?.vehicleType || 'Rider';
-              return (
-                <article className="riderCard" key={driver.id}>
-                  <div className="riderCardHeader">
-                    <div className="riderAvatar">{driver.fullName.slice(0, 2).toUpperCase()}</div>
-                    <div>
-                      <h2>{driver.fullName}</h2>
-                      <p>{vehicle}</p>
-                    </div>
-                  </div>
-                  <div className="riderCardMeta">
-                    <span className={`statusBadge ${isOnline ? 'online' : 'offline'}`}>
-                      {isOnline ? 'Online' : 'Offline'}
-                    </span>
-                    <div>
-                      <Bike size={16} />
-                      <span>{driver.phoneNumber}</span>
-                    </div>
-                    <div>
-                      <MapPin size={16} />
-                      <span>{driver.driverProfile?.licenseNumber ?? 'No license on file'}</span>
-                    </div>
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </section>
-      </main>
+            <div className={styles.formGrid}>
+              <label className={styles.fullField}>Full name<input value={form.fullName} onChange={(event) => updateField('fullName', event.target.value)} placeholder="e.g. Ada Okafor" required autoFocus /></label>
+              <label>Phone number<input value={form.phoneNumber} onChange={(event) => updateField('phoneNumber', event.target.value)} placeholder="080 1234 5678" type="tel" required /></label>
+              <label>{modal === 'EDIT' ? 'New password' : 'Temporary password'}<input value={form.password} onChange={(event) => updateField('password', event.target.value)} placeholder={modal === 'EDIT' ? 'Leave blank to keep current' : 'At least 8 characters'} type="password" minLength={form.password ? 8 : undefined} required={modal === 'CREATE'} /></label>
+              <label>Vehicle type<input value={form.vehicleType} onChange={(event) => updateField('vehicleType', event.target.value)} placeholder="e.g. Honda motorcycle" /></label>
+              <label>License / rider ID<input value={form.licenseNumber} onChange={(event) => updateField('licenseNumber', event.target.value)} placeholder="e.g. LASRRA-10482" /></label>
+            </div>
+            {error && <div className={styles.formError}>{error}</div>}
+            <div className={styles.modalActions}><button type="button" onClick={() => setModal(null)} disabled={saving}>Cancel</button><button className={styles.saveButton} disabled={saving}>{saving ? 'Saving…' : modal === 'EDIT' ? 'Save changes' : 'Create rider'}</button></div>
+          </form>
+        </div>
+      )}
 
-      <style jsx>{`
-        .ridersPage {
-          display: flex;
-          min-height: 100vh;
-          width: 100%;
-          background-color: #F8FAFC;
-          font-family: 'Inter', sans-serif;
-        }
-
-        .ridersMain {
-          flex: 1;
-          padding: 40px;
-          box-sizing: border-box;
-          overflow-y: auto;
-        }
-
-        .ridersHeader {
-          display: flex;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 24px;
-          margin-bottom: 32px;
-        }
-
-        .ridersHeader h1 {
-          margin: 0;
-          font-size: 32px;
-          color: #0F172A;
-          font-weight: 900;
-        }
-
-        .ridersHeader p {
-          margin: 8px 0 0;
-          color: #64748B;
-          font-size: 14px;
-        }
-
-        .riderSummary {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(140px, 1fr));
-          gap: 14px;
-        }
-
-        .riderSummary div {
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 18px;
-          padding: 20px;
-          min-width: 180px;
-        }
-
-        .riderSummary span {
-          color: #64748B;
-          font-size: 12px;
-          display: block;
-          margin-bottom: 8px;
-        }
-
-        .riderSummary strong {
-          font-size: 28px;
-          color: #0F172A;
-          display: block;
-        }
-
-        .searchPanel {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          max-width: 520px;
-          background-color: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 18px;
-          padding: 14px 20px;
-          margin-bottom: 28px;
-        }
-
-        .registerRider {
-          display: grid;
-          grid-template-columns: minmax(190px, 1fr) minmax(170px, 0.8fr) minmax(150px, 0.55fr) auto;
-          align-items: end;
-          gap: 12px;
-          margin-bottom: 20px;
-          padding: 18px 20px;
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 18px;
-        }
-
-        .registerIntro {
-          display: grid;
-          gap: 3px;
-          align-self: center;
-        }
-
-        .registerIntro strong { color: #0F172A; font-size: 14px; }
-        .registerIntro span { color: #64748B; font-size: 12px; }
-
-        .registerRider input {
-          width: 100%;
-          box-sizing: border-box;
-          min-height: 44px;
-          padding: 10px 12px;
-          border: 1px solid #CBD5E1;
-          border-radius: 10px;
-          background: #FFFFFF;
-          color: #0F172A;
-          outline: none;
-        }
-
-        .registerRider input:focus { border-color: #0F172A; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08); }
-
-        .registerRider button {
-          min-height: 44px;
-          padding: 10px 16px;
-          border: 0;
-          border-radius: 10px;
-          background: #0F172A;
-          color: #FFFFFF;
-          font-weight: 700;
-          cursor: pointer;
-          white-space: nowrap;
-        }
-
-        .registerRider button:disabled { opacity: 0.65; cursor: wait; }
-
-        .searchPanel input {
-          width: 100%;
-          border: none;
-          outline: none;
-          font-size: 14px;
-          color: #0F172A;
-          background: transparent;
-        }
-
-        .riderCards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 18px;
-        }
-
-        .riderCard {
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 24px;
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
-        }
-
-        .riderCardHeader {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .riderAvatar {
-          width: 52px;
-          height: 52px;
-          border-radius: 18px;
-          display: grid;
-          place-items: center;
-          color: #FFFFFF;
-          background: linear-gradient(135deg, #2563EB 0%, #0EA5E9 100%);
-          font-size: 18px;
-          font-weight: 800;
-        }
-
-        .riderCardHeader h2 {
-          margin: 0;
-          font-size: 18px;
-          color: #0F172A;
-          font-weight: 800;
-        }
-
-        .riderCardHeader p {
-          margin: 4px 0 0;
-          color: #64748B;
-          font-size: 13px;
-        }
-
-        .riderCardMeta {
-          display: grid;
-          gap: 12px;
-          color: #475569;
-          font-size: 14px;
-        }
-
-        .statusBadge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: fit-content;
-          border-radius: 999px;
-          padding: 8px 14px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          font-size: 11px;
-          color: #1D4ED8;
-          background: #EFF6FF;
-          width: fit-content;
-        }
-
-        .statusBadge.offline {
-          color: #92400E;
-          background: #FEF3C7;
-        }
-
-        .riderCardMeta div {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .loadingState,
-        .emptyState {
-          grid-column: 1 / -1;
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 20px;
-          padding: 40px;
-          text-align: center;
-          color: #64748B;
-        }
-
-        .emptyState strong {
-          display: block;
-          margin-bottom: 10px;
-          color: #0F172A;
-          font-size: 16px;
-        }
-
-        @media (max-width: 780px) {
-          .ridersMain {
-            padding: 28px 20px;
-          }
-
-          .riderSummary {
-            grid-template-columns: 1fr;
-          }
-
-          .registerRider {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .registerIntro { grid-column: 1 / -1; }
-        }
-
-        @media (max-width: 520px) {
-          .ridersHeader {
-            gap: 16px;
-          }
-
-          .searchPanel {
-            padding: 14px 16px;
-          }
-
-          .registerRider { grid-template-columns: 1fr; padding: 16px; }
-          .registerIntro { grid-column: auto; }
-        }
-      `}</style>
-    </div>
+      {deleting && (
+        <div className={styles.backdrop} onMouseDown={() => !saving && setDeleting(null)}>
+          <section className={`${styles.modal} ${styles.deleteModal}`} onMouseDown={(event) => event.stopPropagation()}>
+            <div className={styles.deleteIcon}><Trash2 size={22} /></div>
+            <h2>Remove {deleting.fullName}?</h2>
+            <p>The rider will immediately lose access to `/riders`. Riders with active assignments cannot be removed until those jobs are reassigned.</p>
+            {error && <div className={styles.formError}>{error}</div>}
+            <div className={styles.modalActions}><button onClick={() => setDeleting(null)} disabled={saving}>Cancel</button><button className={styles.dangerButton} onClick={deleteRider} disabled={saving}>{saving ? 'Removing…' : 'Remove rider'}</button></div>
+          </section>
+        </div>
+      )}
+    </main>
   );
 }

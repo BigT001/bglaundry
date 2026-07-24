@@ -66,6 +66,13 @@ const IconRiders = ({ size = 20, style, className }: IconProps) => (
     <path d="M15 17h4" />
   </svg>
 );
+const IconInvoice = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <path d="M6 2h9l3 3v17H6z" />
+    <path d="M15 2v4h4" />
+    <path d="M9 11h6M9 15h6M9 19h3" />
+  </svg>
+);
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -137,6 +144,11 @@ export default function Sidebar() {
       name: 'Orders',
       href: '/admin/orders',
       icon: IconOrders,
+    },
+    {
+      name: 'Invoices',
+      href: '/admin/invoices',
+      icon: IconInvoice,
     },
     {
       name: 'Users',
@@ -236,7 +248,9 @@ export default function Sidebar() {
         .sidebar {
           position: sticky;
           top: 0;
+          align-self: flex-start;
           height: 100vh;
+          height: 100dvh;
           width: 260px;
           min-width: 260px;
           background-color: #FFFFFF;
@@ -276,6 +290,7 @@ export default function Sidebar() {
 
         .sidebarInner {
           width: 100%;
+          height: 100%;
           padding: 28px 18px 20px;
           display: flex;
           flex-direction: column;
@@ -386,9 +401,15 @@ export default function Sidebar() {
         }
 
         .navItem.active {
-          background-color: #E5E5E5 !important;
-          border-color: #000000 !important;
-          color: #000000 !important;
+          background-color: #0F172A !important;
+          border-color: #0F172A !important;
+          color: #FFFFFF !important;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+        }
+
+        .navItem.active .iconWrap,
+        .navItem.active .navLabel {
+          color: #FFFFFF !important;
         }
 
         .iconWrap {
