@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { InvoiceStatus, Role } from '@bglaundry/database';
 import { prisma } from '@/lib/prisma';
 import { bearerToken, verifyAdminToken } from '@/lib/auth';
+import { normalizePhone } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,18 +43,52 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = await request.json();
-    const customerId = typeof body.customerId === 'string' ? body.customerId : '';
+    let customerId = typeof body.customerId === 'string' ? body.customerId : '';
     const notes = typeof body.notes === 'string' ? body.notes.trim() : null;
     const dueDate = body.dueDate ? new Date(body.dueDate) : null;
     const rawItems = Array.isArray(body.items) ? body.items : [];
 
-    if (!customerId || rawItems.length === 0) {
-      return NextResponse.json({ error: 'Select a customer and add at least one invoice item.' }, { status: 400 });
+    if (rawItems.length === 0) {
+      return NextResponse.json({ error: 'Add at least one invoice item.' }, { status: 400 });
     }
     if (dueDate && Number.isNaN(dueDate.getTime())) {
       return NextResponse.json({ error: 'Enter a valid due date.' }, { status: 400 });
     }
 
+    if (!customerId && body.newCustomer) {
+      const fullName = typeof body.newCustomer.fullName === 'string' ? body.newCustomer.fullName.trim() : '';
+      const rawPhone = typeof body.newCustomer.phoneNumber === 'string' ? body.newCustomer.phoneNumber.trim() : '';
+      const email = typeof body.newCustomer.email === 'string' ? body.newCustomer.email.trim().toLowerCase() : '';
+      if (fullName.length < 2 || rawPhone.replace(/\D/g, '').length < 10) {
+        return NextResponse.json({ error: 'Enter the new customer’s name and a valid WhatsApp phone number.' }, { status: 400 });
+      }
+      const phoneNumber = normalizePhone(rawPhone);
+      const existing = await prisma.user.findUnique({ where: { phoneNumber } });
+      if (existing && existing.role !== Role.CUSTOMER) {
+        return NextResponse.json({ error: 'That phone number belongs to a non-customer account.' }, { status: 409 });
+      }
+      if (email) {
+        const emailOwner = await prisma.user.findUnique({ where: { email } });
+        if (emailOwner && emailOwner.id !== existing?.id) {
+          return NextResponse.json({ error: 'That email address is already connected to another account.' }, { status: 409 });
+        }
+      }
+      const customerRecord = existing
+        ? await prisma.user.update({
+            where: { id: existing.id },
+            data: { fullName, ...(email ? { email } : {}) },
+            select: { id: true },
+          })
+        : await prisma.user.create({
+            data: { fullName, phoneNumber, email: email || null, role: Role.CUSTOMER },
+            select: { id: true },
+          });
+      customerId = customerRecord.id;
+    }
+
+    if (!customerId) {
+      return NextResponse.json({ error: 'Select an existing customer or add a new customer.' }, { status: 400 });
+    }
     const customer = await prisma.user.findFirst({ where: { id: customerId, role: Role.CUSTOMER }, select: { id: true } });
     if (!customer) return NextResponse.json({ error: 'Selected customer was not found.' }, { status: 404 });
 

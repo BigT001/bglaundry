@@ -10,6 +10,7 @@ allowBuilds:
   prisma: true
   sharp: true
   protobufjs: true
+  core-js: true
 
 overrides:
   "@types/react": "19.1.17"

@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
-type Step = 'MODE_SELECT' | 'LOGIN_PHONE' | 'LOGIN_PASSWORD' | 'SIGNUP_PHONE' | 'SIGNUP_NAME' | 'SIGNUP_ADDRESS' | 'SIGNUP_PASSWORD' | 'SUCCESS';
+type Step = 'MODE_SELECT' | 'LOGIN_PHONE' | 'LOGIN_PASSWORD' | 'RESET_REQUEST' | 'RESET_CONFIRM' | 'RESET_SUCCESS' | 'SIGNUP_PHONE' | 'SIGNUP_NAME' | 'SIGNUP_ADDRESS' | 'SIGNUP_PASSWORD' | 'SUCCESS';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +17,9 @@ export default function LoginPage() {
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState('');
 
   const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
   const setSelectedAddress = addressType === 'HOME' ? setHomeAddress : setOfficeAddress;
@@ -66,6 +69,33 @@ export default function LoginPage() {
       setError(err.response?.data?.error || 'Signup failed. Please try again.');
       setLoading(false);
     }
+  };
+
+  const requestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true); setError(''); setRecoveryMessage('');
+    try {
+      const { data } = await axios.post('/api/v1/auth/password-reset/request', {
+        identifier: phone, accountType: 'CUSTOMER',
+      });
+      setRecoveryMessage(data.developmentCode ? `${data.message} Development code: ${data.developmentCode}` : data.message);
+      setStep('RESET_CONFIRM');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Unable to send a reset code.');
+    } finally { setLoading(false); }
+  };
+
+  const confirmPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) { setError('The passwords do not match.'); return; }
+    setLoading(true); setError('');
+    try {
+      await axios.post('/api/v1/auth/password-reset/confirm', {
+        identifier: phone, code: resetCode, password, accountType: 'CUSTOMER',
+      });
+      setStep('RESET_SUCCESS'); setPassword(''); setConfirmPassword(''); setResetCode('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Unable to change your password.');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -261,6 +291,9 @@ export default function LoginPage() {
         .mode-buttons {
           display: flex; flex-direction: column; gap: 12px;
         }
+        .forgot-link { width: 100%; border: 0; background: none; color: #2858A7; font: 600 13px 'DM Sans'; text-align: right; cursor: pointer; margin-top: -4px; }
+        .recovery-message { font-size: 12px; line-height: 1.5; color: #215F46; background: #ECFDF5; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
+        .code-input { text-align: center; letter-spacing: .35em; font-size: 20px !important; font-weight: 800; }
       `}} />
 
       <div className="page">
@@ -311,6 +344,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              <button type="button" className="forgot-link" onClick={() => { setStep('RESET_REQUEST'); setPassword(''); setError(''); }}>Forgot password?</button>
               <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
                 <button
                   type="button"
@@ -328,6 +362,51 @@ export default function LoginPage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {step === 'RESET_REQUEST' && (
+            <form onSubmit={requestPasswordReset}>
+              <div className="tagline">Reset Your Password</div>
+              <div className="divider" />
+              {error && <div className="error">{error}</div>}
+              <label>Phone Number</label>
+              <div className="input-wrap">
+                <span className="prefix">+234</span>
+                <input type="tel" placeholder="801 234 5678" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} required autoFocus />
+              </div>
+              <p className="hint">We’ll send a six-digit verification code to the phone number registered on your account.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setStep('LOGIN_PASSWORD'); setError(''); }}>Back</button>
+                <button type="submit" className="btn" disabled={!phone || loading}>{loading ? <span className="spinner" /> : 'Send Code'}</button>
+              </div>
+            </form>
+          )}
+
+          {step === 'RESET_CONFIRM' && (
+            <form onSubmit={confirmPasswordReset}>
+              <div className="tagline">Verify & Choose Password</div>
+              <div className="divider" />
+              {recoveryMessage && <div className="recovery-message">{recoveryMessage}</div>}
+              {error && <div className="error">{error}</div>}
+              <label>Verification Code</label>
+              <div className="input-wrap"><input className="code-input" inputMode="numeric" value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></div>
+              <label>New Password</label>
+              <div className="input-wrap"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8} /></div>
+              <label>Confirm Password</label>
+              <div className="input-wrap"><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" required minLength={8} /></div>
+              <p className="hint">Use at least eight characters with one letter and one number.</p>
+              <button className="btn" disabled={resetCode.length !== 6 || password.length < 8 || !confirmPassword || loading}>{loading ? <span className="spinner" /> : 'Change Password'}</button>
+              <button type="button" className="back-link" onClick={() => { setStep('RESET_REQUEST'); setError(''); }}>Request another code</button>
+            </form>
+          )}
+
+          {step === 'RESET_SUCCESS' && (
+            <div style={{ textAlign: 'center', paddingTop: 20 }}>
+              <div className="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg></div>
+              <div className="success-text">Password changed</div>
+              <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 20 }}>Your new password is ready to use.</p>
+              <button className="btn" onClick={() => { setStep('LOGIN_PHONE'); setError(''); }}>Continue to Sign In</button>
+            </div>
           )}
 
           {/* LOGIN - PASSWORD */}

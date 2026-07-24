@@ -1,187 +1,88 @@
 'use client';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import styles from './admin-login.module.css';
+
+type Mode = 'LOGIN' | 'RESET_REQUEST' | 'RESET_CONFIRM' | 'RESET_SUCCESS';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>('LOGIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) return;
-
-    setLoading(true);
-    setError('');
+  async function handleAdminLogin(event: React.FormEvent) {
+    event.preventDefault(); setLoading(true); setError('');
     try {
-      const response = await axios.post('/api/v1/admin/auth/login', {
-        email,
-        password,
-      });
-      const { token, user } = response.data;
-
-      localStorage.setItem('adminToken', token);
-      localStorage.setItem('adminUser', JSON.stringify(user));
+      const { data } = await axios.post('/api/v1/admin/auth/login', { email, password });
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
       router.push('/admin/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid phone number or password.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      setError(err.response?.data?.error || 'Invalid admin email or password.');
+    } finally { setLoading(false); }
+  }
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F8FAFC',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '400px',
-          backgroundColor: '#FFFFFF',
-          padding: '40px',
-          borderRadius: '12px',
-          border: '1px solid #E6F0FA',
-          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '24px',
-            fontWeight: 'bold',
-            color: '#002B7F',
-            textAlign: 'center',
-            margin: '0 0 8px 0',
-          }}
-        >
-          BG Admin Portal
-        </h2>
-        <p
-          style={{
-            fontSize: '14px',
-            color: '#64748B',
-            textAlign: 'center',
-            margin: '0 0 32px 0',
-          }}
-        >
-          laundry business admin panel login
-        </p>
+  async function requestReset(event: React.FormEvent) {
+    event.preventDefault(); setLoading(true); setError(''); setMessage('');
+    try {
+      const { data } = await axios.post('/api/v1/auth/password-reset/request', { identifier: email, accountType: 'ADMIN' });
+      setMessage(data.developmentCode ? `${data.message} Development code: ${data.developmentCode}` : data.message);
+      setMode('RESET_CONFIRM');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Unable to send a reset code.');
+    } finally { setLoading(false); }
+  }
 
-        {error ? (
-          <div
-            style={{
-              padding: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FCA5A5',
-              borderRadius: '6px',
-              color: '#B91C1C',
-              fontSize: '14px',
-              marginBottom: '20px',
-              textAlign: 'center',
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
+  async function confirmReset(event: React.FormEvent) {
+    event.preventDefault();
+    if (password !== confirmPassword) { setError('The passwords do not match.'); return; }
+    setLoading(true); setError('');
+    try {
+      await axios.post('/api/v1/auth/password-reset/confirm', { identifier: email, code, password, accountType: 'ADMIN' });
+      setMode('RESET_SUCCESS'); setCode(''); setPassword(''); setConfirmPassword('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Unable to change the admin password.');
+    } finally { setLoading(false); }
+  }
 
-        <form onSubmit={handleAdminLogin}>
-          <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '13px',
-                fontWeight: '600',
-                color: '#0F172A',
-                marginBottom: '8px',
-              }}
-            >
-              Admin Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@company.com"
-              autoComplete="email"
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px',
-                boxSizing: 'border-box',
-                border: '1px solid #E6F0FA',
-                borderRadius: '6px',
-                fontSize: '15px',
-                color: '#0F172A',
-                outline: 'none',
-                backgroundColor: '#F8FAFC',
-              }}
-            />
+  return <main className={styles.page}><section className={styles.card}>
+    <div className={styles.mark}>BG</div>
+    <span className={styles.eyebrow}>Secure administration</span>
+    <h1>{mode === 'LOGIN' ? 'Admin portal' : mode === 'RESET_SUCCESS' ? 'Password changed' : 'Recover access'}</h1>
+    <p>{mode === 'LOGIN' ? 'Sign in to manage BG Laundry operations.' : mode === 'RESET_SUCCESS' ? 'Your new administrator password is ready.' : 'We’ll verify the phone number connected to your administrator profile.'}</p>
+    {error && <div className={styles.error}>{error}</div>}
+    {message && <div className={styles.success}>{message}</div>}
 
-            <label
-              style={{
-                display: 'block',
-                fontSize: '13px',
-                fontWeight: '600',
-                color: '#0F172A',
-                marginTop: '16px',
-                marginBottom: '8px',
-              }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px',
-                boxSizing: 'border-box',
-                border: '1px solid #E6F0FA',
-                borderRadius: '6px',
-                fontSize: '15px',
-                color: '#0F172A',
-                outline: 'none',
-                backgroundColor: '#F8FAFC',
-              }}
-            />
+    {mode === 'LOGIN' && <form onSubmit={handleAdminLogin}>
+      <label>Admin email<input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" placeholder="admin@bglaundry.org" required /></label>
+      <label>Password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" placeholder="Enter your password" required /></label>
+      <button className={styles.primary} disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</button>
+      <button type="button" className={styles.link} onClick={() => { setMode('RESET_REQUEST'); setPassword(''); setError(''); }}>Forgot admin password?</button>
+    </form>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                marginTop: '20px',
-                padding: '12px',
-                backgroundColor: '#002B7F',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '15px',
-                fontWeight: 'bold',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {loading ? 'Signing In...' : 'Sign In'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+    {mode === 'RESET_REQUEST' && <form onSubmit={requestReset}>
+      <label>Admin email<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="admin@bglaundry.org" required autoFocus /></label>
+      <button className={styles.primary} disabled={loading}>{loading ? 'Sending…' : 'Send verification code'}</button>
+      <button type="button" className={styles.link} onClick={() => { setMode('LOGIN'); setError(''); }}>Back to sign in</button>
+    </form>}
+
+    {mode === 'RESET_CONFIRM' && <form onSubmit={confirmReset}>
+      <label>Six-digit code<input className={styles.code} inputMode="numeric" value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></label>
+      <label>New password<input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="At least 8 characters" minLength={8} required /></label>
+      <label>Confirm password<input type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Repeat your password" minLength={8} required /></label>
+      <small>Use at least eight characters with one letter and one number.</small>
+      <button className={styles.primary} disabled={loading || code.length !== 6}>{loading ? 'Changing…' : 'Change password'}</button>
+      <button type="button" className={styles.link} onClick={() => { setMode('RESET_REQUEST'); setError(''); setMessage(''); }}>Request another code</button>
+    </form>}
+
+    {mode === 'RESET_SUCCESS' && <button className={styles.primary} onClick={() => { setMode('LOGIN'); setError(''); }}>Continue to sign in</button>}
+  </section></main>;
 }

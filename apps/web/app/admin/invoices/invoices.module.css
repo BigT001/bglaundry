@@ -25,3 +25,5 @@
   .previewTable>div{grid-template-columns:minmax(0,1fr) 28px 72px;font-size:8px}
   .previewActions{gap:7px}
 }
+.customerChoice{display:grid;gap:10px}.customerChoice>div:first-child{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;background:#edf1f6;border-radius:9px}.customerChoice>div:first-child button{border:0;border-radius:7px;background:transparent;color:#718096;padding:8px;font-size:9px;font-weight:800;cursor:pointer}.customerChoice>div:first-child .customerModeActive{background:#fff;color:#173b80;box-shadow:0 1px 5px #23345f1c}.newCustomerGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.newCustomerGrid label:last-child{grid-column:1/-1}.customerChoice input[type=email],.customerChoice input[type=tel]{width:100%}
+@media(max-width:560px){.newCustomerGrid{grid-template-columns:1fr}.newCustomerGrid label:last-child{grid-column:auto}.customerChoice>div:first-child button{font-size:8px;padding:8px 4px}}
