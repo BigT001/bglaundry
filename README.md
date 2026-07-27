@@ -1,836 +1,464 @@
 # BG Laundry & Dry Cleaning
 
-BG Laundry is a multi-application laundry operations platform for customers, riders, and administrators. It combines customer booking and payment, rider fulfillment, live order tracking, service and pricing management, invoice administration, and role-based authentication in one pnpm/Turborepo monorepo.
+BG Laundry is a private, multi-application platform for managing laundry bookings, payments, fulfillment, riders, customers, pricing, and administrative operations.
 
-The repository contains a responsive Next.js website and API, two Expo mobile applications, a shared Prisma/PostgreSQL data layer, and shared rider business logic.
+> **Internal project notice**
+>
+> This repository and its documentation are intended for authorized BG Laundry contributors only. Do not copy internal configuration, credentials, customer information, payment data, infrastructure details, or operational procedures into public issues, screenshots, chat messages, or external documentation.
 
-## Table of contents
+## Contents
 
-- [Platform overview](#platform-overview)
-- [Applications and packages](#applications-and-packages)
-- [Architecture](#architecture)
-- [Core features](#core-features)
-- [Technology stack](#technology-stack)
-- [Repository structure](#repository-structure)
-- [Prerequisites](#prerequisites)
-- [Local setup](#local-setup)
-- [Environment variables](#environment-variables)
-- [Database workflows](#database-workflows)
+- [Product overview](#product-overview)
+- [Workspace applications](#workspace-applications)
+- [Shared packages](#shared-packages)
+- [Core capabilities](#core-capabilities)
+- [Technology summary](#technology-summary)
+- [Repository layout](#repository-layout)
+- [Development setup](#development-setup)
+- [Database development](#database-development)
 - [Running the applications](#running-the-applications)
-- [Authentication and account security](#authentication-and-account-security)
-- [Order lifecycle](#order-lifecycle)
-- [Flutterwave payment flow](#flutterwave-payment-flow)
-- [API reference](#api-reference)
+- [Payments](#payments)
+- [Authentication and account management](#authentication-and-account-management)
 - [Build and validation](#build-and-validation)
-- [Deployment](#deployment)
-- [Security checklist](#security-checklist)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+- [Deployment guidance](#deployment-guidance)
+- [Security expectations](#security-expectations)
+- [Contribution workflow](#contribution-workflow)
 
-## Platform overview
+## Product overview
 
-BG Laundry supports four primary surfaces:
+The platform connects the main participants in BG Laundry operations:
 
-1. **Public website** – presents services, pricing, rider information, and the BG Laundry brand.
-2. **Customer experience** – allows customers to create accounts, maintain profiles, select laundry services, schedule pickups, pay through Flutterwave, and track orders.
-3. **Rider experience** – gives assigned riders access to their jobs, route information, verification codes, status transitions, and earnings.
-4. **Administrative experience** – provides operational dashboards for services, prices, customers, riders, orders, invoices, and business statistics.
+- **Customers** browse services, create bookings, pay, and track laundry orders.
+- **Riders** receive assigned jobs and complete approved pickup and delivery workflows.
+- **Administrators** manage customers, riders, orders, services, pricing, invoices, and operational reporting.
+- **Operations staff** use shared order and tracking information to coordinate the full laundry lifecycle.
 
-The Next.js application is also the backend. API route handlers under `apps/web/app/api/v1` communicate with PostgreSQL through the shared Prisma package.
+The system is maintained as a pnpm monorepo. It contains a web application, a customer mobile application, a rider mobile application, and reusable business/data packages.
 
-## Applications and packages
+## Workspace applications
 
-### `apps/web`
+### Web application
 
-A Next.js 15 application running on port `4000` in development.
+Location: `apps/web`
 
-It includes:
+The web workspace provides:
 
-- Public landing, services, pricing, rider, and information pages.
-- Responsive customer dashboard.
-- Customer profile, saved addresses, email, and authenticated password changes.
-- Active-order accordion and progress tracking.
-- Administrator authentication and operational dashboard.
-- Service catalogue and price management.
-- Customer, rider, order, and invoice administration.
-- Versioned REST-style API routes under `/api/v1`.
-- Flutterwave checkout initialization, callback verification, webhook processing, and payment-status lookup.
-- Firebase client and Admin SDK integration.
-- Cloudflare R2 media helpers.
+- Public marketing and service pages.
+- Responsive customer booking and account experiences.
+- Administrative dashboards.
+- Server-side application endpoints.
+- Database-backed order and service management.
+- Payment-provider integration.
+- Customer profile and account security controls.
+- Invoice and reporting functionality.
 
-The web application uses the Next.js App Router. It does not run a separate Express or NestJS API process.
+The web workspace is both the browser application and the server application. Contributors should not assume that a separate backend service must be started.
 
-### `apps/customer-app`
+### Customer mobile application
 
-An Expo 54 / React Native customer application using Expo Router.
+Location: `apps/customer-app`
 
-Key capabilities include:
+The customer application provides:
 
-- Customer authentication and local session persistence.
-- Service browsing and dynamic price retrieval.
+- Customer sign-in and account persistence.
+- Service discovery and dynamic pricing.
 - Laundry basket management.
 - Pickup and delivery scheduling.
-- Order submission.
-- Flutterwave hosted-checkout handoff.
-- Payment confirmation polling.
-- Active and historical order views.
-- Order tracking.
+- Order creation and payment handoff.
+- Active-order tracking.
+- Completed booking history.
 - Profile and address management.
-- Firebase integration.
 
-The app uses the custom URL scheme `bglaundry://` so the hosted payment callback can return customers to the application.
+The application uses Expo Router and shares the server-side business data exposed by the web workspace.
 
-### `apps/driver-app`
+### Rider mobile application
 
-An Expo 54 / React Native application for laundry riders.
+Location: `apps/driver-app`
 
-Key capabilities include:
+The rider application provides:
 
 - Rider authentication.
-- Assigned-order lists.
-- Pickup and delivery workflow.
-- Order status updates.
-- Pickup and delivery verification.
-- Route/location views using Expo Location and React Native Maps.
-- Rider earnings visibility.
-- Shared transition rules from `@bglaundry/rider-core`.
+- Assigned-order visibility.
+- Pickup and delivery workflows.
+- Approved order status transitions.
+- Verification during physical handoff.
+- Route and location support.
+- Earnings visibility.
 
-### `packages/database`
+Rider behavior should remain consistent with the shared rider rules in the workspace packages.
 
-The shared database package, published inside the workspace as `@bglaundry/database`.
+## Shared packages
 
-It contains:
+### Database package
 
-- Prisma schema.
-- PostgreSQL migrations.
-- Generated Prisma Client exports.
-- Shared Prisma enum and model types.
+Location: `packages/database`
 
-Primary data models include:
+This package contains:
 
-- `User`
-- `DriverProfile`
-- `Order`
-- `OrderItem`
-- `Payment`
-- `TrackingEvent`
-- `Earning`
-- `Invoice`
-- `InvoiceItem`
-- `Service`
-- `PasswordResetToken`
+- The Prisma schema.
+- Versioned database migrations.
+- Generated database client exports.
+- Shared database types and enums.
 
-### `packages/rider-core`
+Database changes must be made through the schema and migration workflow. Direct production schema changes are not permitted.
 
-Shared rider-domain logic used by the web API and driver application. This package centralizes rider order status rules and helps keep mobile and server behavior consistent.
+### Rider domain package
 
-## Architecture
+Location: `packages/rider-core`
 
-```text
-Customer web dashboard ─┐
-Customer Expo app ──────┼──► Next.js API (/api/v1) ──► Prisma ──► PostgreSQL
-Driver Expo app ────────┤              │
-Admin dashboard ────────┘              ├──► Flutterwave
-                                       ├──► Firebase
-                                       ├──► Cloudflare R2
-                                       └──► Maps/location services
-```
+This package centralizes rider-related rules shared between the server and rider application. Status rules should be updated here when behavior must remain identical across applications.
 
-Important architectural rules:
+## Core capabilities
 
-- The backend is implemented with Next.js route handlers.
-- Payment secret keys are used only by server-side routes.
-- Order totals are calculated by the backend; client-supplied payment amounts are not trusted.
-- Prisma is the only application data-access layer.
-- Mobile apps call the versioned Next.js API.
-- Customer and rider sessions use bearer JWTs.
-- Passwords and reset codes are stored only as bcrypt hashes.
+### Customer experience
 
-## Core features
+- Account creation and sign-in.
+- Profile, contact, and address management.
+- Authenticated password changes.
+- Service catalogue and price display.
+- Basket and quantity management.
+- Booking and pickup scheduling.
+- Secure hosted payment checkout.
+- Order verification and progress tracking.
+- Active and completed booking views.
 
-### Customer features
+### Rider experience
 
-- Phone-number and password registration/login.
-- Optional profile email address.
-- Home and office address management.
-- Authenticated password changes without SMS OTP.
-- Live service catalogue and Naira pricing.
-- Basket and item quantity management.
-- Pickup scheduling and order booking.
-- Secure Flutterwave hosted checkout.
-- Active orders with clear mobile accordion separation.
-- Pickup/delivery verification codes.
-- Detailed order progress timeline.
-- Completed booking history.
+- Role-specific access.
+- Assigned job lists.
+- Pickup and delivery confirmation.
+- Location-assisted route workflows.
+- Controlled fulfillment status updates.
+- Earnings information.
 
-### Rider features
+### Administrative experience
 
-- Rider-specific authentication and authorization.
-- Assigned work queue.
-- Online/offline rider profile state.
-- Pickup and delivery route support.
-- Controlled order status transitions.
-- Verification-code confirmation.
-- Earnings data.
-
-### Administrator features
-
-- Administrative login.
-- Business statistics dashboard.
+- Protected administrator access.
+- Operational summary dashboard.
 - Customer and rider management.
-- Driver account provisioning.
-- Order assignment and status oversight.
-- Service catalogue creation and editing.
-- Wash, iron, and wash-and-iron price management.
-- Invoice creation, viewing, and status management.
+- Service and pricing administration.
+- Order assignment and oversight.
+- Invoice management.
+- Business reporting.
 
-### Payment features
+### Payment experience
 
-- Flutterwave Standard hosted checkout.
-- Unique server-generated transaction references.
-- Server-derived order totals.
-- NGN transaction validation.
-- Callback verification.
-- HMAC webhook signature verification.
-- Idempotent database status updates.
-- Client payment-status polling as a webhook fallback.
+- Server-created payment sessions.
+- Hosted checkout.
+- Server-side payment verification.
+- Asynchronous payment confirmation.
+- Local payment-state reconciliation.
 
-## Technology stack
+## Technology summary
 
 | Area | Technology |
 | --- | --- |
-| Monorepo | pnpm workspaces, Turborepo |
-| Web/API | Next.js 15, React 19, TypeScript |
-| Mobile | Expo 54, React Native 0.81, Expo Router |
-| Database | PostgreSQL 15, Prisma 5 |
-| Authentication | JWT, bcrypt, Firebase |
-| Payments | Flutterwave Standard API |
-| Storage | Cloudflare R2 / AWS S3-compatible SDK |
-| Maps/location | React Native Maps, Expo Location, Mapbox/Google Maps configuration |
-| Networking | Fetch, Axios |
-| Documents | jsPDF, html2canvas |
+| Workspace | pnpm workspaces, Turborepo |
+| Web/server | Next.js, React, TypeScript |
+| Mobile | Expo, React Native, Expo Router |
+| Data | PostgreSQL, Prisma |
+| Authentication | JWT and password hashing |
+| Payments | Flutterwave |
+| External services | Firebase, object storage, maps/location providers |
 
-## Repository structure
+Versions are defined by the workspace manifests and lockfile. Treat those files as the source of truth instead of copying version numbers into operational documents.
+
+## Repository layout
 
 ```text
-bglaundry/
-├── apps/
-│   ├── web/
-│   │   ├── app/                 # Next.js pages and API routes
-│   │   ├── lib/                 # Auth, database, Firebase, R2, payment helpers
-│   │   └── public/              # Static images and brand assets
-│   ├── customer-app/
-│   │   ├── app/                 # Expo Router screens
-│   │   └── lib/                 # API and Firebase configuration
-│   └── driver-app/
-│       └── app/                 # Rider authentication, orders, routes, earnings
-├── packages/
-│   ├── database/
-│   │   ├── prisma/
-│   │   │   ├── migrations/
-│   │   │   └── schema.prisma
-│   │   └── src/
-│   └── rider-core/
-│       └── src/
-├── docker-compose.yml
-├── pnpm-workspace.yaml
-├── turbo.json
-└── package.json
+apps/
+  web/             Web experience, administration, and server application
+  customer-app/    Customer Expo application
+  driver-app/      Rider Expo application
+
+packages/
+  database/        Prisma schema, migrations, and database exports
+  rider-core/      Shared rider-domain rules
+
+docker-compose.yml
+package.json
+pnpm-workspace.yaml
+turbo.json
 ```
 
-## Prerequisites
+Detailed endpoint maps, infrastructure diagrams, credential locations, and production topology are intentionally excluded from this file. Authorized maintainers should use the source code and the organization's protected operational documentation.
 
-Install the following before starting:
+## Development setup
 
-- Node.js 20 LTS or a compatible modern Node.js release.
-- pnpm 10 or a version compatible with the lockfile.
-- Docker Desktop, or direct access to a PostgreSQL database.
-- Expo Go or native iOS/Android tooling for mobile development.
-- A Flutterwave account for real payment testing.
-- Firebase and external-service credentials for the features you enable.
+### Requirements
 
-## Local setup
+- A current supported Node.js LTS release.
+- pnpm compatible with the repository lockfile.
+- An approved PostgreSQL development database.
+- Docker when using the provided local database service.
+- Expo-compatible mobile tooling when working on mobile applications.
+- Authorized development credentials for any external service being tested.
 
-### 1. Clone and enter the repository
-
-```bash
-git clone https://github.com/BigT001/bglaundry.git
-cd bglaundry
-```
-
-### 2. Install dependencies
+### Install dependencies
 
 ```bash
 pnpm install
 ```
 
-The root `postinstall` script generates Prisma Client automatically.
+### Configure the local environment
 
-### 3. Start PostgreSQL
+Use ignored environment files for local configuration. Obtain development values from an authorized maintainer or the approved secret manager.
 
-To use the included local PostgreSQL 15 container:
+Do not:
+
+- Commit environment files.
+- Paste credentials into README files.
+- reuse production credentials locally.
+- place server secrets in public/mobile environment variables.
+- share environment screenshots.
+
+### Start the local database
+
+The repository contains a Docker Compose service for development:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d
 ```
 
-The default local container values are:
+Connection values belong in local ignored environment files. They are deliberately not documented here.
 
-```text
-Host: localhost
-Port: 5432
-Database: bglaundry_db
-User: bglaundry_user
-Password: bglaundry_password
-```
-
-These values are for local development only.
-
-### 4. Configure environment files
-
-Create or update the ignored root files:
-
-```text
-.env
-.env.local
-```
-
-Next.js resolves environment files from `apps/web`, so local web-only overrides may also be placed in:
-
-```text
-apps/web/.env.local
-```
-
-Never commit real credentials.
-
-### 5. Generate the database client
+### Prepare the database client
 
 ```bash
 pnpm db:generate
 ```
 
-### 6. Apply database migrations
-
-For development:
+### Apply development migrations
 
 ```bash
 pnpm db:migrate
 ```
 
-For production or CI:
+## Database development
 
-```bash
-pnpm --filter @bglaundry/database exec prisma migrate deploy
-```
+The database schema and migrations are maintained in `packages/database`.
 
-### 7. Start the web application
+When changing persisted data:
 
-```bash
-pnpm --filter web dev
-```
+1. Update the Prisma schema.
+2. Create a clearly named development migration.
+3. Review generated SQL before applying it.
+4. Regenerate the database client.
+5. Update affected server and application types.
+6. Test both existing and new data paths.
+7. Commit the schema and migration together.
 
-Open `http://localhost:4000`.
+Production migrations must be applied through the approved deployment workflow. Never run destructive development commands against production.
 
-## Environment variables
-
-The repository ignores `.env` and `.env.*`. The following table documents supported configuration without exposing secret values.
-
-### Database and application
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | Yes | Pooled/runtime PostgreSQL connection URL used by Prisma. |
-| `DIRECT_URL` | Yes for migrations | Direct PostgreSQL connection URL. |
-| `PORT` | Optional | General runtime port configuration; the web dev script explicitly uses `4000`. |
-| `APP_URL` | Production recommended | Public application origin used to build callback URLs. |
-
-### Authentication and administration
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `JWT_SECRET` | Yes | Signs and verifies application JWTs. Use a long random production secret. |
-| `ADMIN_EMAIL` | Admin bootstrap | Configured administrator email. |
-| `ADMIN_PASSWORD` | Admin bootstrap | Initial administrator password; use a strong secret. |
-
-### Flutterwave
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `FLW_PUBLIC_KEY` | Yes | Flutterwave account public key. |
-| `FLW_SECRET_KEY` | Yes | Server-only Flutterwave API secret. Never expose it to web/mobile bundles. |
-| `FLW_ENCRYPTION_KEY` | Account-dependent | Flutterwave encryption key retained for supported encrypted operations. |
-| `FLW_WEBHOOK_SECRET_HASH` | Yes | Secret used to validate `flutterwave-signature`. Must match the dashboard webhook setting. |
-| `FLW_REDIRECT_URL` | Production recommended | Optional explicit public callback URL. Defaults to `<APP_URL>/api/v1/payments/callback`. |
-
-### Firebase
-
-| Variable | Scope | Purpose |
-| --- | --- | --- |
-| `EXPO_PUBLIC_FIREBASE_API_KEY` | Mobile client | Firebase client API key. |
-| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | Mobile client | Firebase Auth domain. |
-| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | Mobile client | Firebase project ID. |
-| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | Mobile client | Firebase storage bucket. |
-| `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Mobile client | Firebase messaging sender ID. |
-| `EXPO_PUBLIC_FIREBASE_APP_ID` | Mobile client | Firebase application ID. |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Web client | Firebase web API key. |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Web client | Firebase web Auth domain. |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Web client | Firebase web project ID. |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Web client | Firebase web storage bucket. |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Web client | Firebase web messaging sender ID. |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Web client | Firebase web application ID. |
-| `FIREBASE_PROJECT_ID` | Server | Firebase Admin project ID. |
-| `FIREBASE_CLIENT_EMAIL` | Server | Firebase service-account email. |
-| `FIREBASE_PRIVATE_KEY` | Server | Firebase service-account private key. Preserve escaped newlines correctly. |
-| `FIREBASE_CREDENTIALS_JSON` | Server alternative | Single-line serialized Firebase service-account JSON. |
-
-### Cloudflare R2
-
-| Variable | Required for uploads | Purpose |
-| --- | --- | --- |
-| `R2_ACCESS_KEY_ID` | Yes | R2 S3-compatible access key. |
-| `R2_SECRET_ACCESS_KEY` | Yes | R2 secret access key. |
-| `R2_ENDPOINT` | Yes | Account-specific R2 endpoint. |
-| `R2_BUCKET_NAME` | Yes | Destination bucket. |
-| `R2_PUBLIC_URL` | Recommended | Public asset base URL. |
-
-### Messaging, maps, and optional gateways
-
-| Variable | Purpose |
-| --- | --- |
-| `TERMII_API_KEY` | Legacy SMS delivery configuration. Authenticated profile password changes do not require SMS. |
-| `TERMII_SENDER_ID` | Termii sender identity. |
-| `TWILIO_ACCOUNT_SID` | Optional Twilio account identifier. |
-| `TWILIO_AUTH_TOKEN` | Optional Twilio secret. |
-| `TWILIO_PHONE_NUMBER` | Optional Twilio sender number. |
-| `GOOGLE_MAPS_API_KEY` | Route tracking and map functionality. |
-| `PAYSTACK_SECRET_KEY` | Legacy/optional gateway configuration; current checkout uses Flutterwave. |
-| `STRIPE_SECRET_KEY` | Legacy/optional gateway configuration. |
-
-## Database workflows
-
-### Generate Prisma Client
-
-Run after installing dependencies or changing `schema.prisma`:
+Useful development commands:
 
 ```bash
 pnpm db:generate
-```
-
-### Create and apply a development migration
-
-```bash
 pnpm db:migrate
+pnpm --filter @bglaundry/database build
 ```
-
-Prisma will request a migration name and create a directory under:
-
-```text
-packages/database/prisma/migrations/
-```
-
-### Apply committed migrations in production
-
-```bash
-pnpm --filter @bglaundry/database exec prisma migrate deploy
-```
-
-### Inspect the database
-
-```bash
-pnpm --filter @bglaundry/database exec prisma studio
-```
-
-### Important database guidance
-
-- Commit schema changes and their migration together.
-- Do not use `prisma db push` against production.
-- Back up production data before destructive migrations.
-- Regenerate Prisma Client after schema changes.
-- Use `DIRECT_URL` for migration operations when the runtime URL is pooled.
 
 ## Running the applications
 
-Run each surface in its own terminal.
+Run each application in a separate terminal.
 
-### Web application and API
+### Web/server workspace
 
 ```bash
 pnpm --filter web dev
 ```
 
-URL: `http://localhost:4000`
-
-API base: `http://localhost:4000/api/v1`
-
-### Customer app
+### Customer application
 
 ```bash
 pnpm --filter customer-app start
 ```
 
-Platform shortcuts:
+Available platform commands are defined in `apps/customer-app/package.json`.
 
-```bash
-pnpm --filter customer-app ios
-pnpm --filter customer-app android
-pnpm --filter customer-app web
-```
-
-The customer app derives a LAN API URL from Expo's host URI when available. A physical device and development computer must be on the same network, and port `4000` must be reachable.
-
-### Driver app
+### Rider application
 
 ```bash
 pnpm --filter driver-app start
 ```
 
-Platform shortcuts:
+Available platform commands are defined in `apps/driver-app/package.json`.
 
-```bash
-pnpm --filter driver-app ios
-pnpm --filter driver-app android
-pnpm --filter driver-app web
-```
-
-### Root development command
+### Root development pipeline
 
 ```bash
 pnpm dev
 ```
 
-This invokes Turborepo's `dev` pipeline. At present, only packages that define a `dev` script participate; use the explicit mobile commands above for Expo.
+Only workspaces defining the relevant pipeline script participate. Mobile applications may still need to be started explicitly.
 
-## Authentication and account security
+## Payments
 
-### Customer authentication
+Flutterwave is used for customer checkout.
 
-- Customer accounts use normalized phone numbers and passwords.
-- Passwords are hashed with bcrypt.
-- Successful login returns a 30-day JWT.
-- API requests use `Authorization: Bearer <token>`.
-- Role checks prevent customer tokens from being used as administrator or rider credentials.
+The integration follows these principles:
 
-### Password changes
+- Payment sessions are created by the server.
+- Prices and totals are verified against authoritative server data.
+- Secret credentials never enter browser or mobile bundles.
+- Checkout results are verified with the payment provider.
+- Asynchronous confirmations are authenticated before processing.
+- Payment updates are designed to be safe when delivered more than once.
+- Orders are not treated as paid solely because a client reports success.
 
-Signed-in customers can change their password from the Profile panel without SMS OTP.
+Provider configuration, callback addresses, signing values, test data, and live credentials are maintained outside this README in protected configuration.
 
-The server requires:
+Before modifying payments:
 
-- A valid customer JWT.
-- The correct current password.
-- A different new password.
-- At least eight characters, one letter, and one number.
-- A maximum accepted length to limit abuse.
+- Review the complete server-side flow.
+- Use provider test mode.
+- Test successful, failed, cancelled, delayed, and duplicate events.
+- Confirm amount, currency, reference, and final state.
+- Never log full payment payloads or credentials.
 
-After a successful change, outstanding password-reset tokens are deleted.
+## Authentication and account management
 
-An unauthenticated reset without proof of account ownership is intentionally not supported because it would permit account takeover.
+The platform uses role-aware authentication for customers, riders, and administrators.
 
-### Profile email
+General rules:
 
-Customers can add an optional email address in Profile. Email values are normalized to lowercase, format-validated, and unique across accounts. Storing an email does not automatically enable email delivery; a transactional email provider must be configured and integrated before using it for recovery messages.
+- Passwords are never stored in plain text.
+- Sensitive account changes require an authenticated session.
+- Customer password changes verify the current password.
+- Password policies are enforced on the server.
+- Role checks are required for protected operations.
+- Contact information is validated before persistence.
+- Account recovery must prove account ownership.
 
-## Order lifecycle
+Unauthenticated password changes without identity verification are not allowed. Contributors must not weaken authentication to work around unavailable SMS or email services.
 
-Orders use the following primary statuses:
-
-```text
-PICKUP_PENDING
-PICKUP_IN_PROGRESS
-PICKED_UP
-PROCESSING
-DELIVERY_PENDING
-DELIVERY_IN_PROGRESS
-DELIVERED
-CANCELLED
-```
-
-A typical successful order moves through:
-
-```text
-Booked
-  → Rider assigned
-  → Pickup in progress
-  → Garments collected
-  → Processing/cleaning
-  → Delivery pending
-  → Delivery in progress
-  → Delivered
-```
-
-Tracking events record status changes. Pickup and delivery OTP values help the customer and assigned rider verify physical handoffs; these order-verification codes are separate from account/password authentication.
-
-## Flutterwave payment flow
-
-1. The customer books an order.
-2. The client sends only the order ID to `/api/v1/payments/initialize`.
-3. The backend loads the authoritative order total from PostgreSQL.
-4. The backend creates or reuses a pending `FLUTTERWAVE` payment record.
-5. The backend requests a hosted payment link from Flutterwave.
-6. The mobile app or browser opens Flutterwave Checkout.
-7. Flutterwave redirects to `/api/v1/payments/callback`.
-8. The backend verifies the transaction directly with Flutterwave.
-9. The backend compares status, NGN currency, transaction reference, and paid amount.
-10. A signed webhook independently confirms asynchronous payments.
-11. The client polls `/api/v1/payments/status` as a fallback confirmation mechanism.
-
-### Flutterwave dashboard configuration
-
-Set the production webhook URL to:
-
-```text
-https://YOUR_DOMAIN/api/v1/payments/verify-webhook
-```
-
-Set the webhook secret hash to exactly the same value as `FLW_WEBHOOK_SECRET_HASH`.
-
-Recommended production settings:
-
-- HTTPS only.
-- Webhook retries enabled.
-- Public `APP_URL` or `FLW_REDIRECT_URL`.
-- Live credentials stored in the hosting provider's secret manager.
-- Separate Flutterwave test and live environments.
-
-## API reference
-
-All endpoints are prefixed with `/api/v1`.
-
-### Authentication
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/auth/signup` | Create a customer account. |
-| `POST` | `/auth/login` | Authenticate a customer and return a JWT. |
-| `POST` | `/auth/request-otp` | Legacy/customer OTP request flow. |
-| `POST` | `/auth/verify-otp` | Legacy/customer OTP verification flow. |
-| `POST` | `/auth/password-reset/request` | Request a password-recovery code where delivery is configured. |
-| `POST` | `/auth/password-reset/confirm` | Validate a recovery code and set a new password. |
-
-### Customer profile
-
-| Method | Endpoint | Authentication | Description |
-| --- | --- | --- | --- |
-| `PATCH` | `/users/profile` | Customer JWT | Update name, phone, email, pickup address, and address type. |
-| `POST` | `/users/change-password` | Customer JWT | Change password using the current password. |
-
-### Orders
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/orders/book` | Create an order and its items/tracking record. |
-| `GET` | `/orders` | List orders. |
-| `GET` | `/orders/:id` | Retrieve an order. |
-| `PATCH` | `/orders/:id/assign` | Assign a driver. |
-| `PATCH` | `/orders/:id/status` | Update order status. |
-| `GET` | `/orders/customer/:customerId` | List customer active/history orders. |
-| `GET` | `/orders/driver/:driverId` | List orders assigned to a driver. |
-
-### Riders and drivers
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET/POST` | `/drivers` | List or create driver accounts. |
-| `PATCH/DELETE` | `/drivers/:id` | Update or remove a driver. |
-| `GET/PATCH` | `/riders/me` | Read or update the authenticated rider profile. |
-| `GET` | `/riders/me/orders` | List the authenticated rider's orders. |
-| `PATCH` | `/riders/orders/:id/status` | Apply a rider-authorized order transition. |
-
-### Payments
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/payments/initialize` | Create a Flutterwave hosted checkout from an order. |
-| `GET` | `/payments/callback` | Handle Flutterwave redirect and verify the transaction. |
-| `POST` | `/payments/verify-webhook` | Validate and process signed Flutterwave events. |
-| `GET` | `/payments/status?reference=...` | Read local payment status. |
-
-### Administration
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/admin/auth/login` | Authenticate an administrator. |
-| `GET` | `/admin/stats` | Retrieve dashboard statistics. |
-| `GET` | `/admin/users` | List/manage customer data. |
-| `GET/POST` | `/admin/services` | List or create services. |
-| `DELETE` | `/admin/services/:id` | Delete a service. |
-| `GET/POST` | `/admin/invoices` | List or create invoices. |
-| `PATCH` | `/admin/invoices/:id` | Update an invoice. |
-
-Exact request and response shapes are defined by the corresponding `route.ts` files under `apps/web/app/api/v1`.
+Implementation-specific token claims, credential formats, fallback behavior, and administrative bootstrap details are intentionally omitted.
 
 ## Build and validation
 
-### Production web build
+### Web production build
 
 ```bash
 pnpm --filter web build
 ```
 
-This performs compilation, route generation, lint integration, and Next.js type validation.
+### Web TypeScript validation
 
-### Web TypeScript check
-
-Run after a completed Next.js build so generated `.next/types` files exist:
+Run this after the production build so generated framework types exist:
 
 ```bash
 pnpm --filter web exec tsc --noEmit --incremental false
 ```
 
-Do not run this command concurrently with `next build`, because the build regenerates `.next/types`.
+Do not run the web build and standalone web type check concurrently because the build regenerates its type output.
 
-### Customer app TypeScript check
+### Customer application validation
 
 ```bash
 pnpm --filter customer-app exec tsc --noEmit --incremental false
 ```
 
-### Database package build
+### Database package validation
 
 ```bash
 pnpm --filter @bglaundry/database build
 ```
 
-### Entire Turborepo build
+### Workspace build
 
 ```bash
 pnpm build
 ```
 
-If Turbo remote caching is configured, this command may require access to the relevant credential store. Package-level builds remain useful for isolating local environment problems from application compilation problems.
+If a root orchestration command fails before executing package tasks, validate the affected package directly and investigate the local orchestration environment separately.
 
-## Deployment
+## Deployment guidance
 
-### Web/API deployment
+Deployment is handled only by authorized maintainers.
 
-1. Provision a PostgreSQL database.
-2. Configure all required environment secrets in the deployment platform.
-3. Install dependencies with the lockfile.
-4. Generate Prisma Client.
-5. Apply migrations using `prisma migrate deploy`.
-6. Build `apps/web`.
-7. Start the Next.js production server.
-8. Configure the Flutterwave webhook and callback URLs.
-9. Verify HTTPS, database connectivity, Firebase initialization, and payment callbacks.
+At a high level, deployment requires:
 
-Typical commands:
+1. Approved production configuration from the secret manager.
+2. Dependency installation from the lockfile.
+3. Database client generation.
+4. Reviewed production migrations.
+5. Application build and validation.
+6. Secure release of the web/server application.
+7. External-provider configuration checks.
+8. Post-deployment health and critical-flow verification.
 
-```bash
-pnpm install --frozen-lockfile
-pnpm db:generate
-pnpm --filter @bglaundry/database exec prisma migrate deploy
-pnpm --filter web build
-pnpm --filter web start
-```
+This README intentionally excludes:
 
-The default `web` start script uses Next.js's standard production port unless the hosting platform provides `PORT`.
+- Hosting account identifiers.
+- Production domains and network topology.
+- Database hosts or connection strings.
+- Callback and webhook addresses.
+- Credential and secret names used by production.
+- Administrative account details.
+- Cloud bucket names or endpoints.
+- Mobile signing information.
+- Internal monitoring and incident-response procedures.
 
-### Mobile deployment
+Refer to protected operational documentation for deployment-specific instructions.
 
-For production mobile builds:
+## Security expectations
 
-- Configure the API base URL for the deployed HTTPS backend.
-- Use production Firebase configuration.
-- Confirm the `bglaundry` deep-link scheme in native builds.
-- Configure iOS and Android maps credentials.
-- Test Flutterwave return links on physical devices.
-- Build and submit through the appropriate Expo/EAS workflow.
+Every contributor is responsible for protecting the platform and customer data.
 
-## Security checklist
+### Never commit
 
-Before production launch:
+- Environment files.
+- API keys or private keys.
+- Passwords or access tokens.
+- Database connection strings.
+- Service-account documents.
+- Real customer information.
+- Payment payloads.
+- Production logs.
+- Mobile signing credentials.
 
-- Rotate any key ever pasted into chat, logs, tickets, or source files.
-- Store secrets in a deployment secret manager.
-- Use a strong unique `JWT_SECRET`.
-- Remove development and placeholder credentials.
-- Require HTTPS for every public endpoint.
-- Configure strict production CORS for known web/mobile origins.
-- Keep Flutterwave secret keys server-side.
-- Match and verify the Flutterwave webhook secret.
-- Never trust client-supplied prices, totals, roles, or payment statuses.
-- Apply database migrations before serving new code.
-- Restrict database networking and use SSL where supported.
-- Review API authorization for every administrative and rider route.
-- Enable logging and alerting without logging passwords, tokens, OTPs, or full payment data.
-- Back up PostgreSQL and test restoration procedures.
-- Keep dependencies and mobile SDKs patched.
+### Before committing
 
-## Troubleshooting
+1. Review the complete diff.
+2. Confirm only intended files are staged.
+3. Search staged content for secrets and personal data.
+4. Run relevant builds and type checks.
+5. Confirm debug logs do not expose sensitive information.
+6. Check that authorization is enforced server-side.
 
-### Mobile app cannot reach the API
+### If a secret is exposed
 
-- Confirm the web API is running on port `4000`.
-- Use the computer's LAN address rather than `localhost` from a physical device.
-- Keep the device and computer on the same network.
-- Allow incoming connections through the firewall.
-- Test `http://COMPUTER_IP:4000/api/v1/admin/services` from the device.
+Treat it as compromised:
 
-### Prisma cannot connect
+1. Notify an authorized maintainer privately.
+2. Rotate or revoke the credential immediately.
+3. Replace it in the approved secret manager.
+4. Review logs for unauthorized use.
+5. Remove the value from current files and, when required, repository history.
+6. Do not repeat the secret in an issue or commit message.
 
-- Confirm PostgreSQL is running: `docker compose ps`.
-- Check `DATABASE_URL` and `DIRECT_URL`.
-- Confirm port `5432` is not occupied by another database.
-- Regenerate Prisma Client after dependency or schema changes.
+## Contribution workflow
 
-### Flutterwave checkout opens but does not confirm
-
-- Confirm `APP_URL`/`FLW_REDIRECT_URL` is public and uses HTTPS.
-- Verify the webhook URL in the Flutterwave dashboard.
-- Confirm `FLW_WEBHOOK_SECRET_HASH` matches the dashboard value.
-- Check that the transaction reference, currency, and amount match the local payment.
-- Ensure the callback server can access Flutterwave's verification API.
-
-### Firebase Admin initialization fails
-
-- Check project ID, client email, and private key.
-- If storing a multiline private key in an environment variable, preserve newline escaping.
-- Do not expose Firebase Admin credentials through `NEXT_PUBLIC_` or `EXPO_PUBLIC_` variables.
-
-### Standalone TypeScript reports missing `.next/types`
-
-Run:
-
-```bash
-pnpm --filter web build
-pnpm --filter web exec tsc --noEmit --incremental false
-```
-
-Run them sequentially, not in parallel.
-
-### Root Turbo build fails before running packages
-
-This can indicate a local credential-store, TLS, telemetry, or remote-cache issue. Verify the application independently with:
-
-```bash
-pnpm --filter web build
-pnpm --filter @bglaundry/database build
-```
-
-Then repair the local Turbo environment separately.
-
-## Contributing
-
-1. Create a focused branch from the latest `main`.
-2. Keep changes scoped to one feature or fix.
-3. Preserve unrelated working-tree changes.
-4. Add Prisma migrations for schema changes.
-5. Run the relevant builds and type checks.
-6. Confirm no credentials are staged.
-7. Use a clear conventional commit message.
-8. Open a pull request describing behavior, validation, and deployment considerations.
+1. Begin from the latest approved branch state.
+2. Keep changes focused and reviewable.
+3. Preserve unrelated work in the working tree.
+4. Add migrations for database schema changes.
+5. Validate all affected applications.
+6. Review staged changes for sensitive content.
+7. Use a clear commit message.
+8. Push through the approved repository workflow.
 
 Suggested commit prefixes:
 
 ```text
 feat:     new behavior
 fix:      bug correction
-docs:     documentation only
+docs:     documentation
 refactor: internal restructuring
-test:     test additions or corrections
+test:     validation coverage
 chore:    tooling or maintenance
 ```
 
-## License
+## Ownership
 
-This repository is private and proprietary unless the project owner adds a separate license file stating otherwise.
+This project is private and proprietary to BG Laundry. Access does not grant permission to redistribute the source code, documentation, assets, customer information, or operational knowledge.
