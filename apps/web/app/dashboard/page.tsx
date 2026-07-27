@@ -17,6 +17,7 @@ import {
   Shirt,
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Info,
   User,
   X,
@@ -105,6 +106,7 @@ export default function CustomerDashboard() {
   const [profileHomeAddress, setProfileHomeAddress] = useState('');
   const [profileOfficeAddress, setProfileOfficeAddress] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -457,6 +459,11 @@ export default function CustomerDashboard() {
         .timeline-dot-v { width: 14px; height: 14px; border-radius: 50%; background: #FAF9F7; border: 3px solid #EAE8E3; flex-shrink: 0; margin-top: 3px; transition: all 0.3s; }
         .timeline-dot-v.passed { border-color: #0055FF; background: #0055FF; }
         .timeline-dot-v.current { border-color: #0055FF; background: #FAF9F7; box-shadow: 0 0 0 3px rgba(0,85,255,0.2); }
+        .active-orders-list { display:flex; flex-direction:column; gap:24px; }
+        .active-order-card { background:#FFFFFF; border:1px solid #EAE8E3; border-radius:16px; overflow:hidden; }
+        .active-order-summary { width:100%; display:flex; justify-content:space-between; align-items:flex-start; padding:24px; border:0; border-bottom:1px solid #F3F1ED; background:#FFFFFF; text-align:left; font-family:'DM Sans',sans-serif; color:inherit; pointer-events:none; }
+        .active-order-content { padding:20px 24px 24px; }
+        .mobile-order-position, .mobile-order-toggle { display:none; }
 
         /* Mobile bottom nav */
         .mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #fff; border-top: 1px solid #EAE8E3; z-index: 100; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
@@ -488,7 +495,17 @@ export default function CustomerDashboard() {
           .mobile-cart-button { width:46px; height:46px; border:1px solid #D7E7FC; background:#EFF6FF; color:#1565C0; border-radius:14px; display:grid; place-items:center; position:relative; flex-shrink:0; cursor:pointer; }
           .mobile-cart-button:active { transform:scale(.96); }
           .mobile-cart-badge { position:absolute; top:-5px; right:-5px; min-width:19px; height:19px; padding:0 5px; border-radius:10px; background:#1565C0; color:#fff; border:2px solid #FAF9F7; display:grid; place-items:center; font-size:10px; font-weight:800; }
-          .order-card-inner { flex-direction: column !important; gap: 16px !important; }
+          .active-orders-list { gap:14px; }
+          .active-order-card { border:1.5px solid #DDE3EA; border-radius:18px; box-shadow:0 5px 18px rgba(15,23,42,.045); }
+          .active-order-card.expanded { border-color:#B8D2FF; box-shadow:0 8px 26px rgba(0,85,255,.09); }
+          .active-order-summary { padding:18px; cursor:pointer; align-items:center; border-bottom:0; pointer-events:auto; }
+          .active-order-card.expanded .active-order-summary { background:#F8FBFF; border-bottom:1px solid #E2ECFC; }
+          .active-order-content { display:none; padding:20px 18px 24px; }
+          .active-order-card.expanded .active-order-content { display:block; animation:fadeIn .2s ease; }
+          .order-card-inner { gap:14px !important; }
+          .mobile-order-position { display:block; margin-bottom:5px; color:#64748B; font-size:10px; font-weight:800; letter-spacing:1.1px; text-transform:uppercase; }
+          .mobile-order-toggle { width:34px; height:34px; flex-shrink:0; margin-left:12px; border-radius:50%; background:#EFF5FF; color:#0055FF; display:grid; place-items:center; transition:transform .2s ease; }
+          .active-order-card.expanded .mobile-order-toggle { transform:rotate(180deg); background:#0055FF; color:#FFFFFF; }
           .order-tracker-h { display: none !important; }
           .order-tracker-v { display: block !important; }
         }
@@ -901,21 +918,31 @@ export default function CustomerDashboard() {
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {activeOrders.map((order) => {
+                <div className="active-orders-list">
+                  {activeOrders.map((order, orderIndex) => {
                     const currentStep = getStatusStep(order.status);
+                    const isExpanded = expandedOrderId === order.id;
 
                     return (
-                      <div key={order.id} style={{
-                        backgroundColor: '#FFFFFF', borderRadius: '16px',
-                        border: '1px solid #EAE8E3', padding: '24px'
-                      }}>
-                        
+                      <article
+                        key={order.id}
+                        className={`active-order-card ${isExpanded ? 'expanded' : ''}`}
+                      >
+                        <button
+                          type="button"
+                          className="active-order-summary"
+                          aria-expanded={isExpanded}
+                          aria-controls={`order-details-${order.id}`}
+                          onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                        >
                         <div className="order-card-inner" style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                          borderBottom: '1px solid #F3F1ED', paddingBottom: '16px', marginBottom: '20px'
+                          flex: 1
                         }}>
                           <div>
+                            <span className="mobile-order-position">
+                              Order {orderIndex + 1} of {activeOrders.length}
+                            </span>
                             <span style={{ fontSize: '15px', fontWeight: '700', color: '#0D0D0D' }}>
                               {order.orderNumber}
                             </span>
@@ -944,6 +971,15 @@ export default function CustomerDashboard() {
                             </div>
                           </div>
                         </div>
+                        <span className="mobile-order-toggle" aria-hidden="true">
+                          <ChevronDown size={18} />
+                        </span>
+                        </button>
+
+                        <div
+                          id={`order-details-${order.id}`}
+                          className="active-order-content"
+                        >
 
                         {/* Garment list & verification code */}
                         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '24px' }}>
@@ -1071,7 +1107,8 @@ export default function CustomerDashboard() {
                           </div>
                         )}
 
-                      </div>
+                        </div>
+                      </article>
                     );
                   })}
                 </div>
