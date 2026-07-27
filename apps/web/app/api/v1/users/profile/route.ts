@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName, phoneNumber, pickupAddress, addressType } = await request.json();
+    const { fullName, phoneNumber, email, pickupAddress, addressType } = await request.json();
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },
@@ -48,6 +48,21 @@ export async function PATCH(request: NextRequest) {
 
     if (phoneNumber && phoneNumber.trim().length > 0) {
       dataToUpdate.phoneNumber = phoneNumber.trim();
+    }
+
+    if (email !== undefined) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (
+        normalizedEmail &&
+        (normalizedEmail.length > 254 ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail))
+      ) {
+        return NextResponse.json(
+          { error: 'Enter a valid email address.' },
+          { status: 400 },
+        );
+      }
+      dataToUpdate.email = normalizedEmail || null;
     }
 
     if (pickupAddress && pickupAddress.trim().length > 0) {
@@ -71,6 +86,12 @@ export async function PATCH(request: NextRequest) {
           { status: 409 },
         );
       }
+      if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+        return NextResponse.json(
+          { error: 'This email address is already in use by another account.' },
+          { status: 409 },
+        );
+      }
       throw err;
     }
 
@@ -79,6 +100,7 @@ export async function PATCH(request: NextRequest) {
       user: {
         id: updatedUser.id,
         phoneNumber: updatedUser.phoneNumber,
+        email: updatedUser.email,
         fullName: updatedUser.fullName,
         pickupAddress: updatedUser.pickupAddress,
         addressType: updatedUser.addressType,

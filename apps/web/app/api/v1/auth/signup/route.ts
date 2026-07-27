@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
         user: {
           id: user.id,
           phoneNumber: user.phoneNumber,
+          email: user.email,
           fullName: user.fullName,
           pickupAddress: user.pickupAddress,
           addressType: user.addressType,

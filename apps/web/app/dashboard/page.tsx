@@ -103,9 +103,15 @@ export default function CustomerDashboard() {
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
   const [profileHomeAddress, setProfileHomeAddress] = useState('');
   const [profileOfficeAddress, setProfileOfficeAddress] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -169,6 +175,7 @@ export default function CustomerDashboard() {
     if (user) {
       setProfileName(user.fullName || '');
       setProfilePhone(user.phoneNumber || '');
+      setProfileEmail(user.email || '');
       setProfileHomeAddress(user.homeAddress || '');
       setProfileOfficeAddress(user.officeAddress || '');
 
@@ -241,24 +248,23 @@ export default function CustomerDashboard() {
     setSuccess('');
 
     try {
-      const updatedUser = syncLocalUser({
-        fullName: profileName,
-        phoneNumber: profilePhone,
-        homeAddress: profileHomeAddress,
-        officeAddress: profileOfficeAddress,
-      });
-
       if (token) {
-        await axios.patch(
+        const response = await axios.patch(
           '/api/v1/users/profile',
           {
             fullName: profileName,
             phoneNumber: profilePhone,
+            email: profileEmail,
             pickupAddress: profileHomeAddress || profileOfficeAddress,
             addressType: profileHomeAddress ? 'HOME' : 'OFFICE',
           },
           { headers: { Authorization: `Bearer ${token}` } },
         );
+        syncLocalUser({
+          ...response.data.user,
+          homeAddress: profileHomeAddress,
+          officeAddress: profileOfficeAddress,
+        });
       }
 
       setSuccess('Profile details updated successfully.');
@@ -270,6 +276,38 @@ export default function CustomerDashboard() {
       setError(message);
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordFeedback(null);
+    if (newPassword !== confirmNewPassword) {
+      setPasswordFeedback({ type: 'error', message: 'The new passwords do not match.' });
+      return;
+    }
+    if (!token) {
+      setPasswordFeedback({ type: 'error', message: 'Please sign in again before changing your password.' });
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const response = await axios.post(
+        '/api/v1/users/change-password',
+        { currentPassword, newPassword },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordFeedback({ type: 'success', message: response.data.message });
+    } catch (err: any) {
+      setPasswordFeedback({
+        type: 'error',
+        message: err.response?.data?.error || 'Unable to change your password right now.',
+      });
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -418,6 +456,12 @@ export default function CustomerDashboard() {
         .profile-drawer-textarea { min-height: 104px; resize: vertical; }
         .profile-drawer-action { width: 100%; padding: 14px 18px; border: none; border-radius: 16px; background: #0D0D0D; color: #FAF9F7; font-size: 15px; font-weight: 700; cursor: pointer; }
         .profile-drawer-divider { height: 1px; background: #E5E7EB; margin: 24px 0; }
+        .profile-security-card { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:18px; padding:18px; margin-top:22px; }
+        .profile-security-title { font-size:15px; font-weight:800; color:#0D0D0D; margin-bottom:4px; }
+        .profile-security-copy { font-size:12px; color:#64748B; line-height:1.45; margin-bottom:18px; }
+        .profile-password-feedback { padding:10px 12px; border-radius:10px; font-size:12px; line-height:1.45; margin-bottom:14px; }
+        .profile-password-feedback.success { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; }
+        .profile-password-feedback.error { background:#FEF2F2; color:#B91C1C; border:1px solid #FECACA; }
         
         .sidebar { width: 282px; min-height:100vh; background: #fff; border-right: 1px solid #EAE8E3; padding: 28px 18px 22px; display: flex; flex-direction: column; gap: 8px; }
         .sidebar-brand { display:flex; align-items:center; gap:11px; padding:0 10px 28px; border-bottom:1px solid #F0EEEA; margin-bottom:18px; cursor:pointer; }
@@ -1371,6 +1415,18 @@ export default function CustomerDashboard() {
               />
             </div>
             <div className="profile-drawer-section">
+              <label>Email address</label>
+              <input
+                className="profile-drawer-input"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+              />
+            </div>
+            <div className="profile-drawer-section">
               <label>Home address</label>
               <textarea
                 className="profile-drawer-textarea"
@@ -1397,6 +1453,74 @@ export default function CustomerDashboard() {
             >
               {profileSaving ? 'Saving...' : 'Save changes'}
             </button>
+
+            <div className="profile-security-card">
+              <div className="profile-security-title">Change password</div>
+              <p className="profile-security-copy">
+                No OTP is required. Confirm your identity with your current password, then choose a new one with at least eight characters, one letter, and one number.
+              </p>
+
+              {passwordFeedback && (
+                <div
+                  className={`profile-password-feedback ${passwordFeedback.type}`}
+                  role={passwordFeedback.type === 'error' ? 'alert' : 'status'}
+                >
+                  {passwordFeedback.message}
+                </div>
+              )}
+
+              <div className="profile-drawer-section">
+                <label>Current password</label>
+                <input
+                  className="profile-drawer-input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+              </div>
+              <div className="profile-drawer-section">
+                <label>New password</label>
+                <input
+                  className="profile-drawer-input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div className="profile-drawer-section">
+                <label>Confirm new password</label>
+                <input
+                  className="profile-drawer-input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                />
+              </div>
+              <button
+                className="profile-drawer-action"
+                onClick={handleChangePassword}
+                disabled={
+                  passwordSaving ||
+                  !currentPassword ||
+                  newPassword.length < 8 ||
+                  !confirmNewPassword
+                }
+                style={{
+                  opacity:
+                    passwordSaving ||
+                    !currentPassword ||
+                    newPassword.length < 8 ||
+                    !confirmNewPassword
+                      ? 0.55
+                      : 1,
+                }}
+              >
+                {passwordSaving ? 'Changing password...' : 'Change password'}
+              </button>
+            </div>
 
             <button
               onClick={() => { handleLogout(); setProfileDrawerOpen(false); }}
