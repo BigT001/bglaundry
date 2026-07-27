@@ -5,6 +5,7 @@ import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getBasket, subscribeBasket, addToBasket, removeFromBasket, deleteFromBasket, getBasketTotal, getBasketItemsCount, clearBasket } from './basketState';
+import { API_URL } from '../../lib/config';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -29,14 +30,19 @@ export default function BasketScreen() {
   // Checkout Modals State
   const [isScheduleVisible, setIsScheduleVisible] = useState(false);
   const [isFlutterwaveVisible, setIsFlutterwaveVisible] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<'CARD' | 'PROCESSING' | 'SUCCESS'>('CARD');
+  const [paymentStep, setPaymentStep] = useState<'PROCESSING' | 'SUCCESS'>('PROCESSING');
+  const [receipt, setReceipt] = useState<{
+    reference: string;
+    orderNumber: string;
+    amount: number;
+  } | null>(null);
 
   // Input states for schedule
   const [pickupAddress, setPickupAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
   const [deliveryAddress, setDeliveryAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
-  const [pickupDate, setPickupDate] = useState('2026-07-10T10:00:00Z');
-
-  const API_URL = 'http://localhost:4000/api/v1';
+  const [pickupDate, setPickupDate] = useState(
+    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  );
 
   const handleIncrement = (itemName: string, serviceName: string, serviceCode: string, price: number) => {
     addToBasket(itemName, serviceCode, serviceName, price);
@@ -60,12 +66,14 @@ export default function BasketScreen() {
 
   const handleConfirmSchedule = () => {
     setIsScheduleVisible(false);
-    setPaymentStep('CARD');
+    setPaymentStep('PROCESSING');
     setIsFlutterwaveVisible(true);
+    void handleFlutterwavePayment();
   };
 
   const handleFlutterwavePayment = async () => {
     setPaymentStep('PROCESSING');
+    setReceipt(null);
     try {
       const formattedItems = Object.values(basket).map(item => ({
         serviceName: `${item.itemName} (${item.serviceName})`,
@@ -73,27 +81,16 @@ export default function BasketScreen() {
         price: item.price,
       }));
 
-      // 1. Submit Order to NestJS backend
-      let realCustomerId = 'customer-mock-id';
-      try {
-        const userStr = await AsyncStorage.getItem('@bglaundry_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.id) {
-            realCustomerId = user.id;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load user ID for booking:', err);
-      }
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      if (!token) throw new Error('Please sign in before checking out.');
+      const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const orderResponse = await axios.post(`${API_URL}/orders/book`, {
-        customerId: realCustomerId,
         pickupAddress,
         deliveryAddress,
         pickupDate,
         items: formattedItems,
-      });
+      }, authConfig);
 
       const orderId = orderResponse.data.id;
       const orderNumber = orderResponse.data.orderNumber;
@@ -101,7 +98,7 @@ export default function BasketScreen() {
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
         orderId,
-      });
+      }, authConfig);
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
       const reference = paymentResponse.data.payment.reference;
@@ -113,8 +110,25 @@ export default function BasketScreen() {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const result = await axios.get(`${API_URL}/payments/status`, {
           params: { reference },
+          ...authConfig,
         });
         if (result.data.status === 'SUCCESSFUL') {
+          const confirmedReceipt = {
+            reference: result.data.reference,
+            orderNumber: result.data.order.orderNumber,
+            amount: result.data.amount,
+          };
+          setReceipt(confirmedReceipt);
+          try {
+            const storedReceipts = await AsyncStorage.getItem('@bglaundry_receipts');
+            const receipts = storedReceipts ? JSON.parse(storedReceipts) : [];
+            await AsyncStorage.setItem(
+              '@bglaundry_receipts',
+              JSON.stringify([confirmedReceipt, ...(Array.isArray(receipts) ? receipts : [])].slice(0, 50)),
+            );
+          } catch (storageError) {
+            console.warn('Payment confirmed, but receipt could not be saved locally:', storageError);
+          }
           setPaymentStep('SUCCESS');
           clearBasket();
           return;
@@ -293,60 +307,6 @@ export default function BasketScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Payment Details */}
-            {paymentStep === 'CARD' && (
-              <View style={styles.fwBody}>
-                <View style={styles.fwMerchantBadge}>
-                  <Text style={styles.merchantLabel}>MERCHANT PAYEE</Text>
-                  <Text style={styles.merchantName}>BG Laundry Service Ltd.</Text>
-                </View>
-
-                <View style={styles.fwAmountBox}>
-                  <Text style={styles.fwAmountLabel}>PAYMENT AMOUNT</Text>
-                  <Text style={styles.fwAmountValue}>{formatNaira(totalAmount)}</Text>
-                </View>
-
-                <Text style={styles.fwInputLabel}>CARD NUMBER</Text>
-                <View style={styles.fwInputBox}>
-                  <Feather name="credit-card" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
-                  <TextInput 
-                    style={styles.fwInput}
-                    value="5399 2381 0299 1234"
-                    editable={false}
-                  />
-                </View>
-
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fwInputLabel}>EXPIRY</Text>
-                    <TextInput 
-                      style={styles.fwInputBox}
-                      value="12 / 28"
-                      editable={false}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fwInputLabel}>CVV</Text>
-                    <TextInput 
-                      style={styles.fwInputBox}
-                      value="818"
-                      secureTextEntry
-                      editable={false}
-                    />
-                  </View>
-                </View>
-
-                <TouchableOpacity style={styles.fwPayBtn} onPress={handleFlutterwavePayment}>
-                  <Text style={styles.fwPayBtnText}>Pay Securely {formatNaira(totalAmount)}</Text>
-                </TouchableOpacity>
-
-                <View style={styles.fwSecureRow}>
-                  <Feather name="shield" size={12} color="#10B981" />
-                  <Text style={styles.fwSecureText}>Secured transaction payment gateway</Text>
-                </View>
-              </View>
-            )}
-
             {/* Processing Spinner */}
             {paymentStep === 'PROCESSING' && (
               <View style={styles.fwFeedbackContainer}>
@@ -364,6 +324,19 @@ export default function BasketScreen() {
                 </View>
                 <Text style={styles.fwSuccessTitle}>Payment Successful!</Text>
                 <Text style={styles.fwSuccessSub}>Transaction authorized and order booked.</Text>
+                {receipt && (
+                  <View style={styles.receiptCard}>
+                    <View>
+                      <Text style={styles.receiptLabel}>ORDER</Text>
+                      <Text style={styles.receiptValue}>{receipt.orderNumber}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.receiptLabel}>AMOUNT PAID</Text>
+                      <Text style={styles.receiptValue}>{formatNaira(receipt.amount)}</Text>
+                    </View>
+                    <Text style={styles.receiptReference}>Receipt ref: {receipt.reference}</Text>
+                  </View>
+                )}
                 
                 <TouchableOpacity 
                   style={styles.fwCloseBtn} 
@@ -880,6 +853,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 18,
+  },
+  receiptCard: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 22,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  receiptLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.8,
+  },
+  receiptValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 3,
+  },
+  receiptReference: {
+    width: '100%',
+    fontSize: 10,
+    color: '#64748B',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 10,
   },
   fwCloseBtn: {
     backgroundColor: '#0066FF',

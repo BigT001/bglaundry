@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bearerToken, verifyAdminToken, verifyCustomerToken } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -30,6 +31,12 @@ export async function GET(
         { error: `Order with ID ${id} not found` },
         { status: 404 },
       );
+    }
+    const token = bearerToken(request);
+    const admin = verifyAdminToken(token);
+    const customer = verifyCustomerToken(token);
+    if (!admin && (!customer || customer.id !== order.customerId)) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     return NextResponse.json(order);

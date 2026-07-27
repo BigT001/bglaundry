@@ -21,6 +21,20 @@ export function verifyAdminToken(
 
 export type AuthUser = { id: string; role: string; phoneNumber: string };
 
+export function verifyCustomerToken(token: string | null): AuthUser | null {
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const id = decoded.id || decoded.sub;
+    if (decoded.role === 'CUSTOMER' && id) {
+      return { id, role: decoded.role, phoneNumber: decoded.phoneNumber };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function verifyRiderToken(token: string | null): AuthUser | null {
   if (!token) return null;
   try {

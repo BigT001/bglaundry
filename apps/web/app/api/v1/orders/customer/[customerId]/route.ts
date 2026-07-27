@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
+import { bearerToken, verifyCustomerToken } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +9,10 @@ export async function GET(
 ) {
   try {
     const { customerId } = await params;
+    const customer = verifyCustomerToken(bearerToken(request));
+    if (!customer || customer.id !== customerId) {
+      return NextResponse.json({ error: 'Customer authentication required.' }, { status: 401 });
+    }
 
     if (!customerId) {
       return NextResponse.json(
@@ -21,7 +26,9 @@ export async function GET(
     const orders = await prisma.order.findMany({
       where: {
         customerId,
-        status: history ? OrderStatus.DELIVERED : { not: OrderStatus.DELIVERED },
+        status: history
+          ? OrderStatus.DELIVERED
+          : { notIn: [OrderStatus.DELIVERED, OrderStatus.PAYMENT_PENDING] },
       },
       include: {
         items: true,

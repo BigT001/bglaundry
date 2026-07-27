@@ -268,30 +268,19 @@ export default function CheckoutScreen() {
           price: getItemPrice(key),
         }));
 
-      // 1. Submit Order to NestJS backend
-      let realCustomerId = 'customer-mock-id';
-      try {
-        const userStr = await AsyncStorage.getItem('@bglaundry_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.id) {
-            realCustomerId = user.id;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load user ID for booking:', err);
-      }
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      if (!token) throw new Error('Please sign in before checking out.');
+      const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const payloadPickup = formPickupAddress || pickupAddress || '';
       const payloadDelivery = formDeliveryAddress || deliveryAddress || '';
 
       const orderResponse = await axios.post(`${API_URL}/orders/book`, {
-        customerId: realCustomerId,
         pickupAddress: payloadPickup,
         deliveryAddress: payloadDelivery,
         pickupDate,
         items: formattedItems,
-      });
+      }, authConfig);
 
       const orderId = orderResponse.data.id;
       const orderNumber = orderResponse.data.orderNumber;
@@ -310,7 +299,7 @@ export default function CheckoutScreen() {
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
         orderId,
-      });
+      }, authConfig);
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
       const reference = paymentResponse.data.payment.reference;
@@ -322,9 +311,13 @@ export default function CheckoutScreen() {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const result = await axios.get(`${API_URL}/payments/status`, {
           params: { reference },
+          ...authConfig,
         });
         if (result.data.status === 'SUCCESSFUL') {
-          Alert.alert('Payment successful', `Order ${orderNumber} is confirmed.`);
+          Alert.alert(
+            'Payment successful',
+            `Order ${orderNumber} is confirmed.\nAmount: ${formatNaira(result.data.amount)}\nReceipt: ${result.data.reference}`,
+          );
           router.replace('/(tabs)/orders');
           return;
         }

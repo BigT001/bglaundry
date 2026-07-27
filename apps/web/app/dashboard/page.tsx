@@ -91,6 +91,11 @@ export default function CustomerDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [paymentReceipt, setPaymentReceipt] = useState<{
+    reference: string;
+    orderNumber: string;
+    amount: number;
+  } | null>(null);
   
   const [basket, setBasket] = useState<Record<string, BasketItem>>({});
   const [basketReady, setBasketReady] = useState(false);
@@ -364,10 +369,16 @@ export default function CustomerDashboard() {
     setLoading(true);
     setError('');
     setSuccess('');
+    setPaymentReceipt(null);
+    const checkoutWindow = window.open('', 'bglaundry-payment', 'popup,width=520,height=760');
+    if (!checkoutWindow) {
+      setError('Payment window was blocked. Allow pop-ups and try again.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const bookingData = {
-        customerId: user.id,
         pickupAddress: pickupAddress.trim(),
         deliveryAddress: deliveryAddress.trim(),
         pickupDate,
@@ -378,9 +389,42 @@ export default function CustomerDashboard() {
         }))
       };
 
-      await axios.post('/api/v1/orders/book', bookingData);
-      
-      setSuccess('Laundry booking placed successfully! A driver will be assigned shortly.');
+      const orderResponse = await axios.post('/api/v1/orders/book', bookingData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const paymentResponse = await axios.post(
+        '/api/v1/payments/initialize',
+        { orderId: orderResponse.data.id },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      checkoutWindow.location.href = paymentResponse.data.checkoutUrl;
+
+      let receipt: any = null;
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const statusResponse = await axios.get('/api/v1/payments/status', {
+          params: { reference: paymentResponse.data.payment.reference },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statusResponse.data.status === 'SUCCESSFUL') {
+          receipt = statusResponse.data;
+          break;
+        }
+        if (statusResponse.data.status === 'FAILED') {
+          throw new Error('Payment was not successful. Your order was not placed.');
+        }
+      }
+      if (!receipt) {
+        throw new Error('Payment is still awaiting confirmation. The order will remain inactive until payment is verified.');
+      }
+
+      checkoutWindow.close();
+      setPaymentReceipt({
+        reference: receipt.reference,
+        orderNumber: receipt.order.orderNumber,
+        amount: receipt.amount,
+      });
+      setSuccess('Payment confirmed. Your order has been placed and sent to operations.');
       setBasket({});
       const savedAddress = user.homeAddress || user.pickupAddress || user.officeAddress || '';
       setPickupAddress(savedAddress);
@@ -392,8 +436,9 @@ export default function CustomerDashboard() {
       setActiveTab('ACTIVE');
       refreshOrders();
     } catch (err: any) {
+      checkoutWindow?.close();
       console.error('Booking failed:', err);
-      setError(err.response?.data?.error || 'Failed to submit booking. Please try again.');
+      setError(err.response?.data?.error || err.message || 'Payment could not be completed. Your order was not placed.');
     } finally {
       setLoading(false);
     }
@@ -640,6 +685,23 @@ export default function CustomerDashboard() {
             }}>
               <Check size={16} />
               <span>{success}</span>
+            </div>
+          )}
+          {paymentReceipt && (
+            <div style={{
+              background: '#FFFFFF', border: '1px solid #DCE7F7', borderRadius: '14px',
+              padding: '16px 18px', marginTop: '-16px', marginBottom: '28px',
+              display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment receipt</div>
+                <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px' }}>{paymentReceipt.orderNumber}</div>
+                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '3px' }}>Ref: {paymentReceipt.reference}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '11px', color: '#64748B' }}>Amount paid</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '3px' }}>{formatCurrency(paymentReceipt.amount)}</div>
+              </div>
             </div>
           )}
 

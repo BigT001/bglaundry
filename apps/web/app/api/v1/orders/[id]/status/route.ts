@@ -38,6 +38,12 @@ export async function PATCH(
         { status: 404 },
       );
     }
+    if (order.status === OrderStatus.PAYMENT_PENDING) {
+      return NextResponse.json(
+        { error: 'Payment must be confirmed before this order can be updated.' },
+        { status: 409 },
+      );
+    }
 
     const updatedOrder = await prisma.order.update({
       where: { id },

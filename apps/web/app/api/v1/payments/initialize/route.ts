@@ -3,9 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { PaymentStatus } from '@bglaundry/database';
 import { createFlutterwaveCheckout } from '@/lib/flutterwave';
 import crypto from 'crypto';
+import { OrderStatus } from '@bglaundry/database';
+import { bearerToken, verifyCustomerToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const customer = verifyCustomerToken(bearerToken(request));
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer authentication required.' }, { status: 401 });
+    }
     const body = await request.json();
     const { orderId } = body;
 
@@ -24,6 +30,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Order with ID ${orderId} not found` },
         { status: 404 },
+      );
+    }
+    if (order.customerId !== customer.id) {
+      return NextResponse.json({ error: 'You cannot pay for this order.' }, { status: 403 });
+    }
+    if (order.status !== OrderStatus.PAYMENT_PENDING) {
+      return NextResponse.json(
+        { error: 'This order is not awaiting payment.' },
+        { status: 409 },
       );
     }
 

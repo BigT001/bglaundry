@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { PaymentStatus } from '@bglaundry/database';
+import { OrderStatus, PaymentStatus } from '@bglaundry/database';
 import { prisma } from '@/lib/prisma';
 
 const API_URL = 'https://api.flutterwave.com/v3';
@@ -77,6 +77,7 @@ export async function verifyAndRecordTransaction(
   const transaction = response.data;
   const payment = await prisma.payment.findUnique({
     where: { reference: expectedReference || transaction.tx_ref },
+    include: { order: { select: { status: true } } },
   });
   if (!payment) throw new Error('Payment reference not found');
 
@@ -91,8 +92,38 @@ export async function verifyAndRecordTransaction(
       ? PaymentStatus.FAILED
       : PaymentStatus.PENDING;
 
-  if (payment.status !== PaymentStatus.SUCCESSFUL && payment.status !== status) {
-    await prisma.payment.update({ where: { reference: payment.reference }, data: { status } });
+  if (verified) {
+    await prisma.$transaction(async (database) => {
+      await database.payment.update({
+        where: { reference: payment.reference },
+        data: { status: PaymentStatus.SUCCESSFUL },
+      });
+      const activated = await database.order.updateMany({
+        where: {
+          id: payment.orderId,
+          status: OrderStatus.PAYMENT_PENDING,
+        },
+        data: {
+          status: OrderStatus.PICKUP_PENDING,
+          pickupOTP: crypto.randomInt(1000, 10000).toString(),
+          deliveryOTP: crypto.randomInt(1000, 10000).toString(),
+        },
+      });
+      if (activated.count === 1) {
+        await database.trackingEvent.create({
+          data: {
+            orderId: payment.orderId,
+            status: OrderStatus.PICKUP_PENDING,
+            note: 'Payment confirmed. Order submitted and waiting for driver assignment.',
+          },
+        });
+      }
+    });
+  } else if (payment.status !== PaymentStatus.SUCCESSFUL && payment.status !== status) {
+    await prisma.payment.update({
+      where: { reference: payment.reference },
+      data: { status },
+    });
   }
   return { verified, transaction, status };
 }

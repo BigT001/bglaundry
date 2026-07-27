@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   }
   try {
     const orders = await prisma.order.findMany({
+      where: { status: { not: 'PAYMENT_PENDING' } },
       select: {
         id: true,
         orderNumber: true,

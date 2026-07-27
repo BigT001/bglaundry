@@ -15,6 +15,7 @@ enum Role {
 }
 
 enum OrderStatus {
+  PAYMENT_PENDING
   PICKUP_PENDING
   PICKUP_IN_PROGRESS
   PICKED_UP

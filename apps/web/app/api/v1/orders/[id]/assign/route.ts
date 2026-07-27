@@ -31,6 +31,14 @@ export async function PATCH(
       );
     }
 
+    const existingOrder = await prisma.order.findUnique({ where: { id } });
+    if (!existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+    if (existingOrder.status === OrderStatus.PAYMENT_PENDING) {
+      return NextResponse.json({ error: 'Payment must be confirmed before rider assignment.' }, { status: 409 });
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: {

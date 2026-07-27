@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         addressType: true,
         createdAt: true,
         customerOrders: {
+          where: { status: { not: OrderStatus.PAYMENT_PENDING } },
           select: {
             id: true,
             orderNumber: true,

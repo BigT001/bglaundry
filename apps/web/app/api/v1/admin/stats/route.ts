@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const totalOrders = await prisma.order.count();
+    const totalOrders = await prisma.order.count({
+      where: { status: { not: OrderStatus.PAYMENT_PENDING } },
+    });
 
     const activePickups = await prisma.order.count({
       where: {
