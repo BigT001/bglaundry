@@ -8,6 +8,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "db:migrate": "pnpm --filter @bglaundry/database db:migrate",
+    "db:deploy": "pnpm --filter @bglaundry/database exec prisma migrate deploy",
     "db:generate": "pnpm --filter @bglaundry/database db:generate",
     "postinstall": "pnpm run db:generate"
   },

@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
     console.error('[Book Order Error]', error);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: 'We could not prepare your checkout. Please try again shortly.' },
       { status: 500 },
     );
   }
