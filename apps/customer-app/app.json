@@ -1,4 +1,5 @@
 {
+  "scheme": "bglaundry",
   "plugins": [
     "expo-router"
   ]

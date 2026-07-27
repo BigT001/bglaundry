@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -101,28 +101,31 @@ export default function BasketScreen() {
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
         orderId,
-        amount: totalAmount,
       });
 
-      // 3. Complete payment webhook mock call
-      await axios.post(`${API_URL}/payments/verify-webhook`, {
-        reference: paymentResponse.data.payment.reference,
-        status: 'SUCCESS',
-      });
-
-      // Success animation transition
-      setTimeout(() => {
-        setPaymentStep('SUCCESS');
-        clearBasket();
-      }, 1500);
+      const checkoutUrl = paymentResponse.data.checkoutUrl;
+      const reference = paymentResponse.data.payment.reference;
+      if (!checkoutUrl || !(await Linking.canOpenURL(checkoutUrl))) {
+        throw new Error('Unable to open Flutterwave checkout');
+      }
+      await Linking.openURL(checkoutUrl);
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const result = await axios.get(`${API_URL}/payments/status`, {
+          params: { reference },
+        });
+        if (result.data.status === 'SUCCESSFUL') {
+          setPaymentStep('SUCCESS');
+          clearBasket();
+          return;
+        }
+        if (result.data.status === 'FAILED') throw new Error('Payment failed');
+      }
+      Alert.alert('Payment pending', `Order ${orderNumber} is awaiting confirmation.`);
 
     } catch (error) {
-      console.log('Backend connection failed - running simulation bypass:', error);
-      // Backend inactive simulation fallback
-      setTimeout(() => {
-        setPaymentStep('SUCCESS');
-        clearBasket();
-      }, 1500);
+      console.error('Payment error:', error);
+      Alert.alert('Payment not completed', 'Please try again. No payment was confirmed.');
     }
   };
 

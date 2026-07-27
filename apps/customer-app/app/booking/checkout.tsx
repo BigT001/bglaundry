@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, TextInput, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { API_URL } from '../../lib/config';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -102,8 +103,6 @@ const getStaticItemPrice = (key: string): number => {
 export default function CheckoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const API_URL = 'http://localhost:4000/api/v1';
-
   const [dbServices, setDbServices] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -311,34 +310,35 @@ export default function CheckoutScreen() {
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
         orderId,
-        amount: total,
       });
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
-
-      Alert.alert('Order Booked', `Order ID: ${orderNumber}\nProceed to complete checkout payment?`, [
-        {
-          text: 'Pay Mock',
-          onPress: () => {
-            // Direct simulator flow bypass - mock checkout webhook
-            axios.post(`${API_URL}/payments/verify-webhook`, {
-              reference: paymentResponse.data.payment.reference,
-              status: 'SUCCESS',
-            }).then(() => {
-              router.replace(`/(tabs)/orders`);
-            });
-          }
+      const reference = paymentResponse.data.payment.reference;
+      if (!checkoutUrl || !(await Linking.canOpenURL(checkoutUrl))) {
+        throw new Error('Unable to open Flutterwave checkout');
+      }
+      await Linking.openURL(checkoutUrl);
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const result = await axios.get(`${API_URL}/payments/status`, {
+          params: { reference },
+        });
+        if (result.data.status === 'SUCCESSFUL') {
+          Alert.alert('Payment successful', `Order ${orderNumber} is confirmed.`);
+          router.replace('/(tabs)/orders');
+          return;
         }
-      ]);
+        if (result.data.status === 'FAILED') {
+          throw new Error('Flutterwave reported that the payment failed');
+        }
+      }
+      Alert.alert('Payment pending', `Order ${orderNumber} is awaiting confirmation.`);
     } catch (error) {
-      console.log('API Integration Error - switching to demo bypass:', error);
-      // Demo bypass if backend is inactive
-      Alert.alert('Demo Mode Checkout', 'NestJS API inactive. Generating mock transaction locally...', [
-        {
-          text: 'Ok',
-          onPress: () => router.replace('/(tabs)/orders'),
-        }
-      ]);
+      console.error('Checkout error:', error);
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Unable to start payment. Please try again.'
+        : error instanceof Error ? error.message : 'Unable to start payment. Please try again.';
+      Alert.alert('Payment not completed', message);
     } finally {
       setLoading(false);
     }

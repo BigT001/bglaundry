@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PaymentStatus } from '@bglaundry/database';
+import { createFlutterwaveCheckout } from '@/lib/flutterwave';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount } = body;
+    const { orderId } = body;
 
-    if (!orderId || amount === undefined) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: 'Order ID and Amount are required' },
+        { error: 'Order ID is required' },
         { status: 400 },
       );
     }
 
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { customer: true },
+    });
     if (!order) {
       return NextResponse.json(
         { error: `Order with ID ${orderId} not found` },
@@ -22,22 +27,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate a payment transaction code/reference
-    const reference = `PAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (!Number.isFinite(order.totalAmount) || order.totalAmount <= 0) {
+      return NextResponse.json({ error: 'Order total is invalid' }, { status: 400 });
+    }
 
-    const payment = await prisma.payment.create({
+    const pending = await prisma.payment.findFirst({
+      where: { orderId, status: PaymentStatus.PENDING, gateway: 'FLUTTERWAVE' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const reference = pending?.reference ||
+      `BG-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+    const payment = pending || await prisma.payment.create({
       data: {
         orderId,
         reference,
-        amount,
+        amount: order.totalAmount,
         status: PaymentStatus.PENDING,
-        gateway: 'PAYSTACK_MOCK',
+        gateway: 'FLUTTERWAVE',
+      },
+    });
+
+    const origin = process.env.APP_URL || new URL(request.url).origin;
+    const checkout = await createFlutterwaveCheckout({
+      reference,
+      amount: order.totalAmount,
+      redirectUrl: process.env.FLW_REDIRECT_URL || `${origin}/api/v1/payments/callback`,
+      orderId,
+      orderNumber: order.orderNumber,
+      customer: {
+        email: order.customer.email || `customer-${order.customer.id}@payments.bglaundry.com`,
+        name: order.customer.fullName,
+        phoneNumber: order.customer.phoneNumber,
       },
     });
 
     return NextResponse.json({
       payment,
-      checkoutUrl: `http://localhost:4000/api/v1/payments/mock-checkout?reference=${reference}`,
+      checkoutUrl: checkout.data.link,
     });
   } catch (error: any) {
     console.error('[Initialize Payment Error]', error);
