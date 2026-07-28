@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [homeAddress, setHomeAddress] = useState('');
   const [officeAddress, setOfficeAddress] = useState('');
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
@@ -47,7 +48,7 @@ export default function LoginPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !fullName || !selectedAddress.trim() || !password || loading) return;
+    if (!phone || !email || !fullName || !selectedAddress.trim() || !password || loading) return;
     setLoading(true);
     setError('');
 
@@ -55,6 +56,7 @@ export default function LoginPage() {
       const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
       const { data } = await axios.post('/api/v1/auth/signup', {
         phoneNumber: phone,
+        email,
         fullName: fullName,
         pickupAddress: selectedAddress,
         addressType: addressType,
@@ -374,7 +376,7 @@ export default function LoginPage() {
                 <span className="prefix">+234</span>
                 <input type="tel" placeholder="801 234 5678" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} required autoFocus />
               </div>
-              <p className="hint">We’ll send a six-digit verification code to the phone number registered on your account.</p>
+              <p className="hint">We’ll email a six-digit verification code to your account email. If SMS is available, we’ll send it there too.</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => { setStep('LOGIN_PASSWORD'); setError(''); }}>Back</button>
                 <button type="submit" className="btn" disabled={!phone || loading}>{loading ? <span className="spinner" /> : 'Send Code'}</button>
@@ -424,6 +426,16 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoFocus
+                />
+              </div>
+              <label>Email Address</label>
+              <div className="input-wrap">
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
@@ -510,7 +522,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="btn"
-                  disabled={!fullName.trim() || loading}
+                  disabled={!fullName.trim() || !email.trim() || loading}
                 >
                   Next
                 </button>

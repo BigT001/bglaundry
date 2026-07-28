@@ -82,6 +82,12 @@ model PasswordResetToken {
   @@index([expiresAt])
 }
 
+model NotificationSettings {
+  id          String   @id @default("default")
+  adminEmails String[] @default([])
+  updatedAt   DateTime @updatedAt
+}
+
 model DriverProfile {
   id            String    @id @default(uuid())
   userId        String    @unique

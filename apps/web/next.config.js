@@ -9,7 +9,7 @@ for (const fileName of ['.env', '.env.local']) {
   const filePath = path.join(__dirname, '..', '..', fileName);
   if (!fs.existsSync(filePath)) continue;
   const source = fs.readFileSync(filePath, 'utf8');
-  for (const key of ['ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_NAME', 'ADMIN_PHONE']) {
+  for (const key of ['ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_NAME', 'ADMIN_PHONE', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'ADMIN_NOTIFICATION_EMAIL', 'ADMIN_NOTIFICATION_EMAILS']) {
     const match = source.match(new RegExp(`^${key}=(.*)$`, 'm'));
     if (!match) continue;
     let value = match[1].trim();

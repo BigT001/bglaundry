@@ -19,6 +19,11 @@ export default function StaffPage() {
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [notificationEmails, setNotificationEmails] = useState<string[]>([]);
+  const [emailDraft, setEmailDraft] = useState(['', '', '']);
+  const [emailError, setEmailError] = useState('');
+  const [savingEmails, setSavingEmails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -31,8 +36,12 @@ export default function StaffPage() {
   const headers = useCallback(() => ({ Authorization: `Bearer ${localStorage.getItem('adminToken')}` }), []);
   const load = useCallback(async () => {
     try {
-      const { data } = await axios.get('/api/v1/admin/staff', { headers: headers() });
-      setStaff(data.staff);
+      const [staffResponse, settingsResponse] = await Promise.all([
+        axios.get('/api/v1/admin/staff', { headers: headers() }),
+        axios.get('/api/v1/admin/notification-settings', { headers: headers() }),
+      ]);
+      setStaff(staffResponse.data.staff);
+      setNotificationEmails(settingsResponse.data.adminEmails || []);
     } catch (requestError: any) {
       setError(requestError.response?.data?.error || 'Unable to load staff accounts.');
     } finally {
@@ -42,12 +51,16 @@ export default function StaffPage() {
 
   useEffect(() => { if (canManage) void load(); else setLoading(false); }, [canManage, load]);
   useEffect(() => {
-    if (!modalOpen) return;
+    if (!modalOpen && !emailModalOpen) return;
     document.body.style.overflow = 'hidden';
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !saving) closeModal(); };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (modalOpen && !saving) closeModal();
+      if (emailModalOpen && !savingEmails) closeEmailModal();
+    };
     window.addEventListener('keydown', closeOnEscape);
     return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', closeOnEscape); };
-  }, [modalOpen, saving]);
+  }, [emailModalOpen, modalOpen, saving, savingEmails]);
 
   const filteredStaff = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -83,6 +96,38 @@ export default function StaffPage() {
     setEditingId(null); setForm(blankForm); setError(''); setModalOpen(false);
   }
 
+  function openEmailModal() {
+    setEmailDraft([notificationEmails[0] || '', notificationEmails[1] || '', notificationEmails[2] || '']);
+    setEmailError('');
+    setEmailModalOpen(true);
+  }
+
+  function closeEmailModal() {
+    if (savingEmails) return;
+    setEmailError('');
+    setEmailModalOpen(false);
+  }
+
+  async function saveNotificationEmails(event: FormEvent) {
+    event.preventDefault();
+    const emails = [...new Set(emailDraft.map(value => value.trim().toLowerCase()).filter(Boolean))];
+    if (emails.length < 1) {
+      setEmailError('Add at least one notification email address.');
+      return;
+    }
+    setSavingEmails(true); setEmailError(''); setNotice('');
+    try {
+      const { data } = await axios.patch('/api/v1/admin/notification-settings', { adminEmails: emails }, { headers: headers() });
+      setNotificationEmails(data.adminEmails);
+      setEmailModalOpen(false);
+      setNotice('Order notification recipients updated.');
+    } catch (requestError: any) {
+      setEmailError(requestError.response?.data?.error || 'Unable to save notification emails.');
+    } finally {
+      setSavingEmails(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(''); setNotice('');
     try {
@@ -114,6 +159,18 @@ export default function StaffPage() {
       <article><span>Total staffs</span><strong>{staff.length}</strong></article>
       <article><span>Active</span><strong>{staff.filter(member => member.isActive).length}</strong></article>
       <article><span>Limited roles</span><strong>{staff.filter(member => !FULL_ACCESS_ROLES.includes(member.role as typeof FULL_ACCESS_ROLES[number])).length}</strong></article>
+    </section>
+
+    <section className={styles.notificationCard}>
+      <div className={styles.notificationIcon}>✉</div>
+      <div className={styles.notificationCopy}>
+        <h2>Order email notifications</h2>
+        <p>Every new order is sent to all saved recipients.</p>
+        <div className={styles.emailChips}>
+          {notificationEmails.length ? notificationEmails.map(email => <span key={email}>{email}</span>) : <span>No recipients configured</span>}
+        </div>
+      </div>
+      <button type="button" onClick={openEmailModal}>Manage emails</button>
     </section>
 
     <section className={styles.listCard}>
@@ -160,6 +217,25 @@ export default function StaffPage() {
           </section>
         </div>
         <footer className={styles.modalFooter}><button type="button" onClick={closeModal}>Cancel</button><button className={styles.primary} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Create staff'}</button></footer>
+      </form>
+    </div>}
+
+    {emailModalOpen && <div className={styles.backdrop} onMouseDown={closeEmailModal}>
+      <form className={`${styles.modal} ${styles.emailModal}`} onSubmit={saveNotificationEmails} onMouseDown={event => event.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <div><span className={styles.eyebrow}>Email notifications</span><h2>Order recipients</h2><p>Add up to three email addresses. Every recipient gets the same new-order notification.</p></div>
+          <button type="button" className={styles.closeButton} onClick={closeEmailModal} aria-label="Close">×</button>
+        </div>
+        <div className={styles.modalBody}>
+          {emailError && <div className={styles.error}>{emailError}</div>}
+          <section className={`${styles.fields} ${styles.emailFields}`}>
+            {emailDraft.map((value, index) => <label key={index}>Recipient {index + 1}{index === 0 ? ' (required)' : ' (optional)'}
+              <input type="email" autoFocus={index === 0} value={value} onChange={event => setEmailDraft(current => current.map((email, emailIndex) => emailIndex === index ? event.target.value : email))} placeholder={`notifications${index + 1}@example.com`} required={index === 0} />
+            </label>)}
+          </section>
+          <p className={styles.emailHint}>Changes apply immediately to all new orders. Password reset codes are always sent directly to the email on the user’s own account.</p>
+        </div>
+        <footer className={styles.modalFooter}><button type="button" onClick={closeEmailModal}>Cancel</button><button className={styles.primary} disabled={savingEmails}>{savingEmails ? 'Saving…' : 'Save recipients'}</button></footer>
       </form>
     </div>}
   </main>;

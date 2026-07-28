@@ -4,6 +4,7 @@ import axios from 'axios';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone } from '@/lib/phone';
 import { STAFF_ROLES } from '@/lib/admin-permissions';
+import { sendPasswordResetEmail } from '@/lib/email';
 
 const GENERIC_MESSAGE = 'If an eligible account matches those details, a verification code has been sent.';
 
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
           ? { email: { equals: identifier.toLowerCase(), mode: 'insensitive' } }
           : { phoneNumber: normalizePhone(identifier) }),
       },
-      select: { id: true, phoneNumber: true, role: true },
+      select: { id: true, phoneNumber: true, email: true, fullName: true, role: true },
     });
     const eligible = user && (
       accountType === 'ADMIN'
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
+    const emailDelivered = user.email
+      ? await sendPasswordResetEmail({ email: user.email, fullName: user.fullName, code })
+      : false;
+    let smsDelivered = false;
     const termiiApiKey = process.env.TERMII_API_KEY;
     const rawPhone = user.phoneNumber.replace(/\D/g, '');
     if (termiiApiKey && termiiApiKey !== 'termii_mock_api_key') {
@@ -62,12 +67,13 @@ export async function POST(request: NextRequest) {
           channel: 'generic',
           api_key: termiiApiKey,
         }, { timeout: 12_000 });
+        smsDelivered = true;
       } catch (error: any) {
         console.error('[Password Reset SMS Error]', error?.response?.data || error?.message);
-        await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
-        return NextResponse.json({ error: 'The verification message could not be sent. Please try again shortly.' }, { status: 503 });
       }
-    } else if (process.env.NODE_ENV === 'production') {
+    }
+
+    if (!emailDelivered && !smsDelivered && process.env.NODE_ENV === 'production') {
       await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
       return NextResponse.json({ error: 'Password recovery is temporarily unavailable. Please contact support.' }, { status: 503 });
     }

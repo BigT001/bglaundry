@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
 import { bearerToken, verifyCustomerToken } from '@/lib/auth';
+import { sendNewOrderEmails } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,7 +83,21 @@ export async function POST(request: NextRequest) {
       },
       include: {
         items: true,
+        customer: {
+          select: { fullName: true, email: true, phoneNumber: true },
+        },
       },
+    });
+
+    await sendNewOrderEmails({
+      orderNumber: order.orderNumber,
+      customerName: order.customer.fullName,
+      customerEmail: order.customer.email,
+      customerPhone: order.customer.phoneNumber,
+      pickupAddress: order.pickupAddress,
+      pickupDate: order.pickupDate,
+      totalAmount: order.totalAmount,
+      items: order.items,
     });
 
     return NextResponse.json(order);

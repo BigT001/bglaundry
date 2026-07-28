@@ -26,6 +26,7 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [step, setStep] = useState<LoginStep>('PHONE');
   const [loading, setLoading] = useState(false);
   const [tempToken, setTempToken] = useState('');
@@ -141,11 +142,15 @@ export default function LoginScreen() {
       Alert.alert('Error', 'Please enter your full name to proceed.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address for account recovery.');
+      return;
+    }
     setLoading(true);
     try {
       const response = await axios.patch(
         `${API_URL}/users/profile`,
-        { fullName: fullName.trim() },
+        { fullName: fullName.trim(), email: email.trim().toLowerCase() },
         {
           headers: {
             Authorization: `Bearer ${tempToken}`,
@@ -262,7 +267,7 @@ export default function LoginScreen() {
           <View style={styles.formContainer}>
             <Text style={styles.sectionTitle}>Create Your Profile</Text>
             <Text style={styles.sectionSubtitle}>
-              Please enter your full name so our pickup riders can easily recognize you.
+              Enter your name and email. Your email will be used for password recovery and order updates.
             </Text>
 
             <TextInput
@@ -271,6 +276,17 @@ export default function LoginScreen() {
               placeholderTextColor="#94A3B8"
               value={fullName}
               onChangeText={setFullName}
+              editable={!loading}
+            />
+            <TextInput
+              style={styles.nameInput}
+              placeholder="you@example.com"
+              placeholderTextColor="#94A3B8"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
               editable={!loading}
             />
 

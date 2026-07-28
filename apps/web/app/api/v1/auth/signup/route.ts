@@ -19,14 +19,18 @@ function normalizePhone(phone: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phoneNumber, fullName, pickupAddress, addressType, password } = body;
+    const { phoneNumber, email, fullName, pickupAddress, addressType, password } = body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     // Validation
-    if (!phoneNumber || !fullName || !pickupAddress || !addressType || !password) {
+    if (!phoneNumber || !normalizedEmail || !fullName || !pickupAddress || !addressType || !password) {
       return NextResponse.json(
-        { error: 'All fields are required: phoneNumber, fullName, pickupAddress, addressType, password' },
+        { error: 'Phone number, email, full name, address, address type, and password are required.' },
         { status: 400 }
       );
+    }
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
     }
 
     if (password.length < 6) {
@@ -56,6 +60,10 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+    const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (existingEmail) {
+      return NextResponse.json({ error: 'A user with this email address already exists.' }, { status: 409 });
+    }
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
@@ -64,6 +72,7 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.create({
       data: {
         phoneNumber: normalizedPhone,
+        email: normalizedEmail,
         fullName,
         pickupAddress,
         addressType: addressType.toUpperCase(),

@@ -68,6 +68,7 @@ export default function Home() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [homeAddress, setHomeAddress] = useState('');
   const [officeAddress, setOfficeAddress] = useState('');
   const [addressType, setAddressType] = useState<'HOME' | 'OFFICE'>('HOME');
@@ -92,6 +93,7 @@ export default function Home() {
     setPhone('');
     setPassword('');
     setFullName('');
+    setEmail('');
     setHomeAddress('');
     setOfficeAddress('');
     setAddressType('HOME');
@@ -106,6 +108,7 @@ export default function Home() {
     setPhone('');
     setPassword('');
     setFullName('');
+    setEmail('');
     setHomeAddress('');
     setOfficeAddress('');
     setAddressType('HOME');
@@ -139,13 +142,14 @@ export default function Home() {
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
-    if (!phone || !fullName || !selectedAddress.trim() || !password || loginLoading) return;
+    if (!phone || !email || !fullName || !selectedAddress.trim() || !password || loginLoading) return;
     setLoginLoading(true);
     setLoginError('');
 
     try {
       const { data } = await axios.post('/api/v1/auth/signup', {
         phoneNumber: phone,
+        email,
         fullName: fullName,
         pickupAddress: selectedAddress,
         addressType: addressType,
@@ -653,7 +657,7 @@ export default function Home() {
                 </button>
                 <button
                   className="m-sub"
-                  onClick={() => { setLoginMode('SIGNUP'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); setFullName(''); setHomeAddress(''); setOfficeAddress(''); }}
+                  onClick={() => { setLoginMode('SIGNUP'); setLoginStep('PHONE'); setLoginError(''); setPhone(''); setPassword(''); setFullName(''); setEmail(''); setHomeAddress(''); setOfficeAddress(''); }}
                   style={{ background: '#F5F4F0', color: '#0D0D0D', border: '1.5px solid #E8E6E1' }}
                 >
                   Create Account
@@ -767,6 +771,15 @@ export default function Home() {
                       className="f-inp"
                       autoFocus
                     />
+                    <label className="f-lbl" style={{ marginTop: '14px' }}>Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="f-inp"
+                    />
                     <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                       <button
                         type="button"
@@ -776,7 +789,7 @@ export default function Home() {
                       >
                         Back
                       </button>
-                      <button type="submit" disabled={!fullName.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
+                      <button type="submit" disabled={!fullName.trim() || !email.trim() || loginLoading} className="m-sub" style={{ flex: 1 }}>
                         Next
                       </button>
                     </div>
