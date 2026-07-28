@@ -22,7 +22,7 @@ async function nextInvoiceNumber() {
 }
 
 export async function GET(request: NextRequest) {
-  if (!verifyAdminToken(bearerToken(request))) {
+  if (!verifyAdminToken(bearerToken(request), 'invoices.manage')) {
     return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
   }
   try {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!verifyAdminToken(bearerToken(request))) {
+  if (!verifyAdminToken(bearerToken(request), 'invoices.manage')) {
     return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
   }
   try {

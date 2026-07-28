@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Role, OrderStatus, PaymentStatus } from '@bglaundry/database';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  if (!verifyAdminToken(bearerToken(request), 'dashboard.view')) {
+    return NextResponse.json({ error: 'Dashboard permission required.' }, { status: 403 });
+  }
   try {
     const totalOrders = await prisma.order.count({
       where: { status: { not: OrderStatus.PAYMENT_PENDING } },

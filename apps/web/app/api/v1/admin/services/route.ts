@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!verifyAdminToken(bearerToken(request), 'pricing.manage')) {
+    return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
+  }
   try {
     const data = await request.json();
     const { 

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { AdminPermission, FULL_ACCESS_ROLES } from './admin-permissions';
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -6,12 +7,15 @@ const JWT_SECRET =
 
 export function verifyAdminToken(
   token: string | null,
-): { sub: string; role: string; phoneNumber: string } | null {
+  permission?: AdminPermission,
+): { sub: string; role: string; email?: string; permissions: string[] } | null {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    if (decoded.role === 'ADMIN') {
-      return decoded;
+    const permissions = Array.isArray(decoded.permissions) ? decoded.permissions : [];
+    const fullAccess = FULL_ACCESS_ROLES.includes(decoded.role);
+    if (fullAccess || (permission && permissions.includes(permission)) || (!permission && permissions.length > 0)) {
+      return { ...decoded, permissions };
     }
   } catch (err) {
     console.error('JWT verification error:', err);

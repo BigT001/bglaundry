@@ -13,6 +13,7 @@ import {
   Bike,
   Car,
 } from '@/lib/icons';
+import { hasAdminPermission } from '@/lib/admin-permissions';
 
 interface KpiData {
   totalOrders: number;
@@ -88,14 +89,18 @@ export default function AdminDashboardPage() {
     );
     if (!hasCachedData) setLoading(true);
     try {
+      const adminUser = JSON.parse(localStorage.getItem('adminUser') || 'null');
+      const authHeaders = { Authorization: `Bearer ${localStorage.getItem('adminToken')}` };
       const [statsRes, driversRes, ordersRes] = await Promise.all([
-        axios.get('/api/v1/admin/stats'),
-        axios.get('/api/v1/drivers', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
+        axios.get('/api/v1/admin/stats', {
+          headers: authHeaders,
         }),
-        axios.get('/api/v1/orders', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` },
-        }),
+        hasAdminPermission(adminUser, 'riders.manage')
+          ? axios.get('/api/v1/drivers', { headers: authHeaders })
+          : Promise.resolve({ data: [] }),
+        hasAdminPermission(adminUser, 'orders.manage')
+          ? axios.get('/api/v1/orders', { headers: authHeaders })
+          : Promise.resolve({ data: [] }),
       ]);
 
       setStats(statsRes.data);

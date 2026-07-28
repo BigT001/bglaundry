@@ -8,7 +8,7 @@ import { bearerToken, verifyAdminToken } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 function requireAdmin(request: NextRequest) {
-  return verifyAdminToken(bearerToken(request));
+  return verifyAdminToken(bearerToken(request), 'riders.manage');
 }
 
 export async function GET(request: NextRequest) {

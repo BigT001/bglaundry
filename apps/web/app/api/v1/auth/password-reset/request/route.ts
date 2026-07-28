@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import axios from 'axios';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone } from '@/lib/phone';
+import { STAFF_ROLES } from '@/lib/admin-permissions';
 
 const GENERIC_MESSAGE = 'If an eligible account matches those details, a verification code has been sent.';
 
@@ -14,15 +15,21 @@ export async function POST(request: NextRequest) {
     if (!identifier) return NextResponse.json({ error: 'Enter your phone number or admin email.' }, { status: 400 });
 
     const isEmail = identifier.includes('@');
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: {
-        role: accountType,
+        isActive: true,
         ...(isEmail
           ? { email: { equals: identifier.toLowerCase(), mode: 'insensitive' } }
           : { phoneNumber: normalizePhone(identifier) }),
       },
-      select: { id: true, phoneNumber: true },
+      select: { id: true, phoneNumber: true, role: true },
     });
+    const eligible = user && (
+      accountType === 'ADMIN'
+        ? STAFF_ROLES.includes(user.role as typeof STAFF_ROLES[number])
+        : user.role === 'CUSTOMER'
+    );
+    if (!eligible) user = null;
 
     if (!user) return NextResponse.json({ success: true, message: GENERIC_MESSAGE });
 

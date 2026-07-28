@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { AdminPermission, hasAdminPermission, isSuperAdmin, roleLabel } from '@/lib/admin-permissions';
 
 // Inline SVG icons — avoids lucide-react @types/react peer conflict in monorepo
 type IconProps = { size?: number; style?: React.CSSProperties; className?: string };
@@ -73,12 +74,19 @@ const IconInvoice = ({ size = 20, style, className }: IconProps) => (
     <path d="M9 11h6M9 15h6M9 19h3" />
   </svg>
 );
+const IconSettings = ({ size = 20, style, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} className={className}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.34.72.6 1 .3.3.68.43 1.1.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
+  </svg>
+);
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [adminName, setAdminName] = useState('Blessed Admin');
+  const [adminUser, setAdminUser] = useState<{ role?: string; permissions?: string[] } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -90,6 +98,7 @@ export default function Sidebar() {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
+        setAdminUser(user);
         if (user.fullName) {
           setAdminName(user.fullName);
         }
@@ -134,38 +143,55 @@ export default function Sidebar() {
     };
   }, [mobileOpen]);
 
-  const navItems = [
+  const allNavItems: Array<{ name: string; href: string; icon: React.ComponentType<IconProps>; permission: AdminPermission }> = [
     {
       name: 'Dashboard',
       href: '/admin/dashboard',
       icon: IconDashboard,
+      permission: 'dashboard.view',
     },
     {
       name: 'Orders',
       href: '/admin/orders',
       icon: IconOrders,
+      permission: 'orders.manage',
     },
     {
       name: 'Invoices',
       href: '/admin/invoices',
       icon: IconInvoice,
+      permission: 'invoices.manage',
     },
     {
       name: 'Users',
       href: '/admin/users',
       icon: IconUsers,
+      permission: 'customers.view',
     },
     {
       name: 'Riders',
       href: '/admin/riders',
       icon: IconRiders,
+      permission: 'riders.manage',
     },
     {
       name: 'Pricing Setup',
       href: '/admin/pricing',
       icon: IconPricing,
+      permission: 'pricing.manage',
+    },
+    {
+      name: 'Settings',
+      href: '/admin/settings',
+      icon: IconSettings,
+      permission: 'staff.manage',
     },
   ];
+  const navItems = allNavItems.filter(item =>
+    item.href === '/admin/settings'
+      ? isSuperAdmin(adminUser)
+      : hasAdminPermission(adminUser, item.permission),
+  );
   // A collapsed desktop preference should not turn the mobile drawer into an
   // icon-only menu, where the expand control is intentionally hidden.
   const sidebarIsCompact = isCollapsed && !isMobile;
@@ -233,7 +259,7 @@ export default function Sidebar() {
               {!sidebarIsCompact && (
                 <div className="profileText">
                   <div className="profileName">{adminName}</div>
-                  <div className="profileRole">Admin Coordinator</div>
+                  <div className="profileRole">{roleLabel(adminUser?.role)}</div>
                 </div>
               )}
             </div>

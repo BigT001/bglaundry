@@ -9,7 +9,7 @@ const invoiceInclude = {
 } as const;
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!verifyAdminToken(bearerToken(request))) {
+  if (!verifyAdminToken(bearerToken(request), 'invoices.manage')) {
     return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
   }
   try {

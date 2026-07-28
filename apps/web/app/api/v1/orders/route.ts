@@ -5,7 +5,7 @@ import { bearerToken, verifyAdminToken } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  if (!verifyAdminToken(bearerToken(request))) {
+  if (!verifyAdminToken(bearerToken(request), 'orders.manage')) {
     return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
   }
   try {

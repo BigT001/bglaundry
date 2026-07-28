@@ -12,6 +12,11 @@ enum Role {
   CUSTOMER
   DRIVER
   ADMIN
+  SUPER_ADMIN
+  DEVELOPER
+  MANAGER
+  CASHIER
+  RECEPTION
 }
 
 enum OrderStatus {
@@ -48,6 +53,8 @@ model User {
   pickupAddress   String?   // Default pickup address for customers
   addressType     String?   // "HOME" or "OFFICE"
   role            Role      @default(CUSTOMER)
+  permissions     String[]  @default([])
+  isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

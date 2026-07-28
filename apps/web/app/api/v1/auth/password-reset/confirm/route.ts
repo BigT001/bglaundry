@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone } from '@/lib/phone';
+import { STAFF_ROLES } from '@/lib/admin-permissions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,15 +20,21 @@ export async function POST(request: NextRequest) {
     }
 
     const isEmail = identifier.includes('@');
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: {
-        role: accountType,
+        isActive: true,
         ...(isEmail
           ? { email: { equals: identifier.toLowerCase(), mode: 'insensitive' } }
           : { phoneNumber: normalizePhone(identifier) }),
       },
-      select: { id: true },
+      select: { id: true, role: true },
     });
+    const eligible = user && (
+      accountType === 'ADMIN'
+        ? STAFF_ROLES.includes(user.role as typeof STAFF_ROLES[number])
+        : user.role === 'CUSTOMER'
+    );
+    if (!eligible) user = null;
     if (!user) return NextResponse.json({ error: 'The code is invalid or expired.' }, { status: 400 });
 
     const reset = await prisma.passwordResetToken.findFirst({

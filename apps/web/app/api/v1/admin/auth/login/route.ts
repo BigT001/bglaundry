@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone } from '@/lib/phone';
+import { STAFF_ROLES } from '@/lib/admin-permissions';
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -22,9 +23,15 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
     let databaseAdmin = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' }, role: 'ADMIN' },
-      select: { id: true, email: true, fullName: true, role: true, passwordHash: true },
+      where: {
+        email: { equals: normalizedEmail, mode: 'insensitive' },
+        isActive: true,
+      },
+      select: { id: true, email: true, fullName: true, role: true, permissions: true, passwordHash: true },
     });
+    if (databaseAdmin && !STAFF_ROLES.includes(databaseAdmin.role as typeof STAFF_ROLES[number])) {
+      databaseAdmin = null;
+    }
     const databasePasswordValid = Boolean(databaseAdmin?.passwordHash && await bcrypt.compare(password, databaseAdmin.passwordHash));
     const configuredPasswordValid = Boolean(
       configuredEmail && configuredPassword &&
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
         ? await prisma.user.update({
             where: { id: existingByPhone.id },
             data: { email: configuredEmail!.trim().toLowerCase(), role: 'ADMIN', passwordHash },
-            select: { id: true, email: true, fullName: true, role: true, passwordHash: true },
+            select: { id: true, email: true, fullName: true, role: true, permissions: true, passwordHash: true },
           })
         : await prisma.user.create({
             data: {
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
               role: 'ADMIN',
               passwordHash,
             },
-            select: { id: true, email: true, fullName: true, role: true, passwordHash: true },
+            select: { id: true, email: true, fullName: true, role: true, permissions: true, passwordHash: true },
           });
     }
 
@@ -62,13 +69,15 @@ export async function POST(request: NextRequest) {
       email: databaseAdmin.email,
       fullName: databaseAdmin.fullName,
       role: databaseAdmin.role,
+      permissions: databaseAdmin.permissions,
     } : {
       id: 'admin-local',
       email: configuredEmail!,
       fullName: 'BG Laundry Admin',
       role: 'ADMIN',
+      permissions: [],
     };
-    const token = jwt.sign({ sub: user.id, email: user.email, role: user.role }, JWT_SECRET, {
+    const token = jwt.sign({ sub: user.id, email: user.email, role: user.role, permissions: user.permissions }, JWT_SECRET, {
       expiresIn: '12h',
     });
 

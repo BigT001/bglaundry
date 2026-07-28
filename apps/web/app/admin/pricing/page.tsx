@@ -90,7 +90,7 @@ export default function AdminPricingPage() {
     try {
       // Save all active services consecutively
       for (const service of services) {
-        await axios.post('/api/v1/admin/services', service);
+        await axios.post('/api/v1/admin/services', service, { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } });
       }
       clearAdminCache('admin-services');
       setSaveSuccess(true);
@@ -123,7 +123,7 @@ export default function AdminPricingPage() {
         washPrice: parseFloat(newWashPrice) || 0,
         ironPrice: parseFloat(newIronPrice) || 0,
         washIronPrice: parseFloat(newWashIronPrice) || 0,
-      });
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } });
 
       clearAdminCache('admin-services');
 
@@ -144,7 +144,7 @@ export default function AdminPricingPage() {
 
   const handleDeleteService = async (id: string) => {
     try {
-      await axios.delete(`/api/v1/admin/services/${id}`);
+      await axios.delete(`/api/v1/admin/services/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` } });
       clearAdminCache('admin-services');
       alert('Service deleted successfully!');
       fetchServices();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!verifyAdminToken(bearerToken(request), 'pricing.manage')) {
+    return NextResponse.json({ error: 'Pricing permission required.' }, { status: 403 });
+  }
   try {
     const { id } = await params;
 

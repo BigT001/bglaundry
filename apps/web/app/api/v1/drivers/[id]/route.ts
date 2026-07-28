@@ -6,7 +6,7 @@ import { bearerToken, verifyAdminToken } from '@/lib/auth';
 import { normalizePhone } from '@/lib/phone';
 
 function requireAdmin(request: NextRequest) {
-  return verifyAdminToken(bearerToken(request));
+  return verifyAdminToken(bearerToken(request), 'riders.manage');
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
