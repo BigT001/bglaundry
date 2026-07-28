@@ -379,7 +379,7 @@ export default function ServicesScreen() {
         {/* Footer contact details */}
         <View style={styles.footerBranding}>
           <Text style={styles.footerText}>CLEANER CLOTHES. BETTER LOOK. BETTER YOU.</Text>
-          <Text style={styles.footerContact}>0805 825 5555  |  www.bglaundry.com</Text>
+          <Text style={styles.footerContact}>0705 815 5555  |  www.bglaundry.com</Text>
         </View>
       </ScrollView>
 

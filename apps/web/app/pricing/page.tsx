@@ -195,10 +195,10 @@ export default function PricingPage() {
           <div className="help-ph-circle">📞</div>
           <div className="help-txt">
             <h4>Need help?</h4>
-            <p>0705 815 5555 | 0805 825 5555</p>
+            <p>0705 815 5555</p>
           </div>
         </div>
-        <button className="btn-wa" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+        <button className="btn-wa" onClick={() => window.open('https://wa.me/2347058155555', '_blank')}>
           💬 WHATSAPP US
         </button>
       </footer>

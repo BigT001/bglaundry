@@ -500,7 +500,7 @@ export default function Home() {
             <button className="btn-book" onClick={handleStart}>
               🛍 Book a Pickup →
             </button>
-            <button className="btn-chat" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+            <button className="btn-chat" onClick={() => window.open('https://wa.me/2347058155555', '_blank')}>
               💬 Chat on WhatsApp
             </button>
           </div>
@@ -572,7 +572,7 @@ export default function Home() {
             <p>0705 815 5555</p>
           </div>
         </div>
-        <button className="btn-wa" onClick={() => window.open('https://wa.me/2348058255555', '_blank')}>
+        <button className="btn-wa" onClick={() => window.open('https://wa.me/2347058155555', '_blank')}>
           💬 WHATSAPP US
         </button>
       </footer>
