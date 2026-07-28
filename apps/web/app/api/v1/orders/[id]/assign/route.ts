@@ -8,7 +8,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   if (!verifyAdminToken(bearerToken(request), 'orders.manage')) {
-    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+    return NextResponse.json({ error: 'Order management permission required.' }, { status: 403 });
   }
   try {
     const { id } = await params;

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
-import { normalizePhone } from '@/lib/phone';
 import { STAFF_ROLES } from '@/lib/admin-permissions';
 
 const JWT_SECRET =
@@ -42,46 +41,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid admin email or password.' }, { status: 401 });
     }
 
-    if (!databaseAdmin && configuredPasswordValid && process.env.ADMIN_PHONE) {
-      const adminPhone = normalizePhone(process.env.ADMIN_PHONE);
-      const passwordHash = await bcrypt.hash(configuredPassword!, 12);
-      const existingByPhone = await prisma.user.findUnique({ where: { phoneNumber: adminPhone } });
-      databaseAdmin = existingByPhone
-        ? await prisma.user.update({
-            where: { id: existingByPhone.id },
-            data: { email: configuredEmail!.trim().toLowerCase(), role: 'ADMIN', passwordHash },
-            select: { id: true, email: true, fullName: true, role: true, permissions: true, passwordHash: true },
-          })
-        : await prisma.user.create({
-            data: {
-              phoneNumber: adminPhone,
-              email: configuredEmail!.trim().toLowerCase(),
-              fullName: 'BG Laundry Admin',
-              role: 'ADMIN',
-              passwordHash,
-            },
-            select: { id: true, email: true, fullName: true, role: true, permissions: true, passwordHash: true },
-          });
-    }
-
-    const user = databaseAdmin && (databasePasswordValid || configuredPasswordValid) ? {
+    // The environment-defined owner is a separate identity from database staff.
+    // Never promote or mutate a staff record merely because owner credentials
+    // were used to sign in.
+    const user = configuredPasswordValid ? {
+      id: 'env-super-admin',
+      email: configuredEmail!.trim().toLowerCase(),
+      fullName: process.env.ADMIN_NAME?.trim() || 'BG Laundry Super Admin',
+      role: 'SUPER_ADMIN',
+      permissions: [],
+    } : {
       id: databaseAdmin.id,
       email: databaseAdmin.email,
       fullName: databaseAdmin.fullName,
       role: databaseAdmin.role,
       permissions: databaseAdmin.permissions,
-    } : {
-      id: 'admin-local',
-      email: configuredEmail!,
-      fullName: 'BG Laundry Admin',
-      role: 'ADMIN',
-      permissions: [],
     };
-    const token = jwt.sign({ sub: user.id, email: user.email, role: user.role, permissions: user.permissions }, JWT_SECRET, {
+    const token = jwt.sign({ sub: user.id, email: user.email, fullName: user.fullName, role: user.role, permissions: user.permissions }, JWT_SECRET, {
       expiresIn: '12h',
     });
 
-    return NextResponse.json({ token, user });
+    const response = NextResponse.json({ token, user });
+    response.cookies.set('bg_admin_session', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 12,
+    });
+    return response;
   } catch (error) {
     console.error('[Admin Login Error]', error);
     return NextResponse.json({ error: 'Unable to complete admin login.' }, { status: 500 });

@@ -7,13 +7,15 @@ import { bearerToken, verifyAdminToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-function requireAdmin(request: NextRequest) {
-  return verifyAdminToken(bearerToken(request), 'riders.manage');
+function requireAdmin(request: NextRequest, permission: 'riders.manage' | 'orders.manage' = 'riders.manage') {
+  return verifyAdminToken(bearerToken(request), permission);
 }
 
 export async function GET(request: NextRequest) {
-  if (!requireAdmin(request)) {
-    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  // Order managers need the rider list to dispatch an order. This grants
+  // read-only rider visibility, not rider account management.
+  if (!requireAdmin(request, 'riders.manage') && !requireAdmin(request, 'orders.manage')) {
+    return NextResponse.json({ error: 'Rider or order management permission required.' }, { status: 403 });
   }
   try {
     const drivers = await prisma.user.findMany({
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!requireAdmin(request)) {
-    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+    return NextResponse.json({ error: 'Rider management permission required.' }, { status: 403 });
   }
   try {
     const { fullName, phoneNumber, password, vehicleType, licenseNumber } = await request.json();

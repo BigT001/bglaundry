@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { AdminPermission, FULL_ACCESS_ROLES } from './admin-permissions';
+import { AdminPermission, FULL_ACCESS_ROLES, STAFF_ROLES } from './admin-permissions';
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -14,7 +14,8 @@ export function verifyAdminToken(
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     const permissions = Array.isArray(decoded.permissions) ? decoded.permissions : [];
     const fullAccess = FULL_ACCESS_ROLES.includes(decoded.role);
-    if (fullAccess || (permission && permissions.includes(permission)) || (!permission && permissions.length > 0)) {
+    const staffRole = STAFF_ROLES.includes(decoded.role);
+    if (fullAccess || (permission && permissions.includes(permission)) || (!permission && staffRole)) {
       return { ...decoded, permissions };
     }
   } catch (err) {
@@ -54,5 +55,11 @@ export function verifyRiderToken(token: string | null): AuthUser | null {
 
 export function bearerToken(request: { headers: Headers }) {
   const value = request.headers.get('authorization');
-  return value?.startsWith('Bearer ') ? value.slice(7) : null;
+  if (value?.startsWith('Bearer ')) {
+    const token = value.slice(7);
+    if (token && token !== 'cookie-session') return token;
+  }
+  const cookie = request.headers.get('cookie');
+  const sessionCookie = cookie?.match(/(?:^|;\s*)bg_admin_session=([^;]+)/)?.[1];
+  return sessionCookie ? decodeURIComponent(sessionCookie) : null;
 }

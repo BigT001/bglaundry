@@ -1,5 +1,5 @@
 export const ADMIN_PERMISSIONS = [
-  { key: 'dashboard.view', label: 'View dashboard', description: 'View operational totals and performance.' },
+  { key: 'dashboard.view', label: 'Workspace overview', description: 'View the role-based staff workspace, never the Super Admin dashboard.' },
   { key: 'orders.manage', label: 'Manage orders', description: 'View and update customer orders.' },
   { key: 'invoices.manage', label: 'Manage invoices', description: 'Create, update, download, and share invoices.' },
   { key: 'customers.view', label: 'View customers', description: 'View customer profiles and order history.' },

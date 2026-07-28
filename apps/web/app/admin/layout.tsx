@@ -11,27 +11,54 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [ready, setReady] = useState(pathname === '/admin');
 
   useEffect(() => {
-    if (pathname === '/admin') { setReady(true); return; }
-    const token = localStorage.getItem('adminToken');
-    const user = JSON.parse(localStorage.getItem('adminUser') || 'null');
-    if (!token || !user) { router.replace('/admin'); return; }
-    if (pathname.startsWith('/admin/settings') && !isSuperAdmin(user)) {
-      router.replace('/admin/dashboard');
-      return;
+    let cancelled = false;
+    async function checkAccess() {
+      if (pathname === '/admin') { if (!cancelled) setReady(true); return; }
+      setReady(false);
+      let token = localStorage.getItem('adminToken');
+      let user: { role?: string; permissions?: string[] } | null = null;
+      try { user = JSON.parse(localStorage.getItem('adminUser') || 'null'); } catch { user = null; }
+
+      // Recover a valid server session when browser storage was cleared,
+      // delayed, or unavailable during the post-login navigation.
+      if (!token || !user) {
+        try {
+          const response = await fetch('/api/v1/admin/auth/session', { credentials: 'same-origin', cache: 'no-store' });
+          if (!response.ok) throw new Error('No active session');
+          const data = await response.json();
+          token = data.token;
+          user = data.user;
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
+        } catch {
+          if (!cancelled) router.replace('/admin');
+          return;
+        }
+      }
+
+      if (pathname.startsWith('/admin/dashboard') && !isSuperAdmin(user)) {
+        router.replace('/admin/workspace');
+        return;
+      }
+      if ((pathname.startsWith('/admin/staffs') || pathname.startsWith('/admin/settings')) && !isSuperAdmin(user)) {
+        router.replace('/admin/workspace');
+        return;
+      }
+      const routes: Array<[string, AdminPermission]> = [
+        ['/admin/staffs', 'staff.manage'], ['/admin/settings', 'staff.manage'], ['/admin/staff', 'staff.manage'], ['/admin/pricing', 'pricing.manage'],
+        ['/admin/riders', 'riders.manage'], ['/admin/users', 'customers.view'],
+        ['/admin/invoices', 'invoices.manage'], ['/admin/orders', 'orders.manage'],
+        ['/admin/dashboard', 'dashboard.view'],
+      ];
+      const required = routes.find(([route]) => pathname.startsWith(route))?.[1];
+      if (required && !hasAdminPermission(user, required)) {
+        router.replace('/admin/workspace');
+        return;
+      }
+      if (!cancelled) setReady(true);
     }
-    const routes: Array<[string, AdminPermission]> = [
-      ['/admin/settings', 'staff.manage'], ['/admin/staff', 'staff.manage'], ['/admin/pricing', 'pricing.manage'],
-      ['/admin/riders', 'riders.manage'], ['/admin/users', 'customers.view'],
-      ['/admin/invoices', 'invoices.manage'], ['/admin/orders', 'orders.manage'],
-      ['/admin/dashboard', 'dashboard.view'],
-    ];
-    const required = routes.find(([route]) => pathname.startsWith(route))?.[1];
-    if (required && !hasAdminPermission(user, required)) {
-      const fallback = routes.slice().reverse().find(([, permission]) => hasAdminPermission(user, permission));
-      router.replace(fallback?.[0] || '/admin');
-      return;
-    }
-    setReady(true);
+    void checkAccess();
+    return () => { cancelled = true; };
   }, [pathname, router]);
 
   return (

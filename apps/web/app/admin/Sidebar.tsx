@@ -127,6 +127,7 @@ export default function Sidebar() {
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
+    void fetch('/api/v1/admin/auth/logout', { method: 'POST', credentials: 'same-origin' });
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
     router.push('/admin');
@@ -143,13 +144,7 @@ export default function Sidebar() {
     };
   }, [mobileOpen]);
 
-  const allNavItems: Array<{ name: string; href: string; icon: React.ComponentType<IconProps>; permission: AdminPermission }> = [
-    {
-      name: 'Dashboard',
-      href: '/admin/dashboard',
-      icon: IconDashboard,
-      permission: 'dashboard.view',
-    },
+  const moduleNavItems: Array<{ name: string; href: string; icon: React.ComponentType<IconProps>; permission: AdminPermission }> = [
     {
       name: 'Orders',
       href: '/admin/orders',
@@ -181,17 +176,25 @@ export default function Sidebar() {
       permission: 'pricing.manage',
     },
     {
-      name: 'Settings',
-      href: '/admin/settings',
+      name: 'Staffs',
+      href: '/admin/staffs',
       icon: IconSettings,
       permission: 'staff.manage',
     },
   ];
-  const navItems = allNavItems.filter(item =>
-    item.href === '/admin/settings'
+  const permittedModules = moduleNavItems.filter(item =>
+    item.href === '/admin/staffs'
       ? isSuperAdmin(adminUser)
       : hasAdminPermission(adminUser, item.permission),
   );
+  const navItems = [
+    {
+      name: isSuperAdmin(adminUser) ? 'Dashboard' : 'My Workspace',
+      href: isSuperAdmin(adminUser) ? '/admin/dashboard' : '/admin/workspace',
+      icon: IconDashboard,
+    },
+    ...permittedModules,
+  ];
   // A collapsed desktop preference should not turn the mobile drawer into an
   // icon-only menu, where the expand control is intentionally hidden.
   const sidebarIsCompact = isCollapsed && !isMobile;

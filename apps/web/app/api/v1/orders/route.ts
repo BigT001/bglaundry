@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   if (!verifyAdminToken(bearerToken(request), 'orders.manage')) {
-    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+    return NextResponse.json({ error: 'Order management permission required.' }, { status: 403 });
   }
   try {
     const orders = await prisma.order.findMany({

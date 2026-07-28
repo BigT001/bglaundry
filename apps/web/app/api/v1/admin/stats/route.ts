@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Role, OrderStatus, PaymentStatus } from '@bglaundry/database';
 import { bearerToken, verifyAdminToken } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/admin-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  if (!verifyAdminToken(bearerToken(request), 'dashboard.view')) {
-    return NextResponse.json({ error: 'Dashboard permission required.' }, { status: 403 });
+  const actor = verifyAdminToken(bearerToken(request), 'dashboard.view');
+  if (!actor || !isSuperAdmin(actor)) {
+    return NextResponse.json({ error: 'Super Admin dashboard access required.' }, { status: 403 });
   }
   try {
     const totalOrders = await prisma.order.count({

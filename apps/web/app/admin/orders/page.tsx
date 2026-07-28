@@ -115,8 +115,9 @@ export default function AdminOrdersPage() {
       setAdminCache('dashboard-drivers', driversResponse.data || []);
     } catch (error: any) {
       if (error.response?.status === 401) {
-        localStorage.removeItem('adminToken');
-        router.replace('/admin');
+        // A page request must never destroy the shared login session. The
+        // layout owns session recovery and expiry handling.
+        if (!quiet) setNotice('Your session could not be verified. Refresh the page to recover it.');
         return;
       }
       if (!quiet) setNotice(error.response?.data?.error || 'Unable to load order operations.');

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import styles from './admin-login.module.css';
-import { ADMIN_PERMISSIONS, hasAdminPermission } from '@/lib/admin-permissions';
+import { isSuperAdmin } from '@/lib/admin-permissions';
 
 type Mode = 'LOGIN' | 'RESET_REQUEST' | 'RESET_CONFIRM' | 'RESET_SUCCESS';
 
@@ -25,14 +25,7 @@ export default function AdminLoginPage() {
       const { data } = await axios.post('/api/v1/admin/auth/login', { email, password });
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUser', JSON.stringify(data.user));
-      const destinations: Record<string, string> = {
-        'dashboard.view': '/admin/dashboard', 'orders.manage': '/admin/orders',
-        'invoices.manage': '/admin/invoices', 'customers.view': '/admin/users',
-        'riders.manage': '/admin/riders', 'pricing.manage': '/admin/pricing',
-        'staff.manage': '/admin/settings',
-      };
-      const firstPermission = ADMIN_PERMISSIONS.find(permission => hasAdminPermission(data.user, permission.key));
-      router.push(firstPermission ? destinations[firstPermission.key] : '/admin');
+      router.replace(isSuperAdmin(data.user) ? '/admin/dashboard' : '/admin/workspace');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Invalid admin email or password.');
     } finally { setLoading(false); }
