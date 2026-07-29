@@ -331,11 +331,12 @@ export default function CustomerDashboard() {
     });
   };
 
-  const handleRemoveFromBasket = (basketKey: string) => {
+  const adjustBasketQuantity = (basketKey: string, change: number) => {
     setBasket((prev) => {
       const current = prev[basketKey];
       if (!current) return prev;
-      if (current.quantity <= 1) {
+      const nextQuantity = current.quantity + change;
+      if (nextQuantity <= 0) {
         const next = { ...prev };
         delete next[basketKey];
         return next;
@@ -344,11 +345,15 @@ export default function CustomerDashboard() {
         ...prev,
         [basketKey]: {
           ...current,
-          quantity: current.quantity - 1
+          quantity: nextQuantity
         }
       };
     });
   };
+
+  const handleRemoveFromBasket = (basketKey: string) => adjustBasketQuantity(basketKey, -1);
+
+  const handleIncreaseBasketItem = (basketKey: string) => adjustBasketQuantity(basketKey, 1);
 
   const getBasketTotal = () => {
     return (Object.values(basket) as BasketItem[]).reduce((sum: number, item) => sum + item.price * item.quantity, 0);
@@ -555,10 +560,11 @@ export default function CustomerDashboard() {
         .mobile-order-position, .mobile-order-toggle { display:none; }
 
         /* Mobile bottom nav */
-        .mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #fff; border-top: 1px solid #EAE8E3; z-index: 100; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
-        .mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: #9CA3AF; cursor: pointer; width: 60px; font-family: 'DM Sans', sans-serif; }
+        .mobile-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; min-height: 76px; background: #fff; border-top: 1px solid #EAE8E3; z-index: 100; justify-content: space-around; align-items: flex-start; padding: 8px 8px max(8px, env(safe-area-inset-bottom)); box-shadow:0 -6px 22px rgba(15,23,42,.06); }
+        .mobile-nav-item { min-height:52px; display: flex; flex-direction: column; align-items: center; justify-content:center; gap: 3px; background: none; border: none; color: #9CA3AF; cursor: pointer; width: 72px; border-radius:12px; font-family: 'DM Sans', sans-serif; touch-action:manipulation; }
+        .mobile-nav-item svg { width:27px; height:27px; stroke-width:2.2; }
         .mobile-nav-item.active { color: #0D0D0D; }
-        .mobile-nav-label { font-size: 10px; font-weight: 600; letter-spacing: -0.1px; }
+        .mobile-nav-label { font-size: 11px; font-weight: 700; letter-spacing: -0.1px; }
 
         /* Floating Mobile Basket Bar */
         .mobile-basket-bar { display: none; position: fixed; bottom: 80px; left: 16px; right: 16px; background: #0D0D0D; color: #FAF9F7; padding: 14px 20px; border-radius: 100px; z-index: 99; align-items: center; justify-content: space-between; box-shadow: 0 8px 30px rgba(0,0,0,0.18); cursor: pointer; animation: fadeUp 0.3s ease; }
@@ -570,10 +576,11 @@ export default function CustomerDashboard() {
 
         /* Responsive Layouts */
         @media (max-width: 900px) {
-          .desktop-layout { flex-direction: column !important; }
+          .dashboard-shell { min-height:100dvh !important; height:auto !important; }
+          .desktop-layout { flex-direction: column !important; flex:0 0 auto !important; min-height:0 !important; }
           .sidebar { display: none !important; }
           .desktop-basket { display: none !important; }
-          .main-content { padding: 24px 16px 110px !important; }
+          .main-content { height:auto !important; min-height:0 !important; overflow:visible !important; padding: 24px 16px calc(96px + env(safe-area-inset-bottom)) !important; }
           .mobile-bottom-nav { display: flex; }
           .header-nav { padding: 16px 20px !important; }
           .services-grid { grid-template-columns: 1fr !important; }
@@ -957,10 +964,10 @@ export default function CustomerDashboard() {
                                 {formatCurrency(item.price * item.quantity)}
                               </div>
                               <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" style={{ width: '18px', height: '18px' }}>
+                                <button type="button" onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" aria-label={`Remove one ${item.serviceName}`} style={{ width: '28px', height: '28px' }}>
                                   <Minus size={9} />
                                 </button>
-                                <button onClick={() => handleAddToBasket(item.serviceName.split(' - ')[0], item.serviceName.split(' - ')[1], item.price)} className="btn-round-adjust" style={{ width: '18px', height: '18px' }}>
+                                <button type="button" onClick={() => handleIncreaseBasketItem(item.serviceName)} className="btn-round-adjust" aria-label={`Add one ${item.serviceName}`} style={{ width: '28px', height: '28px' }}>
                                   <Plus size={9} />
                                 </button>
                               </div>
@@ -1328,7 +1335,7 @@ export default function CustomerDashboard() {
           onClick={() => { setActiveTab('BOOK'); setSuccess(''); setError(''); }}
           className={`mobile-nav-item ${activeTab === 'BOOK' ? 'active' : ''}`}
         >
-          <ShoppingBag size={20} />
+          <ShoppingBag size={27} />
           <span className="mobile-nav-label">Book</span>
         </button>
 
@@ -1337,7 +1344,7 @@ export default function CustomerDashboard() {
           className={`mobile-nav-item ${activeTab === 'ACTIVE' ? 'active' : ''}`}
         >
           <div style={{ position: 'relative' }}>
-            <Activity size={20} />
+            <Activity size={27} />
             {activeOrders.length > 0 && (
               <div style={{
                 position: 'absolute', top: '-4px', right: '-8px',
@@ -1353,7 +1360,7 @@ export default function CustomerDashboard() {
           onClick={() => { setActiveTab('HISTORY'); setSuccess(''); setError(''); refreshOrders(); }}
           className={`mobile-nav-item ${activeTab === 'HISTORY' ? 'active' : ''}`}
         >
-          <History size={20} />
+          <History size={27} />
           <span className="mobile-nav-label">History</span>
         </button>
 
@@ -1361,7 +1368,7 @@ export default function CustomerDashboard() {
           onClick={() => setProfileDrawerOpen(true)}
           className={`mobile-nav-item ${profileDrawerOpen ? 'active' : ''}`}
         >
-          <User size={20} />
+          <User size={27} />
           <span className="mobile-nav-label">Profile</span>
         </button>
       </div>
@@ -1407,11 +1414,11 @@ export default function CustomerDashboard() {
                       {formatCurrency(item.price * item.quantity)}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" style={{ width: '22px', height: '22px' }}>
-                        <Minus size={10} />
+                      <button type="button" onClick={() => handleRemoveFromBasket(item.serviceName)} className="btn-round-adjust" aria-label={`Remove one ${item.serviceName}`} style={{ width: '38px', height: '38px' }}>
+                        <Minus size={16} />
                       </button>
-                      <button onClick={() => handleAddToBasket(item.serviceName.split(' - ')[0], item.serviceName.split(' - ')[1], item.price)} className="btn-round-adjust" style={{ width: '22px', height: '22px' }}>
-                        <Plus size={10} />
+                      <button type="button" onClick={() => handleIncreaseBasketItem(item.serviceName)} className="btn-round-adjust" aria-label={`Add one ${item.serviceName}`} style={{ width: '38px', height: '38px' }}>
+                        <Plus size={16} />
                       </button>
                     </div>
                   </div>
