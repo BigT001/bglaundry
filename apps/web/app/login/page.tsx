@@ -1,14 +1,14 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
-type Step = 'MODE_SELECT' | 'LOGIN_PHONE' | 'LOGIN_PASSWORD' | 'RESET_REQUEST' | 'RESET_CONFIRM' | 'RESET_SUCCESS' | 'SIGNUP_PHONE' | 'SIGNUP_NAME' | 'SIGNUP_ADDRESS' | 'SIGNUP_PASSWORD' | 'SUCCESS';
+type Step = 'LOGIN_PHONE' | 'LOGIN_PASSWORD' | 'RESET_REQUEST' | 'RESET_CONFIRM' | 'RESET_SUCCESS' | 'SIGNUP_PHONE' | 'SIGNUP_NAME' | 'SIGNUP_ADDRESS' | 'SIGNUP_PASSWORD' | 'SUCCESS';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('MODE_SELECT');
+  const [step, setStep] = useState<Step>('LOGIN_PHONE');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -21,6 +21,8 @@ export default function LoginPage() {
   const [resetCode, setResetCode] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState('');
+  const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
+  const codeInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
   const setSelectedAddress = addressType === 'HOME' ? setHomeAddress : setOfficeAddress;
@@ -77,7 +79,7 @@ export default function LoginPage() {
     e.preventDefault(); setLoading(true); setError(''); setRecoveryMessage('');
     try {
       const { data } = await axios.post('/api/v1/auth/password-reset/request', {
-        identifier: phone, accountType: 'CUSTOMER',
+        identifier: recoveryIdentifier.trim(), accountType: 'CUSTOMER',
       });
       setRecoveryMessage(data.developmentCode ? `${data.message} Development code: ${data.developmentCode}` : data.message);
       setStep('RESET_CONFIRM');
@@ -88,16 +90,52 @@ export default function LoginPage() {
 
   const confirmPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (resetCode.length !== 6) { setError('Enter the complete six-digit verification code.'); return; }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) { setError('Use at least eight characters with one letter and one number.'); return; }
     if (password !== confirmPassword) { setError('The passwords do not match.'); return; }
     setLoading(true); setError('');
     try {
       await axios.post('/api/v1/auth/password-reset/confirm', {
-        identifier: phone, code: resetCode, password, accountType: 'CUSTOMER',
+        identifier: recoveryIdentifier.trim(), code: resetCode, password, accountType: 'CUSTOMER',
       });
       setStep('RESET_SUCCESS'); setPassword(''); setConfirmPassword(''); setResetCode('');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to change your password.');
     } finally { setLoading(false); }
+  };
+
+  const selectFlow = (flow: 'LOGIN' | 'SIGNUP' | 'RESET') => {
+    setError('');
+    setRecoveryMessage('');
+    setPassword('');
+    setConfirmPassword('');
+    setResetCode('');
+    if (flow === 'LOGIN') setStep('LOGIN_PHONE');
+    if (flow === 'SIGNUP') setStep('SIGNUP_PHONE');
+    if (flow === 'RESET') {
+      setRecoveryIdentifier(phone);
+      setStep('RESET_REQUEST');
+    }
+  };
+
+  const setCodeDigit = (index: number, value: string) => {
+    if (value.replace(/\D/g, '').length > 1) {
+      pasteCode(value);
+      return;
+    }
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const digits = resetCode.padEnd(6, ' ').split('');
+    digits[index] = digit || ' ';
+    setResetCode(digits.join('').replace(/\s/g, '').slice(0, 6));
+    setError('');
+    if (digit && index < 5) codeInputRefs.current[index + 1]?.focus();
+  };
+
+  const pasteCode = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 6);
+    if (!digits) return;
+    setResetCode(digits);
+    codeInputRefs.current[Math.min(digits.length, 5)]?.focus();
   };
 
   return (
@@ -171,7 +209,7 @@ export default function LoginPage() {
           pointer-events: none;
           border-right: 1px solid #E8E6E1; padding-right: 10px;
         }
-        input[type=tel], input[type=text], input[type=password] {
+        input[type=tel], input[type=text], input[type=email], input[type=password] {
           width: 100%; height: 48px;
           border: 1.5px solid #E8E6E1; border-radius: 10px;
           font-size: 15px; font-family: 'DM Sans', sans-serif;
@@ -295,7 +333,35 @@ export default function LoginPage() {
         }
         .forgot-link { width: 100%; border: 0; background: none; color: #2858A7; font: 600 13px 'DM Sans'; text-align: right; cursor: pointer; margin-top: -4px; }
         .recovery-message { font-size: 12px; line-height: 1.5; color: #215F46; background: #ECFDF5; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
-        .code-input { text-align: center; letter-spacing: .35em; font-size: 20px !important; font-weight: 800; }
+        .code-group { display:grid; grid-template-columns:repeat(6,1fr); gap:7px; margin-bottom:18px; }
+        .code-box { width:100% !important; height:52px !important; padding:0 !important; border:1.5px solid #DDE3EB !important; border-radius:11px !important; background:#F9FAFB !important; text-align:center; font:800 20px 'DM Sans',sans-serif !important; color:#173F83 !important; caret-color:#173F83; }
+        .code-box:focus { border-color:#1565C0 !important; background:#fff !important; box-shadow:0 0 0 3px rgba(21,101,192,.12) !important; }
+        .form-heading { text-align:center; font-size:24px; line-height:1.15; font-weight:800; letter-spacing:-.7px; color:#111827; margin-bottom:8px; }
+        .form-copy { text-align:center; font-size:13px; line-height:1.5; color:#6B7280; margin-bottom:24px; }
+        .button-row { display:flex; gap:10px; margin-top:20px; }
+        .button-row .btn-secondary { flex:0 0 38%; }
+        .security-note { display:flex; align-items:flex-start; gap:8px; padding:11px 12px; border-radius:10px; background:#F3F7FC; color:#526077; font-size:11px; line-height:1.45; margin-bottom:18px; }
+        .auth-switch { display:flex; align-items:center; justify-content:center; gap:5px; margin-top:20px; color:#7B8494; font-size:12px; }
+        .auth-switch button { border:0; padding:3px; background:none; color:#2858A7; font:700 12px 'DM Sans',sans-serif; cursor:pointer; }
+        .auth-switch button:hover { text-decoration:underline; }
+        @media (max-width: 600px) {
+          html, body { min-height:100%; height:auto; }
+          .page { min-height:100dvh; align-items:flex-start; padding:20px 14px 32px; background:linear-gradient(180deg,#EDF4FC 0,#F7F6F2 42%,#F7F6F2 100%); }
+          .card { max-width:440px; border-radius:24px; padding:24px 20px 26px; box-shadow:0 16px 45px rgba(15,23,42,.10); border:1px solid rgba(255,255,255,.8); }
+          .brand-top { gap:10px; margin-bottom:10px; }
+          .brand-logo { width:68px; height:68px; border-radius:20px; }
+          .brand-logo img { width:58px; height:58px; object-fit:contain; }
+          .brand-name { font-size:20px; }
+          .tagline { font-size:13px; margin-bottom:22px; }
+          .divider { margin-bottom:22px; }
+          label { font-size:11px; letter-spacing:1.2px; }
+          input[type=tel], input[type=text], input[type=email], input[type=password] { height:54px; border-radius:13px; font-size:16px; }
+          textarea { min-height:100px; border-radius:13px; font-size:16px; }
+          .btn { height:52px; border-radius:13px; font-size:15px; }
+          .form-heading { font-size:22px; }
+          .code-group { gap:5px; }
+          .code-box { height:50px !important; border-radius:10px !important; font-size:19px !important; }
+        }
       `}} />
 
       <div className="page">
@@ -307,32 +373,11 @@ export default function LoginPage() {
             <div className="brand-name">BG Laundry</div>
           </div>
 
-          {/* MODE SELECT */}
-          {step === 'MODE_SELECT' && (
-            <>
-              <div className="tagline">Welcome back</div>
-              <div className="divider" />
-              <div className="mode-buttons">
-                <button
-                  className="btn"
-                  onClick={() => { setStep('LOGIN_PHONE'); setError(''); }}
-                >
-                  Sign In
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => { setStep('SIGNUP_PHONE'); setError(''); }}
-                >
-                  Create Account
-                </button>
-              </div>
-            </>
-          )}
-
           {/* LOGIN - PHONE */}
           {step === 'LOGIN_PHONE' && (
             <form onSubmit={(e) => { e.preventDefault(); setStep('LOGIN_PASSWORD'); }}>
-              <div className="tagline">Sign In</div>
+              <h1 className="form-heading">Welcome back</h1>
+              <p className="form-copy">Enter the phone number connected to your BG Laundry account.</p>
               <div className="divider" />
               {error && <div className="error">{error}</div>}
               <label>Phone Number</label>
@@ -346,14 +391,14 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <button type="button" className="forgot-link" onClick={() => { setStep('RESET_REQUEST'); setPassword(''); setError(''); }}>Forgot password?</button>
-              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button type="button" className="forgot-link" onClick={() => { setRecoveryIdentifier(phone); setStep('RESET_REQUEST'); setPassword(''); setError(''); }}>Forgot password?</button>
+              <div className="button-row">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => { setStep('MODE_SELECT'); setPhone(''); setPassword(''); setError(''); }}
+                  onClick={() => router.push('/')}
                 >
-                  Back
+                  Home
                 </button>
                 <button
                   type="submit"
@@ -363,35 +408,56 @@ export default function LoginPage() {
                   {loading ? <span className="spinner" /> : 'Next'}
                 </button>
               </div>
+              <div className="auth-switch"><span>New to BG Laundry?</span><button type="button" onClick={() => selectFlow('SIGNUP')}>Create an account</button></div>
             </form>
           )}
 
           {step === 'RESET_REQUEST' && (
-            <form onSubmit={requestPasswordReset}>
-              <div className="tagline">Reset Your Password</div>
+            <form onSubmit={requestPasswordReset} noValidate>
+              <h1 className="form-heading">Reset your password</h1>
+              <p className="form-copy">Use your account email for the most reliable delivery, or enter your phone number for SMS.</p>
               <div className="divider" />
               {error && <div className="error">{error}</div>}
-              <label>Phone Number</label>
+              <label>Phone number or email</label>
               <div className="input-wrap">
-                <span className="prefix">+234</span>
-                <input type="tel" placeholder="801 234 5678" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} required autoFocus />
+                <input type="text" inputMode="email" autoComplete="username" placeholder="you@example.com or 0801 234 5678" value={recoveryIdentifier} onChange={(e) => setRecoveryIdentifier(e.target.value)} required autoFocus />
               </div>
-              <p className="hint">We’ll email a six-digit verification code to your account email. If SMS is available, we’ll send it there too.</p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => { setStep('LOGIN_PASSWORD'); setError(''); }}>Back</button>
-                <button type="submit" className="btn" disabled={!phone || loading}>{loading ? <span className="spinner" /> : 'Send Code'}</button>
+              <div className="security-note"><span>✦</span><span>We’ll send a six-digit code to the email saved on your account and by SMS when available. Check Spam or Promotions if it does not appear in your inbox.</span></div>
+              <div className="button-row">
+                <button type="button" className="btn btn-secondary" onClick={() => selectFlow('LOGIN')}>Back</button>
+                <button type="submit" className="btn" disabled={!recoveryIdentifier.trim() || loading}>{loading ? <span className="spinner" /> : 'Send Code'}</button>
               </div>
             </form>
           )}
 
           {step === 'RESET_CONFIRM' && (
-            <form onSubmit={confirmPasswordReset}>
-              <div className="tagline">Verify & Choose Password</div>
+            <form onSubmit={confirmPasswordReset} noValidate>
+              <h1 className="form-heading">Check your messages</h1>
+              <p className="form-copy">Enter the six-digit BG Laundry recovery code and choose a secure password.</p>
               <div className="divider" />
               {recoveryMessage && <div className="recovery-message">{recoveryMessage}</div>}
               {error && <div className="error">{error}</div>}
               <label>Verification Code</label>
-              <div className="input-wrap"><input className="code-input" inputMode="numeric" value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required /></div>
+              <div className="code-group" onPaste={(event) => { event.preventDefault(); pasteCode(event.clipboardData.getData('text')); }}>
+                {Array.from({ length: 6 }, (_, index) => (
+                  <input
+                    key={index}
+                    ref={(element) => { codeInputRefs.current[index] = element; }}
+                    className="code-box"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                    aria-label={`Verification code digit ${index + 1}`}
+                    value={resetCode[index] || ''}
+                    onChange={(event) => setCodeDigit(index, event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Backspace' && !resetCode[index] && index > 0) codeInputRefs.current[index - 1]?.focus();
+                      if (event.key === 'ArrowLeft' && index > 0) codeInputRefs.current[index - 1]?.focus();
+                      if (event.key === 'ArrowRight' && index < 5) codeInputRefs.current[index + 1]?.focus();
+                    }}
+                  />
+                ))}
+              </div>
               <label>New Password</label>
               <div className="input-wrap"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8} /></div>
               <label>Confirm Password</label>
@@ -414,7 +480,8 @@ export default function LoginPage() {
           {/* LOGIN - PASSWORD */}
           {step === 'LOGIN_PASSWORD' && (
             <form onSubmit={handleLogin}>
-              <div className="tagline">Enter Your Password</div>
+              <h1 className="form-heading">Enter your password</h1>
+              <p className="form-copy">Signing in as {phone || 'your BG Laundry account'}.</p>
               <div className="divider" />
               {error && <div className="error">{error}</div>}
               <label>Password</label>
@@ -426,19 +493,11 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoFocus
+                  autoComplete="current-password"
                 />
               </div>
-              <label>Email Address</label>
-              <div className="input-wrap">
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button type="button" className="forgot-link" onClick={() => { setRecoveryIdentifier(phone); setStep('RESET_REQUEST'); setPassword(''); setError(''); }}>Forgot password?</button>
+              <div className="button-row">
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -479,7 +538,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => { setStep('MODE_SELECT'); setPhone(''); setError(''); }}
+                  onClick={() => selectFlow('LOGIN')}
                 >
                   Back
                 </button>
@@ -491,6 +550,7 @@ export default function LoginPage() {
                   Next
                 </button>
               </div>
+              <div className="auth-switch"><span>Already have an account?</span><button type="button" onClick={() => selectFlow('LOGIN')}>Sign in</button></div>
             </form>
           )}
 
@@ -509,6 +569,18 @@ export default function LoginPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   required
                   autoFocus
+                />
+              </div>
+              <label>Email Address</label>
+              <div className="input-wrap">
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value.trimStart())}
+                  required
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
@@ -604,15 +676,16 @@ export default function LoginPage() {
               <div className="input-wrap">
                 <input
                   type="password"
-                  placeholder="Minimum 6 characters"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
+                  autoComplete="new-password"
                   autoFocus
                 />
               </div>
-              <div className="hint">Password must be at least 6 characters</div>
+              <div className="hint">Use at least eight characters with one letter and one number.</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
@@ -624,7 +697,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="btn"
-                  disabled={password.length < 6 || loading}
+                  disabled={password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password) || loading}
                 >
                   {loading ? <span className="spinner" /> : 'Create Account'}
                 </button>
