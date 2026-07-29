@@ -60,28 +60,96 @@ function statusGroup(status: string) {
 
 function DriverLocationMap({ order }: { order: Order }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const profile = order.driver?.driverProfile;
   const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [expanded]);
 
   useEffect(() => {
     if (!token || !containerRef.current || profile?.currentLat == null || profile.currentLng == null) return;
     let map: import('mapbox-gl').Map | null = null;
     let cancelled = false;
-    void import('mapbox-gl').then(({ default: mapboxgl }) => {
+    void import('mapbox-gl').then(async ({ default: mapboxgl }) => {
       if (cancelled || !containerRef.current) return;
       mapboxgl.accessToken = token;
       const coordinates: [number, number] = [profile.currentLng!, profile.currentLat!];
-      map = new mapboxgl.Map({ container: containerRef.current, style: 'mapbox://styles/mapbox/streets-v12', center: coordinates, zoom: 15 });
+      const destinationAddress = ['PICKUP_PENDING', 'PICKUP_IN_PROGRESS'].includes(order.status) ? order.pickupAddress : order.deliveryAddress;
+      let destination: [number, number] | null = null;
+      let destinationLabel = destinationAddress;
+      try {
+        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationAddress)}.json?country=ng&autocomplete=false&proximity=${coordinates.join(',')}&limit=1&access_token=${token}`);
+        const result = await response.json();
+        const match = result.features?.[0];
+        // Always show the provider's best available customer-location match.
+        // The matched label is exposed on the marker so dispatch can verify it.
+        if (Array.isArray(match?.center)) {
+          destination = match.center;
+          destinationLabel = match.place_name || destinationAddress;
+        }
+      } catch { /* Keep showing live GPS if routing is temporarily unavailable. */ }
+      if (cancelled || !containerRef.current) return;
+      map = new mapboxgl.Map({ container: containerRef.current, style: 'mapbox://styles/mapbox/streets-v12', center: coordinates, zoom: destination ? 12 : 15, attributionControl: false });
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
+
+      const addMarkerPopup = (element: HTMLElement, popup: import('mapbox-gl').Popup) => {
+        let pinned = false;
+        element.addEventListener('mouseenter', () => { if (!pinned) popup.addTo(map!); });
+        element.addEventListener('mouseleave', () => { if (!pinned) popup.remove(); });
+        element.addEventListener('click', () => {
+          pinned = !pinned;
+          if (pinned) popup.addTo(map!); else popup.remove();
+        });
+      };
       const marker = document.createElement('div'); marker.className = styles.liveRiderMarker;
+      marker.title = `${order.driver?.fullName || 'Rider'} · live GPS`;
       new mapboxgl.Marker({ element: marker }).setLngLat(coordinates).addTo(map);
+      const riderPopupContent = document.createElement('div');
+      const riderName = document.createElement('strong'); riderName.textContent = order.driver?.fullName || 'Assigned rider';
+      const riderDetail = document.createElement('span'); riderDetail.textContent = `Live GPS · ${readable(order.status)}`;
+      riderPopupContent.append(riderName, riderDetail);
+      addMarkerPopup(marker, new mapboxgl.Popup({ closeButton: false, offset: 18, className: styles.locationPopup }).setLngLat(coordinates).setDOMContent(riderPopupContent));
+      if (destination) {
+        const stop = document.createElement('div'); stop.className = styles.destinationMarker;
+        stop.title = `Assigned stop: ${destinationAddress}`;
+        new mapboxgl.Marker({ element: stop }).setLngLat(destination).addTo(map);
+        const stopPopupContent = document.createElement('div');
+        const stopName = document.createElement('strong'); stopName.textContent = order.status.startsWith('PICKUP') ? 'Pickup destination' : 'Delivery destination';
+        const stopAddress = document.createElement('span'); stopAddress.textContent = destinationLabel;
+        stopPopupContent.append(stopName, stopAddress);
+        addMarkerPopup(stop, new mapboxgl.Popup({ closeButton: false, offset: 24, className: styles.locationPopup }).setLngLat(destination).setDOMContent(stopPopupContent));
+        map.fitBounds(new mapboxgl.LngLatBounds().extend(coordinates).extend(destination), { padding: 55, maxZoom: 15, duration: 0 });
+        map.once('load', async () => {
+          try {
+            const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates.join(',')};${destination!.join(',')}?geometries=geojson&overview=full&access_token=${token}`);
+            const result = await response.json();
+            const geometry = result.routes?.[0]?.geometry;
+            if (!geometry || !map) return;
+            map.addSource('active-route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry } });
+            map.addLayer({ id: 'active-route', type: 'line', source: 'active-route', paint: { 'line-color': '#174da7', 'line-width': 5, 'line-opacity': .85 } });
+          } catch { /* Markers remain usable if directions cannot be fetched. */ }
+        });
+      }
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
     });
     return () => { cancelled = true; map?.remove(); };
-  }, [profile?.currentLat, profile?.currentLng, token]);
+  }, [expanded, order.deliveryAddress, order.pickupAddress, order.status, profile?.currentLat, profile?.currentLng, token]);
 
   if (!order.driver) return null;
-  return <section className={styles.driverTracking}>
-    <div><span><i className={profile?.isOnline ? styles.trackingOnline : ''}/>{profile?.isOnline ? 'Live rider location' : 'Last rider location'}</span><strong>{order.driver.fullName}</strong><small>{profile?.currentLat == null ? 'Waiting for the rider to enable precise GPS.' : `Position refreshes every 15 seconds · ${readable(order.status)}`}</small></div>
+  return <section className={`${styles.driverTracking} ${expanded ? styles.expandedMap : ''}`} role={expanded ? 'dialog' : undefined} aria-modal={expanded || undefined} aria-label={expanded ? `Live map for ${order.orderNumber}` : undefined}>
+    <div className={styles.mapInformation}><span><i className={profile?.isOnline ? styles.trackingOnline : ''}/>{profile?.isOnline ? 'Live rider location' : 'Last rider location'}</span><strong>{order.driver.fullName}</strong><small>{profile?.currentLat == null ? 'Waiting for the rider to enable precise GPS.' : `Position refreshes every 15 seconds · ${readable(order.status)}`}</small><button type="button" className={styles.expandMapButton} onClick={() => setExpanded(value => !value)} aria-label={expanded ? 'Close full screen map' : 'Expand map to full screen'}>{expanded ? '× Close map' : '⛶ Expand map'}</button></div>
     {profile?.currentLat != null && profile.currentLng != null ? <div ref={containerRef} className={styles.driverMap}/> : <div className={styles.noDriverMap}><MapPin size={20}/>No GPS position received yet</div>}
   </section>;
 }
@@ -97,6 +165,7 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const seenEventsRef = useRef<Set<string>>(new Set());
 
   const headers = useCallback(() => ({
     Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
@@ -136,6 +205,31 @@ export default function AdminOrdersPage() {
     const timer = window.setInterval(() => fetchOrdersAndDrivers(true), 15000);
     return () => window.clearInterval(timer);
   }, [fetchOrdersAndDrivers, router]);
+
+  useEffect(() => {
+    const events = orders.flatMap(order => order.trackingHistory
+      .filter(event => /arrived|reached|pickup confirmed|delivery confirmed/i.test(event.note || ''))
+      .map(event => ({ ...event, orderNumber: order.orderNumber })));
+    if (!seenEventsRef.current.size) {
+      events.forEach(event => seenEventsRef.current.add(event.id));
+      return;
+    }
+    events.forEach(event => {
+      if (seenEventsRef.current.has(event.id)) return;
+      seenEventsRef.current.add(event.id);
+      const message = `${event.orderNumber}: ${event.note || readable(event.status)}`;
+      setNotice(message);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Rider update', { body: message, tag: event.id });
+      }
+    });
+  }, [orders]);
+
+  async function enableNotifications() {
+    if (!('Notification' in window)) return setNotice('This browser does not support desktop notifications.');
+    const permission = await Notification.requestPermission();
+    setNotice(permission === 'granted' ? 'Rider arrival notifications are enabled.' : 'Notification permission was not granted.');
+  }
 
   async function assignDriver(orderId: string, driverId: string) {
     if (!driverId) return;
@@ -191,7 +285,7 @@ export default function AdminOrdersPage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <div><span className={styles.eyebrow}>Operations / Orders</span><h1>Order operations</h1><p>Track every handoff, dispatch riders, and manage the laundry lifecycle.</p></div>
-        <div className={styles.live}><i />Live updates<span>Every 15 seconds</span></div>
+        <button className={styles.live} onClick={enableNotifications} title="Enable rider arrival notifications"><i />Live updates<span>Every 15 seconds · Enable alerts</span></button>
       </header>
 
       {notice && <button className={styles.notice} onClick={() => setNotice('')}>{notice}<span>×</span></button>}

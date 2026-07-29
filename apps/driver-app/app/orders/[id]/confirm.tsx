@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
+import { API_URL } from '../../../lib/config';
+import { riderToken } from '../../../lib/session';
 
 export default function ConfirmHandoffScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, status } = useLocalSearchParams<{ id: string; status: string }>();
 
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const API_URL = 'http://localhost:4000/api/v1';
 
   const handleConfirm = async () => {
     if (!otp) {
@@ -19,21 +19,18 @@ export default function ConfirmHandoffScreen() {
     }
     setLoading(true);
     try {
-      // In production, drivers choose whether they are confirming PICKUP or DELIVERY.
-      // We default to PICKED_UP status transition for this mock action.
-      await axios.patch(`${API_URL}/orders/${id}/status`, {
-        status: 'PICKED_UP',
+      const token = await riderToken();
+      const nextStatus = status === 'DELIVERY_IN_PROGRESS' ? 'DELIVERED' : 'PICKED_UP';
+      await axios.patch(`${API_URL}/riders/orders/${id}/status`, {
+        status: nextStatus,
         otp,
-      });
+      }, { headers: { Authorization: `Bearer ${token}` } });
 
       Alert.alert('Success', 'Order status updated successfully!', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') }
       ]);
-    } catch (error) {
-      console.log('API OTP check fail, fallback to demo bypass:', error);
-      Alert.alert('Demo Confirm', 'OTP validated (Local demo bypass)', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
-      ]);
+    } catch (error: any) {
+      Alert.alert('Verification failed', error.response?.data?.error || 'Check the customer code and try again.');
     } finally {
       setLoading(false);
     }

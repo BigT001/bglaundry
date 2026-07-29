@@ -92,6 +92,7 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
   const lastRouteRefreshRef = useRef(0);
   const [mapReady, setMapReady] = useState(false);
   const [routeMeta, setRouteMeta] = useState<{ distance: string; duration: string } | null>(null);
+  const [mappedStopCount, setMappedStopCount] = useState(0);
   const address = destinationFor(order);
   const routeKey = orders.map(item => `${item.id}:${item.status}`).join('|');
 
@@ -110,7 +111,8 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
             const destinationAddress = destinationFor(item);
             let coordinates = geocodeCache.get(destinationAddress);
             if (!coordinates) {
-              const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationAddress)}.json?country=ng&limit=1&access_token=${token}`);
+              const proximity = position ? `&proximity=${position.longitude},${position.latitude}` : '';
+              const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationAddress)}.json?country=ng&autocomplete=false${proximity}&limit=1&access_token=${token}`);
               if (!response.ok) return null;
               const result = await response.json();
               coordinates = result.features?.[0]?.center;
@@ -122,6 +124,7 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
           if (cancelled) return;
         }
         const destination = located[0]?.coordinates;
+        setMappedStopCount(located.length);
         if (!destination || cancelled || !containerRef.current) return;
         mapboxRef.current = mapboxgl;
         mapboxgl.accessToken = token;
@@ -139,6 +142,13 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
           marker.title = `${stop.order.customer.fullName} — ${destinationFor(stop.order)}`;
           marker.onclick = () => onSelect(stop.order.id);
           new mapboxgl.Marker({ element: marker }).setLngLat(stop.coordinates).addTo(map!);
+          const popupContent = document.createElement('div');
+          const customer = document.createElement('strong'); customer.textContent = `${index + 1}. ${stop.order.customer.fullName}`;
+          const stopAddress = document.createElement('span'); stopAddress.textContent = destinationFor(stop.order);
+          popupContent.append(customer, stopAddress);
+          const popup = new mapboxgl.Popup({ closeButton: false, offset: 22 }).setLngLat(stop.coordinates).setDOMContent(popupContent);
+          marker.onmouseenter = () => popup.addTo(map!);
+          marker.onmouseleave = () => popup.remove();
           bounds.extend(stop.coordinates);
         });
         if (position) {
@@ -175,7 +185,10 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
     let cancelled = false;
     void (async () => {
       try {
-        const routeStops = locatedStopsRef.current.slice(0, 9);
+        // Mapbox accepts up to 25 coordinates for a driving route: the rider
+        // plus the next 24 customer stops. Every additional assignment remains
+        // visible as a numbered marker and becomes routable as stops complete.
+        const routeStops = locatedStopsRef.current.slice(0, 24);
         const coordinates = [riderCoordinates, ...routeStops].map(point => `${point[0]},${point[1]}`).join(';');
         const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?geometries=geojson&overview=full&steps=false&access_token=${token}`);
         if (!response.ok || cancelled) return;
@@ -201,7 +214,8 @@ function RouteMap({ order, orders, position, onSelect }: { order: RiderOrder; or
 
   return <div className={styles.map}>
     {token ? <div ref={containerRef} className={styles.mapCanvas} aria-label={`Route map to ${address}`}/> : <div className={styles.mapFallback}><Icon name="route"/><strong>Mapbox setup required</strong><span>Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to show live routes.</span></div>}
-    {routeMeta && <div className={styles.routeMeta}><strong>{routeMeta.duration}</strong><span>{routeMeta.distance} · {orders.length} stops mapped</span></div>}
+    {routeMeta && <div className={styles.routeMeta}><strong>{routeMeta.duration}</strong><span>{routeMeta.distance} · {mappedStopCount} of {orders.length} stops mapped</span></div>}
+    {token && mappedStopCount > 0 && mappedStopCount < orders.length && <div className={styles.mapWarning}>{orders.length - mappedStopCount} address{orders.length - mappedStopCount === 1 ? '' : 'es'} need more detail</div>}
   </div>;
 }
 

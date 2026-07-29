@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@bglaundry/rider-core": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@expo/metro-runtime": "~6.1.2",
     "axios": "^1.6.0",
     "expo": "~54.0.0",

@@ -2,38 +2,26 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../lib/config';
+import { DRIVER_TOKEN_KEY, DRIVER_USER_KEY } from '../../lib/session';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [code, setCode] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:4000/api/v1';
-
-  const handleRequestOtp = async () => {
-    if (!phoneNumber) {
-      Alert.alert('Error', 'Please enter a valid phone number');
-      return;
-    }
+  const handleLogin = async () => {
+    if (!phoneNumber || password.length < 8) return Alert.alert('Sign in', 'Enter your rider phone number and password.');
+    setLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/request-otp`, { phoneNumber });
-      setIsOtpSent(true);
-      Alert.alert('OTP Sent', 'Check backend console for verification code');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to request OTP');
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    try {
-      const response = await axios.post(`${API_URL}/auth/verify-otp`, { phoneNumber, code });
-      Alert.alert('Login Success', `Driver Panel Authenticated!`, [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Invalid OTP code. Use "1234" for mock bypass.');
-    }
+      const { data } = await axios.post(`${API_URL}/auth/login`, { phoneNumber, password });
+      if (data.user?.role !== 'DRIVER') throw new Error('This account is not a rider account.');
+      await AsyncStorage.multiSet([[DRIVER_TOKEN_KEY, data.token], [DRIVER_USER_KEY, JSON.stringify(data.user)]]);
+      router.replace('/(tabs)');
+    } catch (error: any) { Alert.alert('Unable to sign in', error.response?.data?.error || error.message || 'Check your details and try again.'); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -41,8 +29,7 @@ export default function LoginScreen() {
       <Text style={styles.brandTitle}>BG Driver Portal</Text>
       <Text style={styles.brandSubtitle}>Delivery Coordinator App</Text>
 
-      {!isOtpSent ? (
-        <View style={styles.form}>
+      <View style={styles.form}>
           <Text style={styles.label}>Driver Phone Number</Text>
           <TextInput
             style={styles.input}
@@ -52,27 +39,19 @@ export default function LoginScreen() {
             value={phoneNumber}
             onChangeText={setPhoneNumber}
           />
-          <TouchableOpacity style={styles.button} onPress={handleRequestOtp}>
-            <Text style={styles.buttonText}>Get Verification Code</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.form}>
-          <Text style={styles.label}>Enter 4-Digit OTP Code</Text>
+          <Text style={styles.label}>Password</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. 1234"
+            placeholder="Your rider password"
             placeholderTextColor="#94A3B8"
-            keyboardType="number-pad"
-            maxLength={4}
-            value={code}
-            onChangeText={setCode}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
           />
-          <TouchableOpacity style={styles.button} onPress={handleVerifyOtp}>
-            <Text style={styles.buttonText}>Confirm & Login</Text>
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? 'Signing in…' : 'Sign in to assignments'}</Text>
           </TouchableOpacity>
         </View>
-      )}
     </View>
   );
 }

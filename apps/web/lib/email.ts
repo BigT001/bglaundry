@@ -32,7 +32,7 @@ const shell = (title: string, preheader: string, content: string) => `<!doctype 
 
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RESEND_FROM_EMAIL?.trim() || 'BG Laundry <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL?.trim() || 'BG Laundry <notifications@nextgenkiddies.com>';
   if (!apiKey) {
     console.warn('[Email] RESEND_API_KEY is not configured.');
     return false;
@@ -72,6 +72,20 @@ async function adminNotificationEmails() {
   }
   return (process.env.ADMIN_NOTIFICATION_EMAILS || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || '')
     .split(',').map(email => email.trim().toLowerCase()).filter(Boolean).slice(0, 3);
+}
+
+export async function sendRiderArrivalEmails(input: { orderNumber: string; customerName: string; place: string }) {
+  const recipients = await adminNotificationEmails();
+  if (!recipients.length) return false;
+  const title = `Rider arrived for ${input.orderNumber}`;
+  const text = `The rider has arrived at the ${input.place} location for ${input.orderNumber} (${input.customerName}).`;
+  return sendEmail({
+    to: recipients,
+    subject: title,
+    html: shell(title, text, `<p style="color:#526077;line-height:1.6">${escapeHtml(text)}</p>`),
+    text,
+    tags: [{ name: 'category', value: 'rider-arrival' }],
+  });
 }
 
 type OrderEmailInput = {

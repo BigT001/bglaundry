@@ -325,7 +325,7 @@ export default function Sidebar() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 24px;
+          gap: 16px;
           box-sizing: border-box;
           position: relative;
         }
@@ -356,7 +356,7 @@ export default function Sidebar() {
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 12px;
+          margin-bottom: 4px;
           overflow: hidden;
           white-space: nowrap;
         }
@@ -396,7 +396,7 @@ export default function Sidebar() {
         .sidebarNav {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 5px;
           flex: 1;
         }
 
@@ -413,16 +413,16 @@ export default function Sidebar() {
           align-items: center !important;
           justify-content: flex-start !important;
           gap: 14px !important;
-          padding: 12px 16px !important;
+          padding: 8px 14px !important;
           border-radius: 16px !important;
           color: #000000 !important;
           text-decoration: none !important;
-          font-size: 14px !important;
+          font-size: 15px !important;
           font-weight: 700 !important;
           transition: background-color 0.22s ease, color 0.22s ease, transform 0.18s ease, box-shadow 0.22s ease !important;
           background-color: transparent !important;
           border: 1px solid transparent !important;
-          min-height: 50px !important;
+          min-height: 44px !important;
           white-space: nowrap !important;
           flex-wrap: nowrap !important;
         }
