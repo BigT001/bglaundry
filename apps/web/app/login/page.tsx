@@ -168,8 +168,7 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 14px;
-          margin-bottom: 14px;
+          margin-bottom: 22px;
         }
         .brand-logo {
           width: 84px;
@@ -180,11 +179,6 @@ export default function LoginPage() {
           background: linear-gradient(180deg, #EAF2FF 0%, #FFFFFF 100%);
           box-shadow: 0 12px 30px rgba(15,23,42,0.08);
           overflow: hidden;
-        }
-        .brand-name {
-          font-size: 18px; font-weight: 900;
-          color: #0D0D0D;
-          letter-spacing: -0.4px;
         }
         .tagline {
           text-align: center;
@@ -348,10 +342,9 @@ export default function LoginPage() {
           html, body { min-height:100%; height:auto; }
           .page { min-height:100dvh; align-items:flex-start; padding:20px 14px 32px; background:linear-gradient(180deg,#EDF4FC 0,#F7F6F2 42%,#F7F6F2 100%); }
           .card { max-width:440px; border-radius:24px; padding:24px 20px 26px; box-shadow:0 16px 45px rgba(15,23,42,.10); border:1px solid rgba(255,255,255,.8); }
-          .brand-top { gap:10px; margin-bottom:10px; }
+          .brand-top { margin-bottom:18px; }
           .brand-logo { width:68px; height:68px; border-radius:20px; }
           .brand-logo img { width:58px; height:58px; object-fit:contain; }
-          .brand-name { font-size:20px; }
           .tagline { font-size:13px; margin-bottom:22px; }
           .divider { margin-bottom:22px; }
           label { font-size:11px; letter-spacing:1.2px; }
@@ -370,7 +363,6 @@ export default function LoginPage() {
             <div className="brand-logo">
               <Image src="/bglogo.png" alt="BG Laundry" width={68} height={68} priority />
             </div>
-            <div className="brand-name">BG Laundry</div>
           </div>
 
           {/* LOGIN - PHONE */}

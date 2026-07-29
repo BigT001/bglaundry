@@ -494,24 +494,43 @@ export default function CustomerDashboard() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
         
-        .profile-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; animation: fadeIn 0.25s ease; }
-        .profile-drawer-container { position: fixed; top: 50%; left: 50%; width: min(540px, 92vw); max-height: 90vh; overflow-y: auto; background: #FFFFFF; z-index: 151; padding: 28px 28px 24px; border-radius: 28px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18); transform: translate(-50%, -50%) scale(0.98); opacity: 0; transition: opacity 0.24s ease, transform 0.24s ease; display: flex; flex-direction: column; }
+        .profile-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.52); backdrop-filter: blur(5px); z-index: 150; animation: fadeIn 0.25s ease; }
+        .profile-drawer-container { position: fixed; top: 50%; left: 50%; width: min(820px, calc(100vw - 40px)); max-height: min(90vh, 860px); overflow: hidden; background: #F7F8FA; z-index: 151; border: 1px solid rgba(255,255,255,.72); border-radius: 26px; box-shadow: 0 32px 90px rgba(15,23,42,.28); transform: translate(-50%, -50%) scale(0.98); opacity: 0; transition: opacity 0.24s ease, transform 0.24s ease; display: flex; flex-direction: column; }
         .profile-drawer-container.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        .profile-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
-        .profile-drawer-title { font-size: 20px; font-weight: 800; color: #0D0D0D; margin: 0; }
-        .profile-drawer-close { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: none; background: #F3F4F6; color: #475569; cursor: pointer; }
-        .profile-drawer-section { margin-bottom: 18px; }
-        .profile-drawer-section label { display: block; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-        .profile-drawer-input, .profile-drawer-textarea { width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid #E5E7EB; background: #FCFCFC; color: #0D0D0D; font-size: 15px; font-family: 'DM Sans', sans-serif; }
-        .profile-drawer-textarea { min-height: 104px; resize: vertical; }
-        .profile-drawer-action { width: 100%; padding: 14px 18px; border: none; border-radius: 16px; background: #0D0D0D; color: #FAF9F7; font-size: 15px; font-weight: 700; cursor: pointer; }
-        .profile-drawer-divider { height: 1px; background: #E5E7EB; margin: 24px 0; }
-        .profile-security-card { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:18px; padding:18px; margin-top:22px; }
-        .profile-security-title { font-size:15px; font-weight:800; color:#0D0D0D; margin-bottom:4px; }
-        .profile-security-copy { font-size:12px; color:#64748B; line-height:1.45; margin-bottom:18px; }
+        .profile-drawer-header { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:22px 26px; background:#FFFFFF; border-bottom:1px solid #E7E9ED; flex-shrink:0; }
+        .profile-identity { display:flex; align-items:center; gap:14px; min-width:0; }
+        .profile-modal-avatar { width:48px; height:48px; flex-shrink:0; display:grid; place-items:center; border-radius:15px; background:linear-gradient(145deg,#1565C0,#0F4F9A); color:#FFFFFF; font-size:14px; font-weight:800; box-shadow:0 7px 18px rgba(21,101,192,.22); }
+        .profile-drawer-title { font-size:20px; line-height:1.2; font-weight:800; color:#0D0D0D; margin:0; letter-spacing:-.45px; }
+        .profile-drawer-subtitle { margin-top:4px; font-size:12px; color:#6B7280; line-height:1.4; }
+        .profile-drawer-close { width:40px; height:40px; flex-shrink:0; border-radius:12px; display:grid; place-items:center; border:1px solid #E5E7EB; background:#F8FAFC; color:#475569; cursor:pointer; transition:background .18s,color .18s; }
+        .profile-drawer-close:hover { background:#EEF2F7; color:#0D0D0D; }
+        .profile-drawer-body { overflow-y:auto; overscroll-behavior:contain; padding:22px 26px 26px; }
+        .profile-section-card { background:#FFFFFF; border:1px solid #E5E7EB; border-radius:18px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(15,23,42,.025); }
+        .profile-section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+        .profile-section-title { font-size:15px; font-weight:800; color:#111827; letter-spacing:-.2px; }
+        .profile-section-copy { margin-top:3px; font-size:11px; color:#7C8798; line-height:1.45; }
+        .profile-fields-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+        .profile-field-wide { grid-column:1/-1; }
+        .profile-drawer-section { margin:0; min-width:0; }
+        .profile-drawer-section label { display:block; font-size:10px; font-weight:800; color:#64748B; text-transform:uppercase; letter-spacing:1.15px; margin-bottom:7px; }
+        .profile-drawer-input, .profile-drawer-textarea { width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid #E2E5E9; outline:none; background:#FCFCFD; color:#0D0D0D; font-size:14px; font-family:'DM Sans',sans-serif; transition:border-color .18s,box-shadow .18s,background .18s; }
+        .profile-drawer-input { height:48px; }
+        .profile-drawer-input:focus, .profile-drawer-textarea:focus { border-color:#1565C0; background:#FFFFFF; box-shadow:0 0 0 3px rgba(21,101,192,.10); }
+        .profile-drawer-textarea { min-height:88px; resize:vertical; line-height:1.45; }
+        .profile-drawer-action { min-height:48px; padding:12px 20px; border:none; border-radius:12px; background:#0D0D0D; color:#FAF9F7; font-size:14px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+        .profile-primary-actions { display:flex; justify-content:flex-end; margin:2px 0 16px; }
+        .profile-primary-actions .profile-drawer-action { width:min(220px,100%); }
+        .profile-security-card { background:#F2F7FD; border-color:#DCE8F7; }
+        .profile-security-title { font-size:15px; font-weight:800; color:#0D0D0D; }
+        .profile-security-copy { font-size:11px; color:#64748B; line-height:1.45; margin-top:3px; }
+        .profile-security-fields { grid-template-columns:repeat(3,minmax(0,1fr)); }
+        .profile-security-action { margin-top:16px; display:flex; justify-content:flex-end; }
+        .profile-security-action .profile-drawer-action { min-width:190px; background:#173F83; }
         .profile-password-feedback { padding:10px 12px; border-radius:10px; font-size:12px; line-height:1.45; margin-bottom:14px; }
         .profile-password-feedback.success { background:#ECFDF5; color:#047857; border:1px solid #A7F3D0; }
         .profile-password-feedback.error { background:#FEF2F2; color:#B91C1C; border:1px solid #FECACA; }
+        .profile-logout { width:100%; min-height:46px; padding:12px 18px; border-radius:12px; border:1px solid #E5E7EB; background:#FFFFFF; color:#475569; font:700 13px 'DM Sans',sans-serif; cursor:pointer; }
+        .profile-logout:hover { color:#B91C1C; border-color:#FECACA; background:#FEF2F2; }
         
         .sidebar { width: 282px; min-height:100vh; background: #fff; border-right: 1px solid #EAE8E3; padding: 28px 18px 22px; display: flex; flex-direction: column; gap: 8px; }
         .sidebar-brand { display:flex; align-items:center; gap:11px; padding:0 10px 28px; border-bottom:1px solid #F0EEEA; margin-bottom:18px; cursor:pointer; }
@@ -576,6 +595,21 @@ export default function CustomerDashboard() {
 
         /* Responsive Layouts */
         @media (max-width: 900px) {
+          .profile-drawer-container { top:auto; bottom:0; left:0; width:100%; max-height:calc(100dvh - 16px); border-radius:24px 24px 0 0; border-bottom:0; transform:translateY(100%); }
+          .profile-drawer-container.open { transform:translateY(0); }
+          .profile-drawer-header { padding:17px 18px 15px; }
+          .profile-modal-avatar { width:42px; height:42px; border-radius:13px; font-size:12px; }
+          .profile-drawer-title { font-size:18px; }
+          .profile-drawer-subtitle { font-size:11px; }
+          .profile-drawer-body { padding:16px 14px max(20px,env(safe-area-inset-bottom)); }
+          .profile-section-card { padding:16px; border-radius:16px; margin-bottom:12px; }
+          .profile-section-heading { margin-bottom:15px; }
+          .profile-fields-grid, .profile-security-fields { grid-template-columns:1fr; gap:13px; }
+          .profile-field-wide { grid-column:auto; }
+          .profile-drawer-input { height:50px; font-size:16px; }
+          .profile-drawer-textarea { min-height:78px; font-size:16px; }
+          .profile-primary-actions, .profile-security-action { display:block; }
+          .profile-primary-actions .profile-drawer-action, .profile-security-action .profile-drawer-action { width:100%; }
           .dashboard-shell { min-height:100dvh !important; height:auto !important; }
           .desktop-layout { flex-direction: column !important; flex:0 0 auto !important; min-height:0 !important; }
           .sidebar { display: none !important; }
@@ -1456,149 +1490,116 @@ export default function CustomerDashboard() {
       {profileDrawerOpen && (
         <>
           <div className="profile-drawer-overlay" style={{ display: 'block' }} onClick={() => setProfileDrawerOpen(false)} />
-          <div className={`profile-drawer-container ${profileDrawerOpen ? 'open' : ''}`}>
+          <div className={`profile-drawer-container ${profileDrawerOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title">
             <div className="profile-drawer-header">
-              <div>
-                <p className="profile-drawer-title">Profile details</p>
-                <p style={{ marginTop: '6px', fontSize: '13px', color: '#6B7280' }}>Edit your info and signup address here</p>
+              <div className="profile-identity">
+                <span className="profile-modal-avatar" aria-hidden="true">{initials}</span>
+                <div>
+                  <p className="profile-drawer-title" id="profile-dialog-title">Account profile</p>
+                  <p className="profile-drawer-subtitle">Manage your contact details, addresses, and password.</p>
+                </div>
               </div>
               <button className="profile-drawer-close" onClick={() => setProfileDrawerOpen(false)} aria-label="Close profile drawer">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="profile-drawer-section">
-              <label>Name</label>
-              <input
-                className="profile-drawer-input"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-              />
-            </div>
-            <div className="profile-drawer-section">
-              <label>Phone</label>
-              <input
-                className="profile-drawer-input"
-                value={profilePhone}
-                onChange={(e) => setProfilePhone(e.target.value)}
-              />
-            </div>
-            <div className="profile-drawer-section">
-              <label>Email address</label>
-              <input
-                className="profile-drawer-input"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={profileEmail}
-                onChange={(e) => setProfileEmail(e.target.value)}
-              />
-            </div>
-            <div className="profile-drawer-section">
-              <label>Home address</label>
-              <textarea
-                className="profile-drawer-textarea"
-                value={profileHomeAddress}
-                onChange={(e) => setProfileHomeAddress(e.target.value)}
-              />
-            </div>
-            <div className="profile-drawer-section">
-              <label>Office address</label>
-              <textarea
-                className="profile-drawer-textarea"
-                value={profileOfficeAddress}
-                onChange={(e) => setProfileOfficeAddress(e.target.value)}
-              />
-            </div>
-
-            <div className="profile-drawer-divider" />
-
-            <button
-              className="profile-drawer-action"
-              onClick={handleSaveProfile}
-              disabled={profileSaving}
-              style={{ opacity: profileSaving ? 0.7 : 1 }}
-            >
-              {profileSaving ? 'Saving...' : 'Save changes'}
-            </button>
-
-            <div className="profile-security-card">
-              <div className="profile-security-title">Change password</div>
-              <p className="profile-security-copy">
-                No OTP is required. Confirm your identity with your current password, then choose a new one with at least eight characters, one letter, and one number.
-              </p>
-
-              {passwordFeedback && (
-                <div
-                  className={`profile-password-feedback ${passwordFeedback.type}`}
-                  role={passwordFeedback.type === 'error' ? 'alert' : 'status'}
-                >
-                  {passwordFeedback.message}
+            <div className="profile-drawer-body">
+              <section className="profile-section-card">
+                <div className="profile-section-heading">
+                  <div>
+                    <h2 className="profile-section-title">Contact details</h2>
+                    <p className="profile-section-copy">Used for order updates and account recovery.</p>
+                  </div>
                 </div>
-              )}
+                <div className="profile-fields-grid">
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-name">Full name</label>
+                    <input id="profile-name" className="profile-drawer-input" autoComplete="name" value={profileName} onChange={(e) => setProfileName(e.target.value)} />
+                  </div>
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-phone">Phone number</label>
+                    <input id="profile-phone" className="profile-drawer-input" type="tel" inputMode="tel" autoComplete="tel" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} />
+                  </div>
+                  <div className="profile-drawer-section profile-field-wide">
+                    <label htmlFor="profile-email">Email address</label>
+                    <input id="profile-email" className="profile-drawer-input" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} />
+                  </div>
+                </div>
+              </section>
 
-              <div className="profile-drawer-section">
-                <label>Current password</label>
-                <input
-                  className="profile-drawer-input"
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
+              <section className="profile-section-card">
+                <div className="profile-section-heading">
+                  <div>
+                    <h2 className="profile-section-title">Saved addresses</h2>
+                    <p className="profile-section-copy">Keep your regular pickup locations ready for faster booking.</p>
+                  </div>
+                </div>
+                <div className="profile-fields-grid">
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-home-address">Home address</label>
+                    <textarea id="profile-home-address" className="profile-drawer-textarea" autoComplete="street-address" placeholder="Enter your home address" value={profileHomeAddress} onChange={(e) => setProfileHomeAddress(e.target.value)} />
+                  </div>
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-office-address">Office address</label>
+                    <textarea id="profile-office-address" className="profile-drawer-textarea" placeholder="Enter your office address" value={profileOfficeAddress} onChange={(e) => setProfileOfficeAddress(e.target.value)} />
+                  </div>
+                </div>
+              </section>
+
+              <div className="profile-primary-actions">
+                <button className="profile-drawer-action" onClick={handleSaveProfile} disabled={profileSaving} style={{ opacity: profileSaving ? 0.7 : 1 }}>
+                  {profileSaving ? 'Saving changes...' : 'Save profile'}
+                </button>
               </div>
-              <div className="profile-drawer-section">
-                <label>New password</label>
-                <input
-                  className="profile-drawer-input"
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <div className="profile-drawer-section">
-                <label>Confirm new password</label>
-                <input
-                  className="profile-drawer-input"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                />
-              </div>
+
+              <section className="profile-section-card profile-security-card">
+                <div className="profile-section-heading">
+                  <div>
+                    <h2 className="profile-security-title">Password & security</h2>
+                    <p className="profile-security-copy">Confirm your current password, then choose a new password with at least eight characters, one letter, and one number.</p>
+                  </div>
+                </div>
+
+                {passwordFeedback && (
+                  <div className={`profile-password-feedback ${passwordFeedback.type}`} role={passwordFeedback.type === 'error' ? 'alert' : 'status'}>
+                    {passwordFeedback.message}
+                  </div>
+                )}
+
+                <div className="profile-fields-grid profile-security-fields">
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-current-password">Current password</label>
+                    <input id="profile-current-password" className="profile-drawer-input" type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                  </div>
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-new-password">New password</label>
+                    <input id="profile-new-password" className="profile-drawer-input" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                  </div>
+                  <div className="profile-drawer-section">
+                    <label htmlFor="profile-confirm-password">Confirm password</label>
+                    <input id="profile-confirm-password" className="profile-drawer-input" type="password" autoComplete="new-password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                  </div>
+                </div>
+                <div className="profile-security-action">
+                  <button
+                    className="profile-drawer-action"
+                    onClick={handleChangePassword}
+                    disabled={passwordSaving || !currentPassword || newPassword.length < 8 || !confirmNewPassword}
+                    style={{ opacity: passwordSaving || !currentPassword || newPassword.length < 8 || !confirmNewPassword ? 0.55 : 1 }}
+                  >
+                    {passwordSaving ? 'Changing password...' : 'Update password'}
+                  </button>
+                </div>
+              </section>
+
               <button
-                className="profile-drawer-action"
-                onClick={handleChangePassword}
-                disabled={
-                  passwordSaving ||
-                  !currentPassword ||
-                  newPassword.length < 8 ||
-                  !confirmNewPassword
-                }
-                style={{
-                  opacity:
-                    passwordSaving ||
-                    !currentPassword ||
-                    newPassword.length < 8 ||
-                    !confirmNewPassword
-                      ? 0.55
-                      : 1,
-                }}
+                className="profile-logout"
+                onClick={() => { handleLogout(); setProfileDrawerOpen(false); }}
               >
-                {passwordSaving ? 'Changing password...' : 'Change password'}
+                Log out of this account
               </button>
             </div>
-
-            <button
-              onClick={() => { handleLogout(); setProfileDrawerOpen(false); }}
-              style={{
-                marginTop: '12px', width: '100%', padding: '14px 18px', borderRadius: '14px', border: '1px solid #E5E7EB', background: '#FFFFFF', color: '#0D0D0D', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
-              }}
-            >
-              Log out
-            </button>
           </div>
         </>
       )}
