@@ -54,9 +54,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(orders);
   } catch (error: any) {
     console.error('[Find All Orders Error]', error);
+    const databaseUnavailable = error?.code === 'P1001'
+      || /can'?t reach database server/i.test(error?.message || '');
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 },
+      {
+        error: databaseUnavailable
+          ? 'The orders database is temporarily unavailable. Check the Supabase connection and try again.'
+          : 'Unable to load orders.',
+      },
+      { status: databaseUnavailable ? 503 : 500 },
     );
   }
 }

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Activity, ChevronDown, Clock, MapPin, Search, ShoppingBag, User } from '@/lib/icons';
+import { Activity, ChevronDown, Clock, MapPin, Search, ShoppingBag, Trash2, User } from '@/lib/icons';
 import { getAdminCache, setAdminCache } from '../adminCache';
 import styles from './orders.module.css';
 
@@ -165,6 +165,8 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const seenEventsRef = useRef<Set<string>>(new Set());
 
   const headers = useCallback(() => ({
@@ -196,11 +198,17 @@ export default function AdminOrdersPage() {
   }, [headers, router]);
 
   useEffect(() => {
-    if (!localStorage.getItem('adminToken')) {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
       router.replace('/admin');
       return;
     }
     setAuthorized(true);
+    axios.get('/api/v1/admin/auth/session', {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((response) => {
+      setIsSuperAdmin(response.data?.user?.role === 'SUPER_ADMIN');
+    }).catch(() => setIsSuperAdmin(false));
     fetchOrdersAndDrivers();
     const timer = window.setInterval(() => fetchOrdersAndDrivers(true), 15000);
     return () => window.clearInterval(timer);
@@ -255,6 +263,28 @@ export default function AdminOrdersPage() {
       setNotice(error.response?.data?.error || 'Unable to update this order.');
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function deleteOrder(order: Order) {
+    const confirmed = window.confirm(
+      `Permanently delete ${order.orderNumber}?\n\nIts items, payments, and tracking history will also be deleted. This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(order.id);
+    setNotice('');
+    try {
+      await axios.delete(`/api/v1/orders/${order.id}`, { headers: headers() });
+      const next = orders.filter((item) => item.id !== order.id);
+      setOrders(next);
+      setAdminCache('dashboard-orders', next);
+      setExpandedId(null);
+      setNotice(`${order.orderNumber} was deleted.`);
+    } catch (error: any) {
+      setNotice(error.response?.data?.error || 'Unable to delete this order.');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -350,6 +380,14 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <footer className={styles.detailFooter}><div><span>Customer contact</span><a href={`tel:${order.customer.phoneNumber}`}>{order.customer.phoneNumber}</a>{order.customer.email && <a href={`mailto:${order.customer.email}`}>{order.customer.email}</a>}</div><div><span>Payment</span><strong className={paid >= order.totalAmount ? styles.paid : styles.pending}>{paid >= order.totalAmount ? 'Paid in full' : `${money.format(Math.max(0, order.totalAmount - paid))} outstanding`}</strong></div><div><span>Created</span><strong>{new Date(order.createdAt).toLocaleDateString('en-NG', { dateStyle: 'long' })}</strong></div></footer>
+                    {isSuperAdmin && (
+                      <div className={styles.dangerZone}>
+                        <div><strong>Delete order record</strong><span>Permanently removes this order, payment records, items, and tracking history.</span></div>
+                        <button type="button" onClick={() => deleteOrder(order)} disabled={deletingId === order.id}>
+                          <Trash2 size={15} />{deletingId === order.id ? 'Deleting…' : 'Delete order'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </article>

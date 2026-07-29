@@ -17,9 +17,19 @@ import { hasAdminPermission } from '@/lib/admin-permissions';
 
 interface KpiData {
   totalOrders: number;
+  ordersThisWeek: number;
+  ordersLastWeek: number;
+  orderGrowthPercent: number | null;
   driversOnline: number;
+  totalDrivers: number;
   activePickups: number;
+  unassignedPickups: number;
   totalRevenue: number;
+  thisMonthRevenue: number;
+  lastMonthRevenue: number;
+  revenueGrowthPercent: number | null;
+  dailyRevenue: Array<{ date: string; label: string; amount: number }>;
+  generatedAt: string;
 }
 
 interface Driver {
@@ -51,9 +61,19 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<KpiData>(() =>
     getAdminCache<KpiData>('dashboard-stats') || {
       totalOrders: 0,
+      ordersThisWeek: 0,
+      ordersLastWeek: 0,
+      orderGrowthPercent: null,
       driversOnline: 0,
+      totalDrivers: 0,
       activePickups: 0,
+      unassignedPickups: 0,
       totalRevenue: 0,
+      thisMonthRevenue: 0,
+      lastMonthRevenue: 0,
+      revenueGrowthPercent: null,
+      dailyRevenue: [],
+      generatedAt: '',
     },
   );
   const [drivers, setDrivers] = useState<Driver[]>(() => getAdminCache<Driver[]>('dashboard-drivers') || []);
@@ -68,6 +88,7 @@ export default function AdminDashboardPage() {
     analytics: true,
     orders: false,
   });
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -78,16 +99,19 @@ export default function AdminDashboardPage() {
       setAuthorized(true);
       setAuthChecked(true);
       fetchDashboardData();
+      const refresh = window.setInterval(() => fetchDashboardData(true), 30000);
+      return () => window.clearInterval(refresh);
     }
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (quiet = false) => {
     const hasCachedData = Boolean(
       getAdminCache<KpiData>('dashboard-stats') &&
       getAdminCache<Driver[]>('dashboard-drivers') &&
       getAdminCache<Order[]>('dashboard-orders'),
     );
-    if (!hasCachedData) setLoading(true);
+    if (!quiet && !hasCachedData) setLoading(true);
+    if (!quiet) setError('');
     try {
       const adminUser = JSON.parse(localStorage.getItem('adminUser') || 'null');
       const authHeaders = { Authorization: `Bearer ${localStorage.getItem('adminToken')}` };
@@ -109,8 +133,9 @@ export default function AdminDashboardPage() {
       setAdminCache('dashboard-drivers', driversRes.data);
       setOrders(ordersRes.data);
       setAdminCache('dashboard-orders', ordersRes.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch dashboard data:', err);
+      if (!quiet) setError(err.response?.data?.error || 'Unable to refresh live dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -153,8 +178,10 @@ export default function AdminDashboardPage() {
     {
       title: 'Total Orders',
       val: stats.totalOrders.toString(),
-      trend: '+12.5% vs last week',
-      trendUp: true,
+      trend: stats.orderGrowthPercent === null
+        ? `${stats.ordersThisWeek} booked this week`
+        : `${stats.orderGrowthPercent >= 0 ? '+' : ''}${stats.orderGrowthPercent.toFixed(1)}% vs last week`,
+      trendUp: stats.orderGrowthPercent !== null && stats.orderGrowthPercent > 0,
       color: '#0066FF',
       bgColor: 'rgba(0, 102, 255, 0.08)',
       icon: ShoppingBag,
@@ -162,8 +189,8 @@ export default function AdminDashboardPage() {
     {
       title: 'Drivers Online',
       val: stats.driversOnline.toString(),
-      trend: `${drivers.length - stats.driversOnline} currently offline`,
-      trendUp: true,
+      trend: `${Math.max(0, stats.totalDrivers - stats.driversOnline)} currently offline`,
+      trendUp: stats.driversOnline > 0,
       color: '#8B5CF6',
       bgColor: 'rgba(139, 92, 246, 0.08)',
       icon: Users,
@@ -171,7 +198,7 @@ export default function AdminDashboardPage() {
     {
       title: 'Active Pickups',
       val: stats.activePickups.toString(),
-      trend: 'Awaiting rider dispatch',
+      trend: `${stats.unassignedPickups} awaiting rider dispatch`,
       trendUp: false,
       color: '#F59E0B',
       bgColor: 'rgba(245, 158, 11, 0.08)',
@@ -180,8 +207,10 @@ export default function AdminDashboardPage() {
     {
       title: 'Total Revenue',
       val: formatNaira(stats.totalRevenue),
-      trend: '+18.2% monthly growth',
-      trendUp: true,
+      trend: stats.revenueGrowthPercent === null
+        ? `${formatNaira(stats.thisMonthRevenue)} received this month`
+        : `${stats.revenueGrowthPercent >= 0 ? '+' : ''}${stats.revenueGrowthPercent.toFixed(1)}% vs last month`,
+      trendUp: stats.revenueGrowthPercent !== null && stats.revenueGrowthPercent > 0,
       color: '#10B981',
       bgColor: 'rgba(16, 185, 129, 0.08)',
       icon: TrendingUp,
@@ -194,8 +223,16 @@ export default function AdminDashboardPage() {
         <header className="dashboardHeader">
           <div>
             <h1>Dashboard Overview</h1>
+            <p>Live operational data from completed bookings and successful payments.</p>
+          </div>
+          <div className="dashboardFreshness">
+            <span className="liveIndicator" />
+            {stats.generatedAt ? `Updated ${new Date(stats.generatedAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for live data'}
+            <button type="button" onClick={() => fetchDashboardData()} disabled={loading}>Refresh</button>
           </div>
         </header>
+
+        {error && <div className="errorCard"><span>{error}</span><button type="button" onClick={() => fetchDashboardData()}>Try again</button></div>}
 
         {loading ? (
           <div className="loadingCard">
@@ -241,44 +278,38 @@ export default function AdminDashboardPage() {
                   <div className="chartRow">
                     <div className="chartCard">
                       <div className="sectionHeader">
-                        <h3>Weekly Revenue Trend</h3>
-                        <span>Live pulse</span>
+                        <h3>Successful revenue · Last 7 days</h3>
+                        <span>Database live</span>
                       </div>
-                      <div className="chartBars">
-                        {[
-                          { day: 'Mon', h: '60px', act: false },
-                          { day: 'Tue', h: '90px', act: false },
-                          { day: 'Wed', h: '140px', act: true, col: '#0066FF' },
-                          { day: 'Thu', h: '110px', act: false },
-                          { day: 'Fri', h: '180px', act: true, col: '#0F172A' },
-                          { day: 'Sat', h: '210px', act: true, col: '#10B981' },
-                        ].map((bar, i) => (
-                          <div key={i} className="barColumn">
+                      {stats.dailyRevenue.some((entry) => entry.amount > 0) ? (
+                        <div className="chartBars">
+                          {stats.dailyRevenue.map((entry) => {
+                            const maximum = Math.max(...stats.dailyRevenue.map((day) => day.amount), 1);
+                            const height = Math.max(8, Math.round((entry.amount / maximum) * 190));
+                            return <div key={entry.date} className="barColumn" title={`${entry.label}: ${formatNaira(entry.amount)}`}>
                             <div
                               className="barFill"
-                              style={{ backgroundColor: bar.col || '#E2E8F0', height: bar.h, opacity: bar.act ? 1 : 0.65 }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'scaleY(1.05)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'scaleY(1)';
-                              }}
+                              style={{ backgroundColor: entry.amount > 0 ? '#1565C0' : '#E2E8F0', height: `${height}px` }}
                             />
-                            <span>{bar.day}</span>
-                          </div>
-                        ))}
-                      </div>
+                            <strong>{entry.amount > 0 ? formatNaira(entry.amount) : '₦0'}</strong>
+                            <span>{entry.label}</span>
+                          </div>;
+                          })}
+                        </div>
+                      ) : (
+                        <div className="chartEmpty"><TrendingUp size={24} /><strong>No successful payments in the last 7 days</strong><span>Revenue will appear here automatically after a payment is confirmed.</span></div>
+                      )}
                     </div>
 
                     <div className="liveDriverCard">
                       <h3>Live Rider Status</h3>
                       <div className="driverList">
                         {drivers.length === 0 ? (
-                          <div className="emptyState">No drivers registered in DB.</div>
+                          <div className="emptyState">No rider accounts are available yet.</div>
                         ) : (
                           drivers.map((driver) => {
                             const isOnline = driver.driverProfile?.isOnline ?? false;
-                            const vehicle = driver.driverProfile?.vehicleType || 'Motorcycle';
+                            const vehicle = driver.driverProfile?.vehicleType || 'Vehicle not specified';
                             let VehicleIcon = Bike;
                             if (vehicle.toLowerCase().includes('van')) {
                               VehicleIcon = Car;
@@ -330,7 +361,7 @@ export default function AdminDashboardPage() {
 
                   <div className="orderList">
                     {orders.length === 0 ? (
-                      <div className="emptyState">No orders recorded yet. Submit orders from the mobile client.</div>
+                      <div className="emptyState">No customer orders have been recorded yet.</div>
                     ) : (
                       orders.slice(0, 4).map((order) => {
                         const serviceTypes = Array.from(
@@ -412,6 +443,59 @@ export default function AdminDashboardPage() {
           color: #0F172A;
           margin: 0;
           letter-spacing: -0.025em;
+        }
+
+        .dashboardHeader p {
+          margin: 7px 0 0;
+          color: #64748B;
+          font-size: 13px;
+        }
+
+        .dashboardFreshness {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #64748B;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .liveIndicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #10B981;
+          box-shadow: 0 0 0 4px #D1FAE5;
+        }
+
+        .dashboardFreshness button,
+        .errorCard button {
+          border: 1px solid #D6DFEA;
+          background: #FFFFFF;
+          color: #244A85;
+          border-radius: 9px;
+          padding: 8px 11px;
+          font: 700 11px 'Inter', sans-serif;
+          cursor: pointer;
+        }
+
+        .dashboardFreshness button:disabled {
+          opacity: .55;
+          cursor: wait;
+        }
+
+        .errorCard {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin: -12px 0 22px;
+          padding: 13px 15px;
+          border: 1px solid #F1C7CC;
+          border-radius: 11px;
+          background: #FFF3F4;
+          color: #983542;
+          font-size: 12px;
         }
 
         .loadingCard {
@@ -636,6 +720,38 @@ export default function AdminDashboardPage() {
           font-size: 12px;
           color: #64748B;
           font-weight: 600;
+        }
+
+        .barColumn strong {
+          font-size: 9px;
+          color: #475569;
+          font-weight: 700;
+          max-width: 70px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .chartEmpty {
+          min-height: 220px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          color: #8290A4;
+          padding: 24px;
+        }
+
+        .chartEmpty strong {
+          color: #334155;
+          font-size: 14px;
+          margin: 12px 0 5px;
+        }
+
+        .chartEmpty span {
+          max-width: 340px;
+          font-size: 11px;
+          line-height: 1.5;
         }
 
         .liveDriverCard {

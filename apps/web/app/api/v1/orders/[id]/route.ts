@@ -48,3 +48,46 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const actor = verifyAdminToken(bearerToken(request));
+  if (!actor || actor.role !== 'SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only the Super Admin can delete orders.' },
+      { status: 403 },
+    );
+  }
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ error: 'Order ID is required.' }, { status: 400 });
+  }
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, orderNumber: true },
+    });
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+    }
+
+    await prisma.$transaction([
+      prisma.trackingEvent.deleteMany({ where: { orderId: id } }),
+      prisma.payment.deleteMany({ where: { orderId: id } }),
+      prisma.orderItem.deleteMany({ where: { orderId: id } }),
+      prisma.order.delete({ where: { id } }),
+    ]);
+
+    return NextResponse.json({ message: `${order.orderNumber} was deleted.` });
+  } catch (error: any) {
+    console.error('[Delete Order Error]', error);
+    return NextResponse.json(
+      { error: error?.code === 'P1001' ? 'The database is temporarily unavailable. Please try again.' : 'Unable to delete this order.' },
+      { status: 500 },
+    );
+  }
+}

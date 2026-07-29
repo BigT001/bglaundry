@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { ChevronDown, Clock, MapPin, Search, ShoppingBag, TrendingUp, User } from '@/lib/icons';
+import { ChevronDown, Clock, MapPin, Search, ShoppingBag, Trash2, TrendingUp, User } from '@/lib/icons';
 import { getAdminCache, setAdminCache } from '../adminCache';
 import styles from './customers.module.css';
 
@@ -82,6 +82,8 @@ export default function AdminCustomersPage() {
   const [segment, setSegment] = useState<'ALL' | 'REPEAT' | 'NEW' | 'INACTIVE'>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async (quiet = false) => {
     if (!quiet && !getAdminCache<Customer[]>('admin-users')) setLoading(true);
@@ -106,15 +108,45 @@ export default function AdminCustomersPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!localStorage.getItem('adminToken')) {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
       router.replace('/admin');
       return;
     }
     setAuthorized(true);
+    axios.get('/api/v1/admin/auth/session', {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((response) => {
+      setIsSuperAdmin(response.data?.user?.role === 'SUPER_ADMIN');
+    }).catch(() => setIsSuperAdmin(false));
     fetchCustomers();
     const refresh = window.setInterval(() => fetchCustomers(true), 30000);
     return () => window.clearInterval(refresh);
   }, [fetchCustomers, router]);
+
+  async function deleteCustomer(customer: Customer) {
+    const confirmed = window.confirm(
+      `Permanently delete ${customer.fullName || 'this customer'}?\n\nThis will also delete their orders, payments, invoices, and history. This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(customer.id);
+    setError('');
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.delete(`/api/v1/admin/users?id=${encodeURIComponent(customer.id)}`, {
+        headers: { Authorization: `Bearer ${token || ''}` },
+      });
+      const next = customers.filter((item) => item.id !== customer.id);
+      setCustomers(next);
+      setAdminCache('admin-users', next);
+      setExpandedId(null);
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.error || 'Unable to delete this customer.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -238,6 +270,14 @@ export default function AdminCustomersPage() {
                     )}
                     {customer.orders[0] && (
                       <div className={styles.lastLocation}><MapPin size={15} /><span>Most recent pickup:</span><strong>{customer.orders[0].pickupAddress}</strong><Clock size={14} /><span>{relativeDate(customer.orders[0].createdAt)}</span></div>
+                    )}
+                    {isSuperAdmin && (
+                      <div className={styles.dangerZone}>
+                        <div><strong>Delete test customer</strong><span>Permanently removes this customer and all related operational records.</span></div>
+                        <button type="button" onClick={() => deleteCustomer(customer)} disabled={deletingId === customer.id}>
+                          <Trash2 size={15} />{deletingId === customer.id ? 'Deleting…' : 'Delete customer'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

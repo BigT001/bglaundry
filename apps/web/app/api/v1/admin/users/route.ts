@@ -84,8 +84,66 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ users });
   } catch (error: any) {
     console.error('[Admin Users API Error]', error);
+    const databaseUnavailable = error?.code === 'P1001'
+      || /can'?t reach database server/i.test(error?.message || '');
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      {
+        error: databaseUnavailable
+          ? 'The customer database is temporarily unavailable. Check the Supabase connection and try again.'
+          : 'Unable to load customer records.',
+      },
+      { status: databaseUnavailable ? 503 : 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const actor = verifyAdminToken(bearerToken(request));
+  if (!actor || actor.role !== 'SUPER_ADMIN') {
+    return NextResponse.json(
+      { error: 'Only the Super Admin can delete customer accounts.' },
+      { status: 403 },
+    );
+  }
+
+  const customerId = request.nextUrl.searchParams.get('id');
+  if (!customerId) {
+    return NextResponse.json({ error: 'Customer ID is required.' }, { status: 400 });
+  }
+
+  try {
+    const customer = await prisma.user.findFirst({
+      where: { id: customerId, role: Role.CUSTOMER },
+      select: {
+        id: true,
+        customerOrders: { select: { id: true } },
+        invoices: { select: { id: true } },
+      },
+    });
+
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer account not found.' }, { status: 404 });
+    }
+
+    const orderIds = customer.customerOrders.map((order) => order.id);
+    const invoiceIds = customer.invoices.map((invoice) => invoice.id);
+
+    await prisma.$transaction([
+      prisma.trackingEvent.deleteMany({ where: { orderId: { in: orderIds } } }),
+      prisma.payment.deleteMany({ where: { orderId: { in: orderIds } } }),
+      prisma.orderItem.deleteMany({ where: { orderId: { in: orderIds } } }),
+      prisma.order.deleteMany({ where: { id: { in: orderIds } } }),
+      prisma.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } }),
+      prisma.invoice.deleteMany({ where: { id: { in: invoiceIds } } }),
+      prisma.passwordResetToken.deleteMany({ where: { userId: customer.id } }),
+      prisma.user.delete({ where: { id: customer.id } }),
+    ]);
+
+    return NextResponse.json({ message: 'Customer and related test data deleted.' });
+  } catch (error: any) {
+    console.error('[Admin Delete Customer Error]', error);
+    return NextResponse.json(
+      { error: error?.code === 'P1001' ? 'The database is temporarily unavailable. Please try again.' : 'Unable to delete this customer.' },
       { status: 500 },
     );
   }
