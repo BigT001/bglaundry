@@ -96,9 +96,35 @@ export async function POST(request: NextRequest) {
       0,
     );
 
-    // Generate consecutive Order number
-    const count = await prisma.order.count();
-    const orderNumber = `BG-${1000 + count + 1}`;
+    // Generate unique consecutive Order number safely without unique constraint collisions
+    const latestOrder = await prisma.order.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { orderNumber: true },
+    });
+
+    let nextNum = 1001;
+    if (latestOrder?.orderNumber?.startsWith('BG-')) {
+      const parsed = parseInt(latestOrder.orderNumber.replace('BG-', ''), 10);
+      if (!Number.isNaN(parsed) && parsed >= 1000) {
+        nextNum = parsed + 1;
+      }
+    } else {
+      const count = await prisma.order.count();
+      nextNum = 1000 + count + 1;
+    }
+
+    let orderNumber = `BG-${nextNum}`;
+    let collisionCheck = await prisma.order.findUnique({ where: { orderNumber } });
+    let safetyCounter = 0;
+    while (collisionCheck && safetyCounter < 50) {
+      nextNum += 1;
+      orderNumber = `BG-${nextNum}`;
+      collisionCheck = await prisma.order.findUnique({ where: { orderNumber } });
+      safetyCounter += 1;
+    }
+    if (collisionCheck) {
+      orderNumber = `BG-${Date.now().toString().slice(-6)}`;
+    }
 
     const order = await prisma.order.create({
       data: {
