@@ -177,6 +177,39 @@ export default function CustomerDashboard() {
   }, [token, user]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !token) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatusParam = urlParams.get('payment');
+    const refParam = urlParams.get('reference');
+
+    if (paymentStatusParam && refParam) {
+      if (paymentStatusParam === 'successful') {
+        axios.get(`/api/v1/payments/status?reference=${encodeURIComponent(refParam)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then((res) => {
+          if (res.data) {
+            setPaymentReceipt({
+              reference: res.data.reference,
+              orderNumber: res.data.order?.orderNumber || 'BG Order',
+              amount: res.data.amount,
+            });
+            setSuccess('Payment confirmed! Your order has been placed and sent to operations.');
+            setBasket({});
+            try { localStorage.removeItem(BASKET_STORAGE_KEY); } catch (e) {}
+            setActiveTab('ACTIVE');
+            refreshOrders();
+          }
+        }).catch((err) => {
+          console.error('Failed to verify payment status from URL ref:', err);
+        });
+      } else if (paymentStatusParam === 'failed') {
+        setError('Payment was not completed. Please try again.');
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [token]);
+
+  useEffect(() => {
     if (user) {
       setProfileName(user.fullName || '');
       setProfilePhone(user.phoneNumber || '');
@@ -375,12 +408,6 @@ export default function CustomerDashboard() {
     setError('');
     setSuccess('');
     setPaymentReceipt(null);
-    const checkoutWindow = window.open('', 'bglaundry-payment', 'popup,width=520,height=760');
-    if (!checkoutWindow) {
-      setError('Payment window was blocked. Allow pop-ups and try again.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const bookingData = {
@@ -402,48 +429,18 @@ export default function CustomerDashboard() {
         { orderId: orderResponse.data.id },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      checkoutWindow.location.href = paymentResponse.data.checkoutUrl;
 
-      let receipt: any = null;
-      for (let attempt = 0; attempt < 90; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 2000));
-        const statusResponse = await axios.get('/api/v1/payments/status', {
-          params: { reference: paymentResponse.data.payment.reference },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (statusResponse.data.status === 'SUCCESSFUL') {
-          receipt = statusResponse.data;
-          break;
-        }
-        if (statusResponse.data.status === 'FAILED') {
-          throw new Error('Payment was not successful. Your order was not placed.');
-        }
-      }
-      if (!receipt) {
-        throw new Error('Payment is still awaiting confirmation. The order will remain inactive until payment is verified.');
+      const checkoutUrl = paymentResponse.data?.checkoutUrl;
+      if (!checkoutUrl) {
+        throw new Error('Flutterwave checkout URL was not generated. Please try again.');
       }
 
-      checkoutWindow.close();
-      setPaymentReceipt({
-        reference: receipt.reference,
-        orderNumber: receipt.order.orderNumber,
-        amount: receipt.amount,
-      });
-      setSuccess('Payment confirmed. Your order has been placed and sent to operations.');
-      setBasket({});
-      const savedAddress = user.homeAddress || user.pickupAddress || user.officeAddress || '';
-      setPickupAddress(savedAddress);
-      setDeliveryAddress(savedAddress);
-      setUseSameAddress(true);
-      setPickupDate('');
-      setBookingStep('SELECT');
-      setMobileBasketOpen(false);
-      setActiveTab('ACTIVE');
-      refreshOrders();
+      // Redirect directly to Flutterwave hosted checkout (No pop-up blockers)
+      window.location.href = checkoutUrl;
     } catch (err: any) {
-      checkoutWindow?.close();
       console.error('Booking failed:', err);
-      setError(err.response?.data?.error || err.message || 'Payment could not be completed. Your order was not placed.');
+      const message = err.response?.data?.error || err.message || 'Unable to start payment. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }

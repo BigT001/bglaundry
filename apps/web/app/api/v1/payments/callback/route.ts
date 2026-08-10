@@ -8,7 +8,7 @@ const escapeHtml = (value: string) =>
 
 export async function GET(request: NextRequest) {
   const transactionId = request.nextUrl.searchParams.get('transaction_id');
-  const reference = request.nextUrl.searchParams.get('tx_ref');
+  const reference = request.nextUrl.searchParams.get('tx_ref') || request.nextUrl.searchParams.get('reference');
   let successful = false;
   let message = 'Payment was not completed.';
   if (transactionId && reference) {
@@ -22,6 +22,17 @@ export async function GET(request: NextRequest) {
       message = 'We could not verify this payment yet.';
     }
   }
+
+  const userAgent = request.headers.get('user-agent') || '';
+  const isMobileApp = userAgent.includes('BGLaundryMobile') || request.nextUrl.searchParams.get('client') === 'mobile';
+
+  if (!isMobileApp) {
+    const origin = process.env.APP_URL || new URL(request.url).origin;
+    return NextResponse.redirect(
+      `${origin}/dashboard?payment=${successful ? 'successful' : 'failed'}&reference=${encodeURIComponent(reference || '')}`,
+    );
+  }
+
   const deepLink = `bglaundry://payment?status=${successful ? 'successful' : 'failed'}&reference=${encodeURIComponent(reference || '')}`;
   return new NextResponse(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>BG Laundry Payment</title></head>
 <body style="font-family:system-ui;text-align:center;padding:48px 20px;background:#f8fafc;color:#0f172a"><h1>${successful ? 'Payment successful' : 'Payment pending'}</h1><p>${escapeHtml(message)}</p><a href="${escapeHtml(deepLink)}" style="display:inline-block;margin-top:20px;padding:14px 22px;border-radius:8px;background:#0066ff;color:white;text-decoration:none">Return to BG Laundry</a></body></html>`, {
