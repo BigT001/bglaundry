@@ -157,10 +157,17 @@ export default function BasketScreen() {
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
       const reference = paymentResponse.data.payment.reference;
-      if (!checkoutUrl || !(await Linking.canOpenURL(checkoutUrl))) {
-        throw new Error('Unable to open Flutterwave checkout');
+      if (!checkoutUrl) {
+        throw new Error('Flutterwave checkout URL was not generated. Please try again.');
       }
-      await Linking.openURL(checkoutUrl);
+
+      try {
+        await Linking.openURL(checkoutUrl);
+      } catch (openErr) {
+        console.warn('[Flutterwave] Linking.openURL fallback attempt:', openErr);
+        await Linking.openURL(checkoutUrl);
+      }
+
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const result = await axios.get(`${API_URL}/payments/status`, {
@@ -188,13 +195,16 @@ export default function BasketScreen() {
           clearBasket();
           return;
         }
-        if (result.data.status === 'FAILED') throw new Error('Payment failed');
+        if (result.data.status === 'FAILED') throw new Error('Payment failed on Flutterwave.');
       }
       Alert.alert('Payment pending', `Order ${orderNumber} is awaiting confirmation.`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment error:', error);
-      Alert.alert('Payment not completed', 'Please try again. No payment was confirmed.');
+      const errMsg = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Unable to initialize payment.'
+        : error?.message || 'Please try again. No payment was confirmed.';
+      Alert.alert('Payment Note', errMsg);
     }
   };
 

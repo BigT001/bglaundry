@@ -306,10 +306,15 @@ export default function CheckoutScreen() {
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
       const reference = paymentResponse.data.payment.reference;
-      if (!checkoutUrl || !(await Linking.canOpenURL(checkoutUrl))) {
-        throw new Error('Unable to open Flutterwave checkout');
+      if (!checkoutUrl) {
+        throw new Error('Flutterwave checkout URL was not generated. Please try again.');
       }
-      await Linking.openURL(checkoutUrl);
+      try {
+        await Linking.openURL(checkoutUrl);
+      } catch (openErr) {
+        console.warn('[Flutterwave] Linking.openURL fallback attempt:', openErr);
+        await Linking.openURL(checkoutUrl);
+      }
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const result = await axios.get(`${API_URL}/payments/status`, {
