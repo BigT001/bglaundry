@@ -54,6 +54,9 @@ export async function PATCH(request: NextRequest) {
   const data: { isOnline?: boolean; currentLat?: number; currentLng?: number } = {};
   if (typeof body.isOnline === 'boolean') data.isOnline = body.isOnline;
   if (Number.isFinite(body.currentLat) && Number.isFinite(body.currentLng)) {
+    if (body.currentLat < -90 || body.currentLat > 90 || body.currentLng < -180 || body.currentLng > 180) {
+      return NextResponse.json({ error: 'Invalid GPS coordinates.' }, { status: 400 });
+    }
     data.currentLat = body.currentLat;
     data.currentLng = body.currentLng;
   }

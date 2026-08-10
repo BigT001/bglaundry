@@ -6,8 +6,8 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch all files in the monorepo workspace
-config.watchFolders = [workspaceRoot];
+// 1. Preserve Expo's defaults and also watch the monorepo workspace.
+config.watchFolders = [...config.watchFolders, workspaceRoot];
 
 // 2. Search for node_modules in both local and workspace root directories
 config.resolver.nodeModulesPaths = [

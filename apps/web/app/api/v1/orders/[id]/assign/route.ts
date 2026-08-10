@@ -23,12 +23,18 @@ export async function PATCH(
     }
 
     // Verify driver exists
-    const driver = await prisma.user.findUnique({ where: { id: driverId } });
-    if (!driver) {
+    const driver = await prisma.user.findUnique({
+      where: { id: driverId },
+      include: { driverProfile: true },
+    });
+    if (!driver || driver.role !== 'DRIVER') {
       return NextResponse.json(
-        { error: `Driver with ID ${driverId} not found` },
+        { error: `Rider with ID ${driverId} not found` },
         { status: 404 },
       );
+    }
+    if (!driver.isActive) {
+      return NextResponse.json({ error: 'This rider account is inactive.' }, { status: 409 });
     }
 
     const existingOrder = await prisma.order.findUnique({ where: { id } });
@@ -43,9 +49,12 @@ export async function PATCH(
       where: { id },
       data: {
         driverId,
+        status: existingOrder.status === OrderStatus.PICKUP_PENDING
+          ? OrderStatus.PICKUP_PENDING
+          : existingOrder.status,
         trackingHistory: {
           create: {
-            status: OrderStatus.PICKUP_PENDING,
+            status: existingOrder.status,
             note: 'Rider assigned. Waiting for the rider to start the pickup route.',
           },
         },

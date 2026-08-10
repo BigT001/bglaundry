@@ -2,26 +2,43 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export default function ScheduleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const [pickupAddress, setPickupAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
-  const [deliveryAddress, setDeliveryAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
-  const [pickupDate, setPickupDate] = useState('2026-07-09T10:00:00Z');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+
+  React.useEffect(() => {
+    async function loadAddr() {
+      try {
+        const userStr = await AsyncStorage.getItem('@bglaundry_user');
+        if (userStr) {
+          const u = JSON.parse(userStr);
+          const defaultAddr = u.pickupAddress || u.homeAddress || u.officeAddress || '';
+          setPickupAddress(defaultAddr);
+          setDeliveryAddress(defaultAddr);
+        }
+      } catch (e) {
+        console.warn('Failed to load user address in schedule.tsx', e);
+      }
+    }
+    void loadAddr();
+  }, []);
 
   const handleNext = () => {
-    if (!pickupAddress || !deliveryAddress || !pickupDate) {
-      Alert.alert('Error', 'Please fill in all layout options');
+    if (!pickupAddress.trim()) {
+      Alert.alert('Error', 'Please enter your pickup address');
       return;
     }
     router.push({
       pathname: '/booking/checkout',
       params: {
         ...params,
-        pickupAddress,
-        deliveryAddress,
-        pickupDate,
+        pickupAddress: pickupAddress.trim(),
+        deliveryAddress: (deliveryAddress.trim() || pickupAddress.trim()),
       }
     });
   };
@@ -32,35 +49,29 @@ export default function ScheduleScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Schedule Delivery</Text>
+        <Text style={styles.headerTitle}>Pickup & Delivery Address</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.form}>
-        <Text style={styles.label}>Pickup Address</Text>
+        <Text style={styles.label}>Pickup Address *</Text>
         <TextInput
           style={styles.input}
           value={pickupAddress}
           onChangeText={setPickupAddress}
           placeholder="Enter pickup address"
+          multiline
         />
 
-        <Text style={styles.label}>Delivery Address</Text>
+        <Text style={styles.label}>Delivery Address (Optional if same as pickup)</Text>
         <TextInput
           style={styles.input}
           value={deliveryAddress}
           onChangeText={setDeliveryAddress}
           placeholder="Enter delivery address"
+          multiline
         />
-
-        <Text style={styles.label}>Scheduled Pickup Date & Time</Text>
-        <TextInput
-          style={styles.input}
-          value={pickupDate}
-          onChangeText={setPickupDate}
-          placeholder="e.g. 2026-07-09T10:00:00Z"
-        />
-        <Text style={styles.tipText}>Note: standard laundry delivery completes in 24 hours.</Text>
+        <Text style={styles.tipText}>Note: Standard laundry orders are processed and returned in 24 hours.</Text>
       </View>
 
       <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>

@@ -9,16 +9,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret-key-for-dev-bglaundry-chang
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phoneNumber, email, fullName, pickupAddress, addressType, password } = body;
+    const { phoneNumber, email, fullName, pickupAddress, homeAddress, officeAddress, addressType, password } = body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
+    const cleanHome = String(homeAddress || '').trim();
+    const cleanOffice = String(officeAddress || '').trim();
+    const cleanPickup = String(pickupAddress || cleanHome || cleanOffice).trim();
 
-    // Validation
-    if (!phoneNumber || !normalizedEmail || !fullName || !pickupAddress || !addressType || !password) {
+    // Mandatory address validation: Home Address or Office Address (or both)
+    if (!cleanHome && !cleanOffice && !cleanPickup) {
       return NextResponse.json(
-        { error: 'Phone number, email, full name, address, address type, and password are required.' },
+        { error: 'Pickup address is mandatory. Please enter a Home Address or Office Address (or both).' },
         { status: 400 }
       );
     }
+
+    // Basic required field validations
+    if (!phoneNumber || !normalizedEmail || !fullName || !password) {
+      return NextResponse.json(
+        { error: 'Phone number, email, full name, pickup address, and password are required.' },
+        { status: 400 }
+      );
+    }
+
     if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
     }
@@ -30,11 +42,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['HOME', 'OFFICE'].includes(addressType.toUpperCase())) {
-      return NextResponse.json(
-        { error: 'addressType must be either HOME or OFFICE' },
-        { status: 400 }
-      );
+    let finalAddressType = 'HOME';
+    if (cleanHome && cleanOffice) {
+      finalAddressType = 'BOTH';
+    } else if (cleanOffice && !cleanHome) {
+      finalAddressType = 'OFFICE';
+    } else if (addressType) {
+      finalAddressType = String(addressType).toUpperCase();
     }
 
     const normalizedPhone = normalizePhone(phoneNumber);
@@ -58,14 +72,16 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with mandatory addresses
     const user = await prisma.user.create({
       data: {
         phoneNumber: normalizedPhone,
         email: normalizedEmail,
         fullName,
-        pickupAddress,
-        addressType: addressType.toUpperCase(),
+        pickupAddress: cleanPickup,
+        homeAddress: cleanHome || null,
+        officeAddress: cleanOffice || null,
+        addressType: finalAddressType,
         passwordHash,
         role: 'CUSTOMER',
       },
@@ -92,6 +108,8 @@ export async function POST(request: NextRequest) {
           email: user.email,
           fullName: user.fullName,
           pickupAddress: user.pickupAddress,
+          homeAddress: user.homeAddress,
+          officeAddress: user.officeAddress,
           addressType: user.addressType,
           role: user.role,
         },

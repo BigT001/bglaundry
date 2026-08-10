@@ -8,6 +8,13 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const auth = verifyRiderToken(bearerToken(request));
   if (!auth) return NextResponse.json({ error: 'Rider authentication required.' }, { status: 401 });
+  const rider = await prisma.user.findUnique({
+    where: { id: auth.id },
+    select: { id: true, isActive: true, role: true },
+  });
+  if (!rider || rider.role !== 'DRIVER' || !rider.isActive) {
+    return NextResponse.json({ error: 'Rider account is inactive or unavailable.' }, { status: 403 });
+  }
   const orders = await prisma.order.findMany({
     where: {
       driverId: auth.id,

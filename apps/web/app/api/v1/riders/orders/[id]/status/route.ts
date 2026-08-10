@@ -18,6 +18,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!Object.values(OrderStatus).includes(status)) {
     return NextResponse.json({ error: 'Invalid order status.' }, { status: 400 });
   }
+  const rider = await prisma.user.findUnique({
+    where: { id: auth.id },
+    select: { id: true, isActive: true, role: true },
+  });
+  if (!rider || rider.role !== 'DRIVER' || !rider.isActive) {
+    return NextResponse.json({ error: 'Rider account is inactive or unavailable.' }, { status: 403 });
+  }
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order || order.driverId !== auth.id) {
     return NextResponse.json({ error: 'This order is not assigned to you.' }, { status: 404 });

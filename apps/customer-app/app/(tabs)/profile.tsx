@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,27 +14,19 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   // Profile Information State
-  const [profileName, setProfileName] = useState('Blessed G.');
-  const [profilePhone, setProfilePhone] = useState('+234 810 688 9242');
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState('Customer');
+  const [profilePhone, setProfilePhone] = useState('');
 
   // Address List State
-  const [addresses, setAddresses] = useState<SavedAddress[]>([
-    { id: '1', title: 'Home', address: '16B Maria Okor Street, Ejibo, Lagos' },
-    { id: '2', title: 'Office', address: '42 Isaac John Street, Ikeja, Lagos' }
-  ]);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
 
   // Modals Visibility
   const [isAddressesOpen, setIsAddressesOpen] = useState(false);
   const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
-  const [isAvatarOpen, setIsAvatarOpen] = useState(false);
 
   // Form Input States
   const [newAddrTitle, setNewAddrTitle] = useState('');
   const [newAddrVal, setNewAddrVal] = useState('');
-
-  // Upload simulation state
-  const [uploading, setUploading] = useState(false);
 
   // Load stored profile and addresses on mount
   useEffect(() => {
@@ -57,16 +49,6 @@ export default function ProfileScreen() {
     };
     loadUserInfoAndAddresses();
   }, []);
-
-  const handleSelectMockImage = (uri: string) => {
-    setUploading(true);
-    setTimeout(() => {
-      setAvatarUri(uri);
-      setUploading(false);
-      setIsAvatarOpen(false);
-      Alert.alert('Success', 'Profile photo updated successfully!');
-    }, 1200);
-  };
 
   const handleAddAddress = async () => {
     if (!newAddrTitle || !newAddrVal) {
@@ -108,6 +90,21 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            if (Platform.OS === 'web') {
+              const { auth: webAuth } = require('../../lib/firebase');
+              const { signOut } = require('firebase/auth');
+              await signOut(webAuth).catch(() => {});
+            } else {
+              const rnfbAuth = require('@react-native-firebase/auth');
+              const authInst = typeof rnfbAuth === 'function' ? rnfbAuth() : (rnfbAuth && typeof rnfbAuth.default === 'function' ? rnfbAuth.default() : rnfbAuth);
+              if (authInst && typeof authInst.signOut === 'function') {
+                await authInst.signOut().catch(() => {});
+              }
+            }
+          } catch (e) {
+            console.warn('Firebase signout on logout failed:', e);
+          }
+          try {
             await AsyncStorage.removeItem('@bglaundry_token');
             await AsyncStorage.removeItem('@bglaundry_user');
             router.replace('/(auth)/login');
@@ -124,18 +121,11 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* 1. Profile Picture & Core Details */}
       <View style={styles.profileHeader}>
-        <TouchableOpacity style={styles.avatarWrapper} onPress={() => setIsAvatarOpen(true)}>
+        <View style={styles.avatarWrapper}>
           <View style={styles.avatar}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarText}>BG</Text>
-            )}
+            <Text style={styles.avatarText}>{profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'BG'}</Text>
           </View>
-          <View style={styles.editBadge}>
-            <Feather name="camera" size={14} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
+        </View>
         <Text style={styles.name}>{profileName}</Text>
         <Text style={styles.phone}>{profilePhone}</Text>
       </View>
@@ -162,48 +152,6 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>Log Out</Text>
       </TouchableOpacity>
-
-      {/* MODAL 1: Avatar Image Picker Simulation */}
-      <Modal visible={isAvatarOpen} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Update Profile Picture</Text>
-              <TouchableOpacity onPress={() => setIsAvatarOpen(false)}>
-                <Feather name="x" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {uploading ? (
-              <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#0066FF" />
-                <Text style={styles.loaderText}>Uploading image to secure servers...</Text>
-              </View>
-            ) : (
-              <View style={{ padding: 20 }}>
-                <Text style={styles.promptText}>Select a photo from your device profile gallery:</Text>
-                
-                <View style={styles.mockGallery}>
-                  <TouchableOpacity onPress={() => handleSelectMockImage('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150')}>
-                    <Image source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }} style={styles.galleryThumb} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleSelectMockImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150')}>
-                    <Image source={{ uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }} style={styles.galleryThumb} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleSelectMockImage('https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150')}>
-                    <Image source={{ uri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' }} style={styles.galleryThumb} />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity style={styles.selectBtn} onPress={() => handleSelectMockImage('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150')}>
-                  <Feather name="image" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.selectBtnText}>Import Custom Image</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
 
       {/* MODAL 2: Saved Addresses Sheet */}
       <Modal visible={isAddressesOpen} animationType="slide" transparent>

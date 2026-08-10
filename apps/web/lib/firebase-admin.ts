@@ -38,7 +38,7 @@ if (getApps().length === 0) {
       console.error('[Firebase Admin] Initialization failed:', error);
     }
   } else {
-    console.log('[Firebase Admin] Credentials missing or incomplete. Running in mock verification bypass mode.');
+    console.warn('[Firebase Admin] Credentials missing or incomplete. Firebase token verification is unavailable.');
   }
 } else {
   isFirebaseAdminInitialized = true;

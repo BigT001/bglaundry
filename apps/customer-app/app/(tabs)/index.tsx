@@ -5,6 +5,7 @@ import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBasketItemsCount, subscribeBasket } from '../booking/basketState';
 import axios from 'axios';
+import { API_URL } from '../../lib/config';
 
 // Comprehensive fallback service items list for offline searching
 const FALLBACK_SEARCH_ITEMS = [
@@ -113,7 +114,6 @@ export default function HomeDashboard() {
     ).start();
 
     // 3. Fetch dynamic values from database API for search
-    const API_URL = 'http://localhost:4000/api/v1';
     axios.get(`${API_URL}/admin/services`)
       .then((res) => {
         const dbServices = res.data.services || [];

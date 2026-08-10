@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "179247049497",
+    "project_id": "bglaundry",
+    "storage_bucket": "bglaundry.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179247049497:android:c44f22b7a4a99b65517388",
+        "android_client_info": {
+          "package_name": "org.bglaundry.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMs8YIAHnmkWO8__3IWWImrR-uSVz3WYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

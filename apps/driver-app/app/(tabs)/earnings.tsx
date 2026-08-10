@@ -1,31 +1,81 @@
-import React from 'react';
-import { StyleSheet, Text, View, FlatList } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import axios from 'axios';
+import { API_URL } from '../../lib/config';
+import { clearRiderSession, riderAuthHeaders } from '../../lib/session';
+
+type Earning = {
+  id: string;
+  description: string;
+  amount: number;
+  createdAt: string;
+};
+
+const money = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+});
 
 export default function EarningsScreen() {
-  const log = [
-    { id: '1', desc: 'Order #BG-1000 Delivery Fee', amount: 'NGN 1,200', date: 'Today, 2:14 PM' },
-    { id: '2', desc: 'Order #BG-0999 Pickup Fee', amount: 'NGN 1,200', date: 'Today, 11:30 AM' },
-    { id: '3', desc: 'Weekly Target Bonus', amount: 'NGN 5,000', date: 'July 5, 2026' },
-  ];
+  const router = useRouter();
+  const [earnings, setEarnings] = useState<Earning[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const headers = await riderAuthHeaders();
+      if (!headers) {
+        await clearRiderSession();
+        router.replace('/(auth)/login');
+        return;
+      }
+      const { data } = await axios.get(`${API_URL}/riders/me/earnings`, { headers });
+      setEarnings(data.earnings || []);
+      setTotal(Number(data.total) || 0);
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        await clearRiderSession();
+        router.replace('/(auth)/login');
+        return;
+      }
+      Alert.alert('Earnings unavailable', error.response?.data?.error || 'Pull down to try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <View style={styles.container}>
       <View style={styles.summaryCard}>
         <Text style={styles.label}>Net Balance</Text>
-        <Text style={styles.balance}>NGN 7,400</Text>
+        <Text style={styles.balance}>{money.format(total)}</Text>
       </View>
 
       <Text style={styles.sectionTitle}>Earnings Log</Text>
+      {loading ? <View style={styles.loading}><ActivityIndicator color="#002B7F" /><Text>Loading earnings...</Text></View> : null}
       <FlatList
-        data={log}
+        data={earnings}
         keyExtractor={item => item.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+        ListEmptyComponent={!loading ? <View style={styles.empty}><Text style={styles.emptyTitle}>No earnings yet</Text><Text style={styles.emptyCopy}>Completed rider payouts will appear here.</Text></View> : null}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowDesc}>{item.desc}</Text>
-              <Text style={styles.rowDate}>{item.date}</Text>
+              <Text style={styles.rowDesc}>{item.description}</Text>
+              <Text style={styles.rowDate}>{new Date(item.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
             </View>
-            <Text style={styles.rowVal}>{item.amount}</Text>
+            <Text style={styles.rowVal}>{money.format(item.amount)}</Text>
           </View>
         )}
       />
@@ -62,6 +112,25 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 12,
     textTransform: 'uppercase',
+  },
+  loading: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 24,
+  },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  emptyCopy: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
   },
   row: {
     flexDirection: 'row',

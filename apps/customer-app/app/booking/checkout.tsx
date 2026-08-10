@@ -232,7 +232,11 @@ export default function CheckoutScreen() {
           const user = JSON.parse(userStr);
           if (user.fullName) setCustomerName(user.fullName);
           if (user.phoneNumber) setCustomerPhone(user.phoneNumber);
-          if (user.pickupAddress) setFormPickupAddress(user.pickupAddress);
+          const savedAddr = user.pickupAddress || user.homeAddress || user.officeAddress || '';
+          if (savedAddr) {
+            setFormPickupAddress(prev => prev || savedAddr);
+            setFormDeliveryAddress(prev => prev || savedAddr);
+          }
         }
 
         const addrs = await AsyncStorage.getItem('@bglaundry_addresses');
@@ -273,12 +277,11 @@ export default function CheckoutScreen() {
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const payloadPickup = formPickupAddress || pickupAddress || '';
-      const payloadDelivery = formDeliveryAddress || deliveryAddress || '';
+      const payloadDelivery = formDeliveryAddress || deliveryAddress || payloadPickup;
 
       const orderResponse = await axios.post(`${API_URL}/orders/book`, {
         pickupAddress: payloadPickup,
         deliveryAddress: payloadDelivery,
-        pickupDate,
         items: formattedItems,
       }, authConfig);
 
@@ -404,7 +407,7 @@ export default function CheckoutScreen() {
             style={[styles.infoVal, { borderWidth: 1, borderColor: '#E6F0FA', padding: 8, borderRadius: 6 }]}
             value={formPickupAddress}
             onChangeText={setFormPickupAddress}
-            placeholder="e.g. Apt 4, 16B Maria Okor Street, Ejibo"
+            placeholder="Enter your pickup address (e.g. 15 Admiralty Way, Lekki)"
           />
           <View style={styles.divider} />
           <Text style={styles.infoLabel}>Deliver To:</Text>

@@ -51,7 +51,9 @@ model User {
   fullName        String
   passwordHash    String?   // NULL for drivers using phone-only auth, non-NULL for customers
   pickupAddress   String?   // Default pickup address for customers
-  addressType     String?   // "HOME" or "OFFICE"
+  homeAddress     String?   // Home Address
+  officeAddress   String?   // Office Address
+  addressType     String?   // "HOME", "OFFICE", or "BOTH"
   role            Role      @default(CUSTOMER)
   permissions     String[]  @default([])
   isActive        Boolean   @default(true)

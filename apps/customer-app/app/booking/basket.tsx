@@ -37,12 +37,52 @@ export default function BasketScreen() {
     amount: number;
   } | null>(null);
 
-  // Input states for schedule
-  const [pickupAddress, setPickupAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
-  const [deliveryAddress, setDeliveryAddress] = useState('16B Maria Okor Street, Ejibo, Lagos');
-  const [pickupDate, setPickupDate] = useState(
-    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  );
+  // Input states for schedule & addresses
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [selectedAddrOption, setSelectedAddrOption] = useState<'HOME' | 'OFFICE' | 'DROPOFF' | 'CUSTOM'>('HOME');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+
+  useEffect(() => {
+    async function loadSavedUser() {
+      try {
+        const userStr = await AsyncStorage.getItem('@bglaundry_user');
+        if (userStr) {
+          const u = JSON.parse(userStr);
+          setUserProfile(u);
+          const defaultAddr = u.pickupAddress || u.homeAddress || u.officeAddress || '';
+          setPickupAddress(defaultAddr);
+          setDeliveryAddress(defaultAddr);
+          if (u.homeAddress && defaultAddr === u.homeAddress) {
+            setSelectedAddrOption('HOME');
+          } else if (u.officeAddress && defaultAddr === u.officeAddress) {
+            setSelectedAddrOption('OFFICE');
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load user profile in basket:', e);
+      }
+    }
+    void loadSavedUser();
+  }, []);
+
+  const selectAddressOption = (option: 'HOME' | 'OFFICE' | 'DROPOFF' | 'CUSTOM') => {
+    setSelectedAddrOption(option);
+    if (option === 'HOME') {
+      const addr = userProfile?.homeAddress || userProfile?.pickupAddress || '';
+      setPickupAddress(addr);
+      if (!deliveryAddress || deliveryAddress.includes('BG Laundry Hub')) setDeliveryAddress(addr);
+    } else if (option === 'OFFICE') {
+      const addr = userProfile?.officeAddress || '';
+      setPickupAddress(addr);
+      if (!deliveryAddress || deliveryAddress.includes('BG Laundry Hub')) setDeliveryAddress(addr);
+    } else if (option === 'DROPOFF') {
+      const hubAddr = 'BG Laundry Hub (16B Maria Okor Street, Ejibo, Lagos)';
+      setPickupAddress(hubAddr);
+      const returnAddr = userProfile?.homeAddress || userProfile?.pickupAddress || userProfile?.officeAddress || '';
+      setDeliveryAddress(returnAddr);
+    }
+  };
 
   const handleIncrement = (itemName: string, serviceName: string, serviceCode: string, price: number) => {
     addToBasket(itemName, serviceCode, serviceName, price);
@@ -61,10 +101,26 @@ export default function BasketScreen() {
       Alert.alert('Empty Basket', 'Please add some items to your basket first.');
       return;
     }
+    // Refresh user address from storage
+    AsyncStorage.getItem('@bglaundry_user').then(userStr => {
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        setUserProfile(u);
+        if (!pickupAddress) {
+          const addr = u.pickupAddress || u.homeAddress || u.officeAddress || '';
+          setPickupAddress(addr);
+          setDeliveryAddress(addr);
+        }
+      }
+    }).catch(() => {});
     setIsScheduleVisible(true);
   };
 
   const handleConfirmSchedule = () => {
+    if (!pickupAddress.trim()) {
+      Alert.alert('Pickup Address Required', 'Please enter your pickup address to proceed.');
+      return;
+    }
     setIsScheduleVisible(false);
     setPaymentStep('PROCESSING');
     setIsFlutterwaveVisible(true);
@@ -86,9 +142,8 @@ export default function BasketScreen() {
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const orderResponse = await axios.post(`${API_URL}/orders/book`, {
-        pickupAddress,
-        deliveryAddress,
-        pickupDate,
+        pickupAddress: pickupAddress.trim(),
+        deliveryAddress: (deliveryAddress.trim() || pickupAddress.trim()),
         items: formattedItems,
       }, authConfig);
 
@@ -252,35 +307,63 @@ export default function BasketScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalDragHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pickup & Delivery Details</Text>
+              <Text style={styles.modalTitle}>Confirm Pickup & Delivery Address</Text>
               <TouchableOpacity onPress={() => setIsScheduleVisible(false)} style={styles.closeModalBtn}>
                 <Feather name="x" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Pickup Address</Text>
+              <Text style={styles.inputLabel}>Quick Address Selection</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {userProfile?.homeAddress ? (
+                  <TouchableOpacity
+                    style={[styles.addrPill, selectedAddrOption === 'HOME' && styles.addrPillActive]}
+                    onPress={() => selectAddressOption('HOME')}
+                  >
+                    <Feather name="home" size={13} color={selectedAddrOption === 'HOME' ? '#0066FF' : '#64748B'} />
+                    <Text style={[styles.addrPillText, selectedAddrOption === 'HOME' && styles.addrPillTextActive]}>Home Address</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {userProfile?.officeAddress ? (
+                  <TouchableOpacity
+                    style={[styles.addrPill, selectedAddrOption === 'OFFICE' && styles.addrPillActive]}
+                    onPress={() => selectAddressOption('OFFICE')}
+                  >
+                    <Feather name="briefcase" size={13} color={selectedAddrOption === 'OFFICE' ? '#0066FF' : '#64748B'} />
+                    <Text style={[styles.addrPillText, selectedAddrOption === 'OFFICE' && styles.addrPillTextActive]}>Office Address</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[styles.addrPill, selectedAddrOption === 'DROPOFF' && styles.addrPillActive]}
+                  onPress={() => selectAddressOption('DROPOFF')}
+                >
+                  <Feather name="map-pin" size={13} color={selectedAddrOption === 'DROPOFF' ? '#0066FF' : '#64748B'} />
+                  <Text style={[styles.addrPillText, selectedAddrOption === 'DROPOFF' && styles.addrPillTextActive]}>Drop-off at BG Hub</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>Pickup Address *</Text>
               <TextInput 
                 style={styles.textInput}
                 value={pickupAddress}
-                onChangeText={setPickupAddress}
+                onChangeText={(text) => {
+                  setPickupAddress(text);
+                  setSelectedAddrOption('CUSTOM');
+                }}
                 placeholder="Enter pickup address"
+                multiline
               />
 
-              <Text style={styles.inputLabel}>Delivery Address</Text>
+              <Text style={styles.inputLabel}>Delivery Address (Optional if same as pickup)</Text>
               <TextInput 
                 style={styles.textInput}
                 value={deliveryAddress}
                 onChangeText={setDeliveryAddress}
                 placeholder="Enter delivery address"
-              />
-
-              <Text style={styles.inputLabel}>Pickup Date & Time</Text>
-              <TextInput 
-                style={styles.textInput}
-                value={pickupDate}
-                onChangeText={setPickupDate}
-                placeholder="e.g. 2026-07-10T10:00:00Z"
+                multiline
               />
 
               <TouchableOpacity style={styles.payTriggerBtn} onPress={handleConfirmSchedule}>
@@ -644,6 +727,30 @@ const styles = StyleSheet.create({
   },
   closeModalBtn: {
     padding: 4,
+  },
+  addrPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  addrPillActive: {
+    backgroundColor: '#F0F7FF',
+    borderColor: '#0066FF',
+  },
+  addrPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  addrPillTextActive: {
+    color: '#0066FF',
+    fontWeight: '700',
   },
   inputLabel: {
     fontSize: 13,

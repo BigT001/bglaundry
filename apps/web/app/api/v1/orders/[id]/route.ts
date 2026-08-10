@@ -18,11 +18,39 @@ export async function GET(
 
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        customerId: true,
+        driverId: true,
+        status: true,
+        totalAmount: true,
+        pickupAddress: true,
+        deliveryAddress: true,
+        pickupDate: true,
+        deliveryDate: true,
+        pickupOTP: true,
+        deliveryOTP: true,
+        createdAt: true,
+        updatedAt: true,
         items: true,
-        customer: true,
-        driver: true,
-        trackingHistory: true,
+        customer: {
+          select: { id: true, fullName: true, phoneNumber: true, email: true },
+        },
+        driver: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+            driverProfile: {
+              select: { vehicleType: true, isOnline: true, currentLat: true, currentLng: true },
+            },
+          },
+        },
+        trackingHistory: {
+          select: { id: true, status: true, note: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -39,7 +67,13 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    return NextResponse.json(order);
+    const safeOrder = admin ? order : {
+      ...order,
+      pickupOTP: ['PICKUP_PENDING', 'PICKUP_IN_PROGRESS'].includes(order.status) ? order.pickupOTP : null,
+      deliveryOTP: ['DELIVERY_PENDING', 'DELIVERY_IN_PROGRESS'].includes(order.status) ? order.deliveryOTP : null,
+    };
+
+    return NextResponse.json(safeOrder);
   } catch (error: any) {
     console.error('[Find One Order Error]', error);
     return NextResponse.json(

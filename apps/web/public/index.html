@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BG Laundry Mobile Apps Download Portal</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #002B7F;
+      margin: 0 0 8px;
+    }
+    .header p {
+      font-size: 15px;
+      color: #64748B;
+      margin: 0;
+    }
+    .container {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 960px;
+      width: 100%;
+    }
+    .card {
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 32px 24px;
+      flex: 1;
+      min-width: 320px;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      border: 1px solid #E2E8F0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .badge {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      color: #FFFFFF;
+      font-size: 22px;
+      font-weight: 800;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 16px;
+    }
+    .customer-badge {
+      background-color: #0066FF;
+      box-shadow: 0 8px 16px rgba(0, 102, 255, 0.25);
+    }
+    .rider-badge {
+      background-color: #10B981;
+      box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0 0 6px;
+      color: #0F172A;
+    }
+    p {
+      font-size: 13px;
+      color: #64748B;
+      line-height: 1.5;
+      margin: 0 0 16px;
+    }
+    .qr-box {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+    .qr-box img {
+      width: 170px;
+      height: 170px;
+      display: block;
+      border-radius: 8px;
+    }
+    .download-btn {
+      display: block;
+      width: 100%;
+      color: #FFFFFF;
+      padding: 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      box-sizing: border-box;
+      transition: opacity 0.2s ease;
+    }
+    .customer-btn {
+      background-color: #002B7F;
+      box-shadow: 0 4px 12px rgba(0, 43, 127, 0.2);
+    }
+    .rider-btn {
+      background-color: #059669;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+    }
+    .instructions {
+      background: #F8FAFC;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: left;
+      border: 1px solid #E2E8F0;
+      margin-top: 16px;
+      font-size: 12px;
+    }
+    .instructions ol {
+      margin: 4px 0 0;
+      padding-left: 18px;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BG Laundry Mobile Apps Portal</h1>
+    <p>Scan QR Code with your phone or tap below to download the latest Android Release APKs.</p>
+  </div>
+
+  <div class="container">
+    <!-- Customer App Card -->
+    <div class="card">
+      <div>
+        <div class="badge customer-badge">BG</div>
+        <h2>Customer Mobile App</h2>
+        <p>Book laundry pickups, select wash options, track order status, and make online payments.</p>
+
+        <div class="qr-box">
+          <img src="/customer-apk-qr.png" alt="Scan to Download Customer APK">
+        </div>
+      </div>
+
+      <div>
+        <a href="/bglaundry-customer.apk" download="bglaundry-customer.apk" class="download-btn customer-btn">
+          📲 Download Customer APK
+        </a>
+
+        <div class="instructions">
+          <strong>Customer Installation:</strong>
+          <ol>
+            <li>Scan QR Code or tap download button.</li>
+            <li>Allow unknown source installs if prompted.</li>
+            <li>Install & sign in via 6-digit SMS OTP.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rider App Card -->
+    <div class="card">
+      <div>
+        <div class="badge rider-badge">🚴</div>
+        <h2>Rider Logistics App</h2>
+        <p>For company delivery coordinators. View assigned pickups & deliveries, live map navigation, and customer OTP handoffs.</p>
+
+        <div class="qr-box">
+          <img src="/rider-apk-qr.png" alt="Scan to Download Rider APK">
+        </div>
+      </div>
+
+      <div>
+        <a href="/bglaundry-rider.apk" download="bglaundry-rider.apk" class="download-btn rider-btn">
+          🛵 Download Rider APK
+        </a>
+
+        <div class="instructions">
+          <strong>Rider Portal Installation:</strong>
+          <ol>
+            <li>Scan QR Code or tap download button.</li>
+            <li>Sign in using company rider credentials.</li>
+            <li>View assigned routes & turn-by-turn map navigation.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

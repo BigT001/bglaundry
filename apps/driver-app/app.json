@@ -1,5 +1,47 @@
 {
-  "plugins": [
-    "expo-router"
-  ]
+  "expo": {
+    "name": "BG Laundry Rider",
+    "owner": "bglaundry",
+    "slug": "bg-laundry-rider",
+    "version": "1.0.0",
+    "scheme": "bglaundry-rider",
+    "icon": "./assets/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "org.bglaundry.rider",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BG Laundry uses your location while you are on duty so dispatch can track pickup and delivery routes."
+      }
+    },
+    "android": {
+      "package": "org.bglaundry.rider",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#002B7F"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BG Laundry uses your location while you are on duty so dispatch can track pickup and delivery routes."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f65ea128-7b19-4aab-b5f9-54522e074785"
+      }
+    }
+  }
 }

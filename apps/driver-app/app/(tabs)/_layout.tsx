@@ -7,10 +7,15 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#002B7F',
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: {
-          borderTopColor: '#E6F0FA',
+          borderTopColor: '#E2E8F0',
           backgroundColor: '#FFFFFF',
-          height: 60,
+          height: 62,
           paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '700',
         },
       }}
     >
@@ -18,14 +23,36 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Assignments',
-          headerShown: true,
+          headerTitle: 'Assigned Jobs',
+          headerStyle: { backgroundColor: '#002B7F' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          headerTitle: 'Completed Log',
+          headerStyle: { backgroundColor: '#002B7F' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          headerTitle: 'Duty & Profile',
+          headerStyle: { backgroundColor: '#002B7F' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
         }}
       />
       <Tabs.Screen
         name="earnings"
         options={{
-          title: 'Earnings Log',
-          headerShown: true,
+          href: null,
         }}
       />
     </Tabs>

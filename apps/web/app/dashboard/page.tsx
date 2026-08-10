@@ -385,8 +385,8 @@ export default function CustomerDashboard() {
     try {
       const bookingData = {
         pickupAddress: pickupAddress.trim(),
-        deliveryAddress: deliveryAddress.trim(),
-        pickupDate,
+        deliveryAddress: (deliveryAddress.trim() || pickupAddress.trim()),
+        pickupDate: pickupDate || new Date().toISOString(),
         items: (Object.values(basket) as BasketItem[]).map((item) => ({
           serviceName: item.serviceName,
           quantity: item.quantity,
@@ -891,39 +891,27 @@ export default function CustomerDashboard() {
                         {preferredAddress && <div className="saved-address-note"><MapPin size={15} style={{ flexShrink: 0, marginTop: '1px' }} /><span>Your saved address has been added below. Edit it if this pickup needs a different location.</span></div>}
 
                         <div>
-                          <label className="field-label">Pickup Address</label>
+                          <label className="field-label">Pickup Address *</label>
                           <input
                             type="text"
                             required
                             value={pickupAddress}
                             onChange={(e) => { setPickupAddress(e.target.value); if (useSameAddress) setDeliveryAddress(e.target.value); }}
-                            placeholder="e.g. Apt 4, 16B Maria Okor Street, Ejibo"
+                            placeholder="e.g. 15 Admiralty Way, Lekki Phase 1, Lagos"
                             className="field-input"
                           />
                         </div>
 
                         <div>
-                          <label className="field-label">Delivery Address</label>
+                          <label className="field-label">Delivery Address (Optional if same as pickup)</label>
                           <input
                             type="text"
-                            required
                             value={deliveryAddress}
                             onChange={(e) => { setDeliveryAddress(e.target.value); setUseSameAddress(false); }}
                             placeholder="e.g. Same as pickup address"
                             className="field-input"
                           />
                           <label className="same-address-row"><input type="checkbox" checked={useSameAddress} onChange={(e) => { setUseSameAddress(e.target.checked); if (e.target.checked) setDeliveryAddress(pickupAddress); }} /> Use the pickup address for delivery</label>
-                        </div>
-
-                        <div>
-                          <label className="field-label">Pickup Date & Time</label>
-                          <input
-                            type="datetime-local"
-                            required
-                            value={pickupDate}
-                            onChange={(e) => setPickupDate(e.target.value)}
-                            className="field-input"
-                          />
                         </div>
 
                         <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>

@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'reac
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import { API_URL } from '../../../lib/config';
-import { riderToken } from '../../../lib/session';
+import { clearRiderSession, riderAuthHeaders } from '../../../lib/session';
 
 export default function ConfirmHandoffScreen() {
   const router = useRouter();
@@ -19,17 +19,23 @@ export default function ConfirmHandoffScreen() {
     }
     setLoading(true);
     try {
-      const token = await riderToken();
+      const headers = await riderAuthHeaders();
+      if (!headers) return router.replace('/(auth)/login');
       const nextStatus = status === 'DELIVERY_IN_PROGRESS' ? 'DELIVERED' : 'PICKED_UP';
       await axios.patch(`${API_URL}/riders/orders/${id}/status`, {
         status: nextStatus,
         otp,
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      }, { headers });
 
       Alert.alert('Success', 'Order status updated successfully!', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') }
       ]);
     } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        await clearRiderSession();
+        router.replace('/(auth)/login');
+        return;
+      }
       Alert.alert('Verification failed', error.response?.data?.error || 'Check the customer code and try again.');
     } finally {
       setLoading(false);

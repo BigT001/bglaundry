@@ -16,20 +16,33 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { pickupAddress, deliveryAddress, pickupDate, items } = body;
 
-    if (!pickupAddress || !deliveryAddress || !pickupDate || !Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: 'Missing required booking fields' },
+        { error: 'Basket cannot be empty' },
         { status: 400 },
       );
     }
 
-    const pickupAt = new Date(pickupDate);
-    if (Number.isNaN(pickupAt.getTime())) {
-      return NextResponse.json({ error: 'Pickup date is invalid.' }, { status: 400 });
+    // Retrieve user profile to default to customer's saved address
+    const userProfile = await prisma.user.findUnique({
+      where: { id: customer.id },
+      select: { pickupAddress: true, homeAddress: true, officeAddress: true },
+    });
+
+    const defaultCustomerAddress = userProfile?.pickupAddress || userProfile?.homeAddress || userProfile?.officeAddress || '';
+    const finalPickupAddress = (pickupAddress && String(pickupAddress).trim()) || defaultCustomerAddress;
+    const finalDeliveryAddress = (deliveryAddress && String(deliveryAddress).trim()) || finalPickupAddress;
+
+    if (!finalPickupAddress) {
+      return NextResponse.json(
+        { error: 'Pickup address is mandatory. Please enter your pickup address.' },
+        { status: 400 },
+      );
     }
-    if (pickupAt.getTime() < Date.now()) {
-      return NextResponse.json({ error: 'Pickup date must be in the future.' }, { status: 400 });
-    }
+
+    // Default pickup date to now (riders will be dispatched immediately)
+    const pickupAt = pickupDate ? new Date(pickupDate) : new Date();
+    const validPickupAt = Number.isNaN(pickupAt.getTime()) ? new Date() : pickupAt;
 
     const services = await prisma.service.findMany();
     const pricedItems = items.map((item: any) => {
@@ -72,9 +85,9 @@ export async function POST(request: NextRequest) {
       data: {
         orderNumber,
         customerId: customer.id,
-        pickupAddress,
-        deliveryAddress,
-        pickupDate: pickupAt,
+        pickupAddress: finalPickupAddress,
+        deliveryAddress: finalDeliveryAddress,
+        pickupDate: validPickupAt,
         totalAmount,
         status: OrderStatus.PAYMENT_PENDING,
         items: {

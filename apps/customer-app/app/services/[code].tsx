@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { getBasket, subscribeBasket, addToBasket, removeFromBasket, getBasketItemsCount } from '../booking/basketState';
 import axios from 'axios';
+import { API_URL } from '../../lib/config';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -90,7 +91,6 @@ export default function ServiceDetailScreen() {
     });
 
     // 2. Fetch dynamic values from database API
-    const API_URL = 'http://localhost:4000/api/v1';
     axios.get(`${API_URL}/admin/services`)
       .then((res) => {
         const dbServices = res.data.services || [];

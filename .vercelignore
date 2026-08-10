@@ -1,0 +1,14 @@
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+.next-dev/
+out/
+web-build/
+.expo/
+
+apps/customer-app/
+apps/driver-app/
+
+*.log
+.DS_Store

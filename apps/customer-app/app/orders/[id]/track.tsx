@@ -1,122 +1,97 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_URL } from '../../../lib/config';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
-interface OrderMock {
+interface LiveOrder {
   id: string;
-  status: 'PICKUP_PENDING' | 'PROCESSING' | 'DELIVERED';
-  statusLabel: string;
-  date: string;
+  orderNumber: string;
+  status: string;
+  createdAt: string;
   pickupAddress: string;
   deliveryAddress: string;
-  estimatedReturn: string;
-  total: number;
-  items: {
-    name: string;
-    qty: number;
-    service: string;
+  pickupDate: string;
+  deliveryDate: string | null;
+  pickupOTP: string | null;
+  deliveryOTP: string | null;
+  totalAmount: number;
+  items: Array<{
+    id: string;
+    serviceName: string;
+    quantity: number;
     price: number;
-    icon: string;
-  }[];
-  steps: {
-    label: string;
-    desc: string;
-    active: boolean;
-    time?: string;
-  }[];
+  }>;
+  trackingHistory: Array<{ id: string; status: string; note: string | null; createdAt: string }>;
 }
 
 export default function TrackOrderScreen() {
   const { id } = useLocalSearchParams();
+  const [order, setOrder] = useState<LiveOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-  // Mock Orders Database
-  const ordersDb: Record<string, OrderMock> = {
-    'BG-1002': {
-      id: 'BG-1002',
-      status: 'PICKUP_PENDING',
-      statusLabel: 'Pickup Pending',
-      date: 'July 10, 2026',
-      pickupAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      deliveryAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      estimatedReturn: 'Tomorrow, 11 Jul at 10:00 AM',
-      total: 7500,
-      items: [
-        { name: 'Press Shirt', qty: 2, service: 'Iron Only', price: 1000, icon: 'tshirt-v' },
-        { name: 'Dry Clean Native Kaftan', qty: 1, service: 'Dry Cleaning', price: 2000, icon: 'account' },
-        { name: 'Dry Clean Suit Set', qty: 1, service: 'Dry Cleaning', price: 5000, icon: 'tie' },
-      ],
-      steps: [
-        { label: 'Order Registered', desc: 'Secure payment authorized via Flutterwave', active: true, time: '10:00 AM' },
-        { label: 'Driver Assigned', desc: 'Driver (Samuel) is en-route for pickup', active: true, time: '10:15 AM' },
-        { label: 'Washing & Cleaning', desc: 'Clothes deep wash and stain lift treatment', active: false },
-        { label: 'Out for Delivery', desc: 'Garments crisp ironed and returned in 24 hours', active: false },
-      ]
-    },
-    'BG-1001': {
-      id: 'BG-1001',
-      status: 'PROCESSING',
-      statusLabel: 'In Processing',
-      date: 'July 8, 2026',
-      pickupAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      deliveryAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      estimatedReturn: 'Today, 9 Jul at 2:00 PM',
-      total: 15000,
-      items: [
-        { name: 'Dry Clean Shirt', qty: 3, service: 'Dry Cleaning', price: 1500, icon: 'tshirt-v' },
-        { name: 'Dry Clean Suit Set', qty: 1, service: 'Dry Cleaning', price: 5000, icon: 'tie' },
-        { name: 'Dry Clean Duvet', qty: 1, service: 'Dry Cleaning', price: 5000, icon: 'bed-double-outline' },
-      ],
-      steps: [
-        { label: 'Order Registered', desc: 'Secure payment authorized via Flutterwave', active: true, time: '2:00 PM' },
-        { label: 'Clothes Picked Up', desc: 'Garments picked up by driver (Samuel)', active: true, time: '2:40 PM' },
-        { label: 'Washing & Cleaning', desc: 'Clothes deep wash and stain lift treatment', active: true, time: '4:10 PM' },
-        { label: 'Out for Delivery', desc: 'Garments crisp ironed and returned in 24 hours', active: false },
-      ]
-    },
-    'BG-1000': {
-      id: 'BG-1000',
-      status: 'DELIVERED',
-      statusLabel: 'Delivered Successfully',
-      date: 'June 28, 2026',
-      pickupAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      deliveryAddress: '16B Maria Okor Street, Ejibo, Lagos',
-      estimatedReturn: 'Completed on 29 Jun at 3:15 PM',
-      total: 3000,
-      items: [
-        { name: 'Kids Dry Clean Dress', qty: 1, service: 'Dry Cleaning', price: 1200, icon: 'hanger' },
-        { name: 'Kids Press Shirt', qty: 1, service: 'Iron Only', price: 800, icon: 'tshirt-v' },
-        { name: 'Kids Wash Trouser', qty: 1, service: 'Wash Only', price: 1000, icon: 'hanger' },
-      ],
-      steps: [
-        { label: 'Order Registered', desc: 'Secure payment authorized via Flutterwave', active: true, time: '11:00 AM' },
-        { label: 'Clothes Picked Up', desc: 'Garments picked up by driver', active: true, time: '11:45 AM' },
-        { label: 'Washing & Cleaning', desc: 'Clothes deep wash and stain lift treatment', active: true, time: '2:00 PM' },
-        { label: 'Out for Delivery', desc: 'Garments returned to address', active: true, time: '3:15 PM' },
-      ]
+  const loadOrder = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    setError('');
+    try {
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      if (!token || !id) throw new Error('Your session has expired. Please sign in again.');
+      const response = await axios.get(`${API_URL}/orders/${String(id)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrder(response.data);
+    } catch (requestError: any) {
+      setError(requestError.response?.data?.error || requestError.message || 'Unable to load this order.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [id]);
 
-  const order = ordersDb[id as string] || ordersDb['BG-1002'];
+  useEffect(() => {
+    loadOrder();
+    const timer = setInterval(() => loadOrder(true), 30000);
+    return () => clearInterval(timer);
+  }, [loadOrder]);
+
+  if (loading && !order) {
+    return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator size="large" color="#0066FF" /><Text style={{ marginTop: 12, color: '#64748B' }}>Loading live order…</Text></View>;
+  }
+  if (!order) {
+    return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}><Feather name="alert-circle" size={38} color="#94A3B8" /><Text style={{ marginVertical: 12, color: '#64748B', textAlign: 'center' }}>{error || 'Order not found.'}</Text><TouchableOpacity onPress={() => loadOrder()}><Text style={{ color: '#0066FF', fontWeight: '700' }}>Try again</Text></TouchableOpacity></View>;
+  }
+
+  const statusLabel = order.status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const steps = [...order.trackingHistory].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const activePin = ['PICKUP_PENDING', 'PICKUP_IN_PROGRESS'].includes(order.status)
+    ? { label: 'Pickup handoff PIN', value: order.pickupOTP }
+    : ['DELIVERY_PENDING', 'DELIVERY_IN_PROGRESS'].includes(order.status)
+      ? { label: 'Delivery handoff PIN', value: order.deliveryOTP }
+      : null;
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadOrder(true)} tintColor="#0066FF" />}>
         
         {/* 1. Overview / Status Card */}
         <View style={styles.card}>
           <View style={styles.orderHeaderRow}>
             <View>
               <Text style={styles.orderLabel}>Order ID</Text>
-              <Text style={styles.orderVal}>#{order.id}</Text>
+              <Text style={styles.orderVal}>{order.orderNumber}</Text>
             </View>
             <View style={[styles.statusBadge, styles[`statusBadge_${order.status}`]]}>
               <Text style={[styles.statusText, styles[`statusText_${order.status}`]]}>
-                {order.statusLabel}
+                {statusLabel}
               </Text>
             </View>
           </View>
@@ -126,14 +101,27 @@ export default function TrackOrderScreen() {
           <View style={styles.metaInfoRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.metaLabel}>Order Date</Text>
-              <Text style={styles.metaVal}>{order.date}</Text>
+              <Text style={styles.metaVal}>{new Date(order.createdAt).toLocaleDateString('en-NG', { dateStyle: 'medium' })}</Text>
             </View>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <Text style={styles.metaLabel}>Estimated Delivery</Text>
-              <Text style={styles.metaVal}>{order.estimatedReturn}</Text>
+              <Text style={styles.metaLabel}>Scheduled Delivery</Text>
+              <Text style={styles.metaVal}>{order.deliveryDate ? new Date(order.deliveryDate).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not scheduled'}</Text>
             </View>
           </View>
         </View>
+
+        {activePin?.value ? (
+          <>
+            <Text style={styles.sectionTitle}>Customer Handoff Security</Text>
+            <View style={[styles.card, styles.pinCard]}>
+              <View>
+                <Text style={styles.pinLabel}>{activePin.label}</Text>
+                <Text style={styles.pinHint}>Give this code only to your assigned BG Laundry rider at handoff.</Text>
+              </View>
+              <Text style={styles.pinValue}>{activePin.value}</Text>
+            </View>
+          </>
+        ) : null}
 
         {/* 2. Garments Itemized Breakdown Card (Moved up) */}
         <Text style={styles.sectionTitle}>Garments Itemized Breakdown</Text>
@@ -142,15 +130,15 @@ export default function TrackOrderScreen() {
             <View key={idx}>
               <View style={styles.itemRow}>
                 <View style={styles.itemIconBg}>
-                  <MaterialCommunityIcons name={item.icon as any} size={20} color="#0066FF" />
+                  <MaterialCommunityIcons name="hanger" size={20} color="#0066FF" />
                 </View>
                 <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemService}>{item.service}</Text>
+                  <Text style={styles.itemName}>{item.serviceName}</Text>
+                  <Text style={styles.itemService}>Laundry service</Text>
                 </View>
                 <View style={styles.itemPriceCol}>
-                  <Text style={styles.itemQty}>{item.qty}x</Text>
-                  <Text style={styles.itemPrice}>{formatNaira(item.price * item.qty)}</Text>
+                  <Text style={styles.itemQty}>{item.quantity}x</Text>
+                  <Text style={styles.itemPrice}>{formatNaira(item.price * item.quantity)}</Text>
                 </View>
               </View>
               {idx < order.items.length - 1 && <View style={styles.lightDivider} />}
@@ -161,42 +149,42 @@ export default function TrackOrderScreen() {
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryVal}>{formatNaira(order.total)}</Text>
+            <Text style={styles.summaryVal}>{formatNaira(order.totalAmount)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Delivery Fee</Text>
             <Text style={[styles.summaryVal, { color: '#10B981', fontWeight: 'bold' }]}>FREE</Text>
           </View>
           <View style={[styles.summaryRow, { marginTop: 8 }]}>
-            <Text style={styles.grandTotalLabel}>Total Paid (via Flutterwave)</Text>
-            <Text style={styles.grandTotalVal}>{formatNaira(order.total)}</Text>
+            <Text style={styles.grandTotalLabel}>Order total</Text>
+            <Text style={styles.grandTotalVal}>{formatNaira(order.totalAmount)}</Text>
           </View>
         </View>
 
         {/* 3. Progress Tracking Timeline Card */}
         <Text style={styles.sectionTitle}>Order Tracking Progress</Text>
         <View style={[styles.card, { paddingVertical: 20 }]}>
-          {order.steps.map((step, idx) => {
-            const isLast = idx === order.steps.length - 1;
+          {steps.length ? steps.map((step, idx) => {
+            const isLast = idx === steps.length - 1;
             return (
-              <View key={idx} style={styles.timelineItem}>
+              <View key={step.id} style={styles.timelineItem}>
                 <View style={styles.dotContainer}>
-                  <View style={[styles.dot, step.active && styles.dotActive]} />
-                  {!isLast && <View style={[styles.line, step.active && styles.lineActive]} />}
+                  <View style={[styles.dot, styles.dotActive]} />
+                  {!isLast && <View style={[styles.line, styles.lineActive]} />}
                 </View>
 
                 <View style={styles.stepContent}>
                   <View style={styles.stepHeaderRow}>
-                    <Text style={[styles.stepLabel, step.active && styles.stepLabelActive]}>
-                      {step.label}
+                    <Text style={[styles.stepLabel, styles.stepLabelActive]}>
+                      {step.status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())}
                     </Text>
-                    {step.time && <Text style={styles.stepTime}>{step.time}</Text>}
+                    <Text style={styles.stepTime}>{new Date(step.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>
-                  <Text style={styles.stepDesc}>{step.desc}</Text>
+                  <Text style={styles.stepDesc}>{step.note || 'Order status updated.'}</Text>
                 </View>
               </View>
             );
-          })}
+          }) : <Text style={{ color: '#64748B' }}>No tracking events have been recorded yet.</Text>}
         </View>
 
         {/* 4. Address Logistics Details Card */}
@@ -293,8 +281,23 @@ const styles = StyleSheet.create({
   statusBadge_PROCESSING: {
     backgroundColor: '#FAF5FF',
   },
+  statusBadge_PICKUP_IN_PROGRESS: {
+    backgroundColor: '#EFF6FF',
+  },
+  statusBadge_PICKED_UP: {
+    backgroundColor: '#F3E8FF',
+  },
+  statusBadge_DELIVERY_PENDING: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusBadge_DELIVERY_IN_PROGRESS: {
+    backgroundColor: '#FEF3C7',
+  },
   statusBadge_DELIVERED: {
     backgroundColor: '#ECFDF5',
+  },
+  statusBadge_CANCELLED: {
+    backgroundColor: '#FEE2E2',
   },
   statusText: {
     fontSize: 12,
@@ -306,8 +309,49 @@ const styles = StyleSheet.create({
   statusText_PROCESSING: {
     color: '#9333EA',
   },
+  statusText_PICKUP_IN_PROGRESS: {
+    color: '#2563EB',
+  },
+  statusText_PICKED_UP: {
+    color: '#7C3AED',
+  },
+  statusText_DELIVERY_PENDING: {
+    color: '#B45309',
+  },
+  statusText_DELIVERY_IN_PROGRESS: {
+    color: '#B45309',
+  },
   statusText_DELIVERED: {
     color: '#10B981',
+  },
+  statusText_CANCELLED: {
+    color: '#DC2626',
+  },
+  pinCard: {
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  pinLabel: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  pinHint: {
+    color: '#475569',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  pinValue: {
+    color: '#0F172A',
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 4,
   },
   metaInfoRow: {
     flexDirection: 'row',

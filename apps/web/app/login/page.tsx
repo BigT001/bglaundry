@@ -50,18 +50,26 @@ export default function LoginPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || !email || !fullName || !selectedAddress.trim() || !password || loading) return;
+    const cleanHome = homeAddress.trim();
+    const cleanOffice = officeAddress.trim();
+    if (!phone || !email || !fullName || (!cleanHome && !cleanOffice) || !password || loading) {
+      setError('Please fill in all required fields including a Home or Office pickup address.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     try {
-      const selectedAddress = addressType === 'HOME' ? homeAddress : officeAddress;
+      const primaryPickup = cleanHome || cleanOffice;
+      const type = cleanHome && cleanOffice ? 'BOTH' : cleanHome ? 'HOME' : 'OFFICE';
       const { data } = await axios.post('/api/v1/auth/signup', {
         phoneNumber: phone,
         email,
         fullName: fullName,
-        pickupAddress: selectedAddress,
-        addressType: addressType,
+        homeAddress: cleanHome,
+        officeAddress: cleanOffice,
+        pickupAddress: primaryPickup,
+        addressType: type,
         password: password,
       });
 
@@ -596,49 +604,37 @@ export default function LoginPage() {
 
           {/* SIGNUP - ADDRESS */}
           {step === 'SIGNUP_ADDRESS' && (
-            <form onSubmit={(e) => { e.preventDefault(); setStep('SIGNUP_PASSWORD'); }}>
-              <div className="tagline">Pickup Address</div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!homeAddress.trim() && !officeAddress.trim()) {
+                setError('Please enter your Home Address or Office Address (or both) to continue.');
+                return;
+              }
+              setStep('SIGNUP_PASSWORD');
+            }}>
+              <div className="tagline">Pickup Address (Mandatory)</div>
               <div className="divider" />
               {error && <div className="error">{error}</div>}
-              <label style={{ marginBottom: 12 }}>Address Type</label>
-              <div className="radio-group">
-                <label
-                  className={`radio-option ${addressType === 'HOME' ? 'selected' : ''}`}
-                  style={{ margin: 0 }}
-                >
-                  <input
-                    type="radio"
-                    name="addressType"
-                    value="HOME"
-                    checked={addressType === 'HOME'}
-                    onChange={() => setAddressType('HOME')}
-                  />
-                  <span>Home</span>
-                </label>
-                <label
-                  className={`radio-option ${addressType === 'OFFICE' ? 'selected' : ''}`}
-                  style={{ margin: 0 }}
-                >
-                  <input
-                    type="radio"
-                    name="addressType"
-                    value="OFFICE"
-                    checked={addressType === 'OFFICE'}
-                    onChange={() => setAddressType('OFFICE')}
-                  />
-                  <span>Office</span>
-                </label>
-              </div>
-              <label>Address</label>
+              
+              <label>Home Address (Pickup Location) *</label>
               <div className="input-wrap">
                 <textarea
-                  placeholder={addressType === 'HOME' ? 'Enter your home pickup address' : 'Enter your office pickup address'}
-                  value={selectedAddress}
-                  onChange={(e) => setSelectedAddress(e.target.value)}
-                  required
+                  placeholder="e.g. 15 Admiralty Way, Lekki Phase 1, Lagos"
+                  value={homeAddress}
+                  onChange={(e) => { setHomeAddress(e.target.value); setError(''); }}
                   autoFocus
                 />
               </div>
+
+              <label style={{ marginTop: 12 }}>Office Address (Optional if Home Address entered)</label>
+              <div className="input-wrap">
+                <textarea
+                  placeholder="e.g. Suite 402, Victoria Island Tower, Lagos"
+                  value={officeAddress}
+                  onChange={(e) => { setOfficeAddress(e.target.value); setError(''); }}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
                 <button
                   type="button"
@@ -650,7 +646,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="btn"
-                  disabled={!selectedAddress.trim() || loading}
+                  disabled={(!homeAddress.trim() && !officeAddress.trim()) || loading}
                 >
                   Next
                 </button>

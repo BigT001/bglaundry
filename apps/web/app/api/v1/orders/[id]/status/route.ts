@@ -21,6 +21,9 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    if (!Object.values(OrderStatus).includes(status)) {
+      return NextResponse.json({ error: 'Invalid order status.' }, { status: 400 });
+    }
     if ([OrderStatus.PICKED_UP, OrderStatus.DELIVERED].includes(status)) {
       return NextResponse.json(
         { error: `${status === OrderStatus.PICKED_UP ? 'Pickup' : 'Delivery'} can only be confirmed by the rider using the customer PIN.` },
@@ -41,6 +44,12 @@ export async function PATCH(
     if (order.status === OrderStatus.PAYMENT_PENDING) {
       return NextResponse.json(
         { error: 'Payment must be confirmed before this order can be updated.' },
+        { status: 409 },
+      );
+    }
+    if (status === OrderStatus.DELIVERY_PENDING && !order.driverId) {
+      return NextResponse.json(
+        { error: 'Assign a rider before moving this order to delivery.' },
         { status: 409 },
       );
     }

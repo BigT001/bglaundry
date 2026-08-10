@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName, phoneNumber, email, pickupAddress, addressType } = await request.json();
+    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType } = await request.json();
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },
@@ -42,9 +42,35 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const cleanHome = homeAddress?.trim() || '';
+    const cleanOffice = officeAddress?.trim() || '';
+    const cleanPickup = pickupAddress?.trim() || '';
+
+    // Enforce mandatory pickup address (Home Address OR Office Address OR both)
+    if (!cleanHome && !cleanOffice && !cleanPickup) {
+      return NextResponse.json(
+        { error: 'Pickup Address is mandatory. Please enter your Home Address or Office Address (or both).' },
+        { status: 400 },
+      );
+    }
+
     const dataToUpdate: Record<string, any> = {
       fullName: fullName.trim(),
     };
+
+    if (cleanHome) dataToUpdate.homeAddress = cleanHome;
+    if (cleanOffice) dataToUpdate.officeAddress = cleanOffice;
+    dataToUpdate.pickupAddress = cleanHome || cleanOffice || cleanPickup;
+
+    if (cleanHome && cleanOffice) {
+      dataToUpdate.addressType = 'BOTH';
+    } else if (cleanHome) {
+      dataToUpdate.addressType = 'HOME';
+    } else if (cleanOffice) {
+      dataToUpdate.addressType = 'OFFICE';
+    } else if (addressType) {
+      dataToUpdate.addressType = addressType;
+    }
 
     if (phoneNumber && phoneNumber.trim().length > 0) {
       dataToUpdate.phoneNumber = phoneNumber.trim();
@@ -63,14 +89,6 @@ export async function PATCH(request: NextRequest) {
         );
       }
       dataToUpdate.email = normalizedEmail || null;
-    }
-
-    if (pickupAddress && pickupAddress.trim().length > 0) {
-      dataToUpdate.pickupAddress = pickupAddress.trim();
-    }
-
-    if (addressType && ['HOME', 'OFFICE'].includes(addressType)) {
-      dataToUpdate.addressType = addressType;
     }
 
     let updatedUser;
@@ -103,6 +121,8 @@ export async function PATCH(request: NextRequest) {
         email: updatedUser.email,
         fullName: updatedUser.fullName,
         pickupAddress: updatedUser.pickupAddress,
+        homeAddress: updatedUser.homeAddress,
+        officeAddress: updatedUser.officeAddress,
         addressType: updatedUser.addressType,
         role: updatedUser.role,
       },
