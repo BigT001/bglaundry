@@ -23,13 +23,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Retrieve user profile to default to customer's saved address
-    const userProfile = await prisma.user.findUnique({
-      where: { id: customer.id },
-      select: { pickupAddress: true, homeAddress: true, officeAddress: true },
+    // Retrieve user profile to default to customer's saved address and ensure customerId exists in DB
+    const userProfile = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: customer.id },
+          ...(customer.phoneNumber ? [{ phoneNumber: customer.phoneNumber }] : []),
+        ],
+      },
+      select: { id: true, pickupAddress: true, homeAddress: true, officeAddress: true },
     });
 
-    const defaultCustomerAddress = userProfile?.pickupAddress || userProfile?.homeAddress || userProfile?.officeAddress || '';
+    if (!userProfile) {
+      return NextResponse.json(
+        { error: 'Your session has expired. Please sign out and sign in again to place an order.' },
+        { status: 401 },
+      );
+    }
+
+    const realCustomerId = userProfile.id;
+    const defaultCustomerAddress = userProfile.pickupAddress || userProfile.homeAddress || userProfile.officeAddress || '';
     const finalPickupAddress = (pickupAddress && String(pickupAddress).trim()) || defaultCustomerAddress;
     const finalDeliveryAddress = (deliveryAddress && String(deliveryAddress).trim()) || finalPickupAddress;
 
@@ -90,7 +103,7 @@ export async function POST(request: NextRequest) {
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        customerId: customer.id,
+        customerId: realCustomerId,
         pickupAddress: finalPickupAddress,
         deliveryAddress: finalDeliveryAddress,
         pickupDate: validPickupAt,
@@ -124,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(order);
   } catch (error: any) {
+    console.error('[Book Order Error]', error);
     if (error.message === 'INVALID_ORDER_ITEM') {
       return NextResponse.json({ error: 'One or more order items are invalid.' }, { status: 400 });
     }
@@ -133,9 +147,8 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
-    console.error('[Book Order Error]', error);
     return NextResponse.json(
-      { error: 'We could not prepare your checkout. Please try again shortly.' },
+      { error: error.message || 'We could not prepare your checkout. Please try again shortly.' },
       { status: 500 },
     );
   }

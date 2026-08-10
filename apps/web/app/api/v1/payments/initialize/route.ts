@@ -32,7 +32,18 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       );
     }
-    if (order.customerId !== customer.id) {
+    const userProfile = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: customer.id },
+          ...(customer.phoneNumber ? [{ phoneNumber: customer.phoneNumber }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    const isOwner = order.customerId === customer.id || (userProfile && order.customerId === userProfile.id);
+    if (!isOwner) {
       return NextResponse.json({ error: 'You cannot pay for this order.' }, { status: 403 });
     }
     if (order.status !== OrderStatus.PAYMENT_PENDING) {
