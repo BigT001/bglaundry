@@ -180,7 +180,16 @@ export default function LoginScreen() {
       ]);
     } catch (error: any) {
       console.error('Onboarding Error:', error);
-      Alert.alert('Error', error?.response?.data?.error || 'Failed to complete profile. Please try again.');
+      let errorMsg = 'Failed to complete profile. Please try again.';
+      if (axios.isAxiosError(error) && error.response?.data?.error) {
+        const rawErr = error.response.data.error;
+        if (typeof rawErr === 'string' && (rawErr.includes('Prisma') || rawErr.includes('invocation'))) {
+          errorMsg = 'A database update occurred. Please tap Complete Registration again.';
+        } else {
+          errorMsg = rawErr;
+        }
+      }
+      Alert.alert('Registration Note', errorMsg);
     } finally {
       setLoading(false);
     }

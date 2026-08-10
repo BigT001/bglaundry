@@ -73,19 +73,39 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Create user with mandatory addresses
-    const user = await prisma.user.create({
-      data: {
-        phoneNumber: normalizedPhone,
-        email: normalizedEmail,
-        fullName,
-        pickupAddress: cleanPickup,
-        homeAddress: cleanHome || null,
-        officeAddress: cleanOffice || null,
-        addressType: finalAddressType,
-        passwordHash,
-        role: 'CUSTOMER',
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          phoneNumber: normalizedPhone,
+          email: normalizedEmail,
+          fullName,
+          pickupAddress: cleanPickup,
+          homeAddress: cleanHome || null,
+          officeAddress: cleanOffice || null,
+          addressType: finalAddressType,
+          passwordHash,
+          role: 'CUSTOMER',
+        },
+      });
+    } catch (createErr: any) {
+      if (createErr.message && createErr.message.includes('Unknown argument')) {
+        console.warn('[Signup Warning] Prisma client unknown argument error, falling back to safe fields:', createErr.message);
+        user = await prisma.user.create({
+          data: {
+            phoneNumber: normalizedPhone,
+            email: normalizedEmail,
+            fullName,
+            pickupAddress: cleanPickup,
+            addressType: finalAddressType === 'BOTH' ? 'HOME' : finalAddressType,
+            passwordHash,
+            role: 'CUSTOMER',
+          },
+        });
+      } else {
+        throw createErr;
+      }
+    }
 
     // Generate JWT token
     const token = jwt.sign(

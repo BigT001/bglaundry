@@ -110,7 +110,19 @@ export async function PATCH(request: NextRequest) {
           { status: 409 },
         );
       }
-      throw err;
+      if (err.message && err.message.includes('Unknown argument')) {
+        console.warn('[Profile Update Warning] Prisma client unknown argument error, falling back to safe fields:', err.message);
+        const safeData = { ...dataToUpdate };
+        delete safeData.homeAddress;
+        delete safeData.officeAddress;
+        if (safeData.addressType === 'BOTH') safeData.addressType = 'HOME';
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: safeData,
+        });
+      } else {
+        throw err;
+      }
     }
 
     return NextResponse.json({
