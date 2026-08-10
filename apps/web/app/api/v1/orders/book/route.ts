@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
           ...(customer.phoneNumber ? [{ phoneNumber: customer.phoneNumber }] : []),
         ],
       },
-      select: { id: true, pickupAddress: true, homeAddress: true, officeAddress: true },
+      select: { id: true, pickupAddress: true },
     });
 
     if (!userProfile) {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const realCustomerId = userProfile.id;
-    const defaultCustomerAddress = userProfile.pickupAddress || userProfile.homeAddress || userProfile.officeAddress || '';
+    const defaultCustomerAddress = userProfile.pickupAddress || '';
     const finalPickupAddress = (pickupAddress && String(pickupAddress).trim()) || defaultCustomerAddress;
     const finalDeliveryAddress = (deliveryAddress && String(deliveryAddress).trim()) || finalPickupAddress;
 
