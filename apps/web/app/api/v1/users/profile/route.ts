@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType } = await request.json();
+    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType, avatarUrl } = await request.json();
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },
@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest) {
 
     if (cleanHome) dataToUpdate.homeAddress = cleanHome;
     if (cleanOffice) dataToUpdate.officeAddress = cleanOffice;
+    if (avatarUrl !== undefined) dataToUpdate.avatarUrl = avatarUrl;
     dataToUpdate.pickupAddress = cleanHome || cleanOffice || cleanPickup;
 
     if (cleanHome && cleanOffice) {
@@ -136,6 +137,7 @@ export async function PATCH(request: NextRequest) {
         homeAddress: updatedUser.homeAddress,
         officeAddress: updatedUser.officeAddress,
         addressType: updatedUser.addressType,
+        avatarUrl: updatedUser.avatarUrl,
         role: updatedUser.role,
       },
     });

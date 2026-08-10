@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_URL } from '../../lib/config';
 
 interface SavedAddress {
   id: string;
@@ -10,45 +12,154 @@ interface SavedAddress {
   address: string;
 }
 
+const AVATAR_PRESETS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&auto=format&fit=crop&q=80',
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
 
   // Profile Information State
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [profileName, setProfileName] = useState('Customer');
   const [profilePhone, setProfilePhone] = useState('');
-
-  // Address List State
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [profileEmail, setProfileEmail] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [officeAddress, setOfficeAddress] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   // Modals Visibility
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [isAddressesOpen, setIsAddressesOpen] = useState(false);
   const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
 
   // Form Input States
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editHomeAddr, setEditHomeAddr] = useState('');
+  const [editOfficeAddr, setEditOfficeAddr] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Additional Address List State
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [newAddrTitle, setNewAddrTitle] = useState('');
   const [newAddrVal, setNewAddrVal] = useState('');
 
-  // Load stored profile and addresses on mount
-  useEffect(() => {
-    const loadUserInfoAndAddresses = async () => {
-      try {
-        const userStr = await AsyncStorage.getItem('@bglaundry_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.fullName) setProfileName(user.fullName);
-          if (user.phoneNumber) setProfilePhone(user.phoneNumber);
-        }
+  // Load stored profile and addresses on mount & focus
+  const loadProfile = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@bglaundry_user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        setUserProfile(u);
+        setProfileName(u.fullName || 'Customer');
+        setProfilePhone(u.phoneNumber || '');
+        setProfileEmail(u.email || '');
+        setHomeAddress(u.homeAddress || '');
+        setOfficeAddress(u.officeAddress || '');
+        setPickupAddress(u.pickupAddress || u.homeAddress || u.officeAddress || '');
+        setAvatarUrl(u.avatarUrl || '');
 
-        const savedAddrs = await AsyncStorage.getItem('@bglaundry_addresses');
-        if (savedAddrs) {
-          setAddresses(JSON.parse(savedAddrs));
-        }
-      } catch (err) {
-        console.error('Failed to load profile details:', err);
+        setEditName(u.fullName || '');
+        setEditEmail(u.email || '');
+        setEditHomeAddr(u.homeAddress || '');
+        setEditOfficeAddr(u.officeAddress || '');
       }
-    };
-    loadUserInfoAndAddresses();
+
+      const savedAddrs = await AsyncStorage.getItem('@bglaundry_addresses');
+      if (savedAddrs) {
+        setAddresses(JSON.parse(savedAddrs));
+      }
+    } catch (err) {
+      console.error('Failed to load profile details:', err);
+    }
+  };
+
+  useEffect(() => {
+    void loadProfile();
   }, []);
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Required', 'Please enter your full name.');
+      return;
+    }
+    if (!editHomeAddr.trim() && !editOfficeAddr.trim()) {
+      Alert.alert('Required', 'Please provide at least one address (Home Address or Office Address).');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      const payload = {
+        fullName: editName.trim(),
+        email: editEmail.trim(),
+        homeAddress: editHomeAddr.trim(),
+        officeAddress: editOfficeAddr.trim(),
+        pickupAddress: editHomeAddr.trim() || editOfficeAddr.trim(),
+        avatarUrl,
+      };
+
+      const response = await axios.patch(`${API_URL}/api/v1/users/profile`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const updatedUser = response.data.user || { ...userProfile, ...payload };
+      setUserProfile(updatedUser);
+      setProfileName(updatedUser.fullName);
+      setProfileEmail(updatedUser.email || '');
+      setHomeAddress(updatedUser.homeAddress || '');
+      setOfficeAddress(updatedUser.officeAddress || '');
+      setPickupAddress(updatedUser.pickupAddress || '');
+      setAvatarUrl(updatedUser.avatarUrl || '');
+
+      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+      setIsEditProfileOpen(false);
+      Alert.alert('Success', 'Your profile details have been updated!');
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+      Alert.alert('Update Note', err.response?.data?.error || 'Unable to update profile right now.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSelectAvatar = async (url: string) => {
+    setAvatarUrl(url);
+    setIsAvatarPickerOpen(false);
+    try {
+      const token = await AsyncStorage.getItem('@bglaundry_token');
+      const payload = {
+        fullName: profileName,
+        email: profileEmail,
+        homeAddress,
+        officeAddress,
+        pickupAddress,
+        avatarUrl: url,
+      };
+      const res = await axios.patch(`${API_URL}/api/v1/users/profile`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const updatedUser = res.data.user || { ...userProfile, avatarUrl: url };
+      setUserProfile(updatedUser);
+      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn('Failed to update avatar on server:', e);
+      if (userProfile) {
+        const u = { ...userProfile, avatarUrl: url };
+        setUserProfile(u);
+        await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(u));
+      }
+    }
+  };
 
   const handleAddAddress = async () => {
     if (!newAddrTitle || !newAddrVal) {
@@ -117,30 +228,101 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const initials = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'BG';
+
   return (
-    <View style={styles.container}>
-      {/* 1. Profile Picture & Core Details */}
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* 1. Header Profile & Avatar */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarWrapper}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profileName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'BG'}</Text>
-          </View>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setIsAvatarPickerOpen(true)} style={styles.avatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.editBadge} onPress={() => setIsAvatarPickerOpen(true)}>
+            <Feather name="camera" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
         <Text style={styles.name}>{profileName}</Text>
         <Text style={styles.phone}>{profilePhone}</Text>
+        {profileEmail ? <Text style={styles.emailText}>{profileEmail}</Text> : null}
+
+        <TouchableOpacity style={styles.editProfileTriggerBtn} onPress={() => setIsEditProfileOpen(true)}>
+          <Feather name="edit-3" size={15} color="#0066FF" style={{ marginRight: 6 }} />
+          <Text style={styles.editProfileTriggerText}>Edit Profile</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 2. Menu options */}
+      {/* 2. Customer Personal Details Card */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Profile Details</Text>
+          <TouchableOpacity onPress={() => setIsEditProfileOpen(true)}>
+            <Text style={styles.editLink}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailIconBox}><Feather name="user" size={18} color="#0066FF" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.detailLabel}>Full Name</Text>
+            <Text style={styles.detailValue}>{profileName}</Text>
+          </View>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailIconBox}><Feather name="phone" size={18} color="#0066FF" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.detailLabel}>Phone Number</Text>
+            <Text style={styles.detailValue}>{profilePhone || 'Not set'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailIconBox}><Feather name="mail" size={18} color="#0066FF" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.detailLabel}>Email Address</Text>
+            <Text style={styles.detailValue}>{profileEmail || 'Add your email'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.detailRow}>
+          <View style={styles.detailIconBox}><Feather name="home" size={18} color="#10B981" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.detailLabel}>Home Address (Pickup Location)</Text>
+            <Text style={styles.detailValue}>{homeAddress || pickupAddress || 'No home address saved'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.detailRowNoBorder}>
+          <View style={styles.detailIconBox}><Feather name="briefcase" size={18} color="#8B5CF6" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.detailLabel}>Office Address</Text>
+            <Text style={styles.detailValue}>{officeAddress || 'No office address saved'}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 3. Menu options */}
       <View style={styles.menu}>
         <TouchableOpacity style={styles.menuItem} onPress={() => setIsAddressesOpen(true)}>
           <View style={styles.menuLeft}>
             <Feather name="map-pin" size={20} color="#0066FF" style={{ marginRight: 12 }} />
-            <Text style={styles.menuText}>Saved Addresses</Text>
+            <Text style={styles.menuText}>Additional Saved Addresses</Text>
           </View>
           <Feather name="chevron-right" size={16} color="#94A3B8" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Help Center', 'Need assistance with an order? Call us at +234 800 BGLAUNDRY or email support@bglaundry.com')}>
           <View style={styles.menuLeft}>
             <Feather name="help-circle" size={20} color="#0066FF" style={{ marginRight: 12 }} />
             <Text style={styles.menuText}>Help & Support</Text>
@@ -153,7 +335,95 @@ export default function ProfileScreen() {
         <Text style={styles.logoutButtonText}>Log Out</Text>
       </TouchableOpacity>
 
-      {/* MODAL 2: Saved Addresses Sheet */}
+      {/* MODAL 1: Edit Profile Modal */}
+      <Modal visible={isEditProfileOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheetLong}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Edit Profile Information</Text>
+              <TouchableOpacity onPress={() => setIsEditProfileOpen(false)}>
+                <Feather name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ padding: 20 }}>
+              <Text style={styles.label}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="John Doe"
+              />
+
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="customer@gmail.com"
+              />
+
+              <Text style={styles.label}>Home Address (Pickup Location) *</Text>
+              <TextInput
+                style={[styles.input, { height: 70 }]}
+                multiline
+                value={editHomeAddr}
+                onChangeText={setEditHomeAddr}
+                placeholder="e.g. 15 Admiralty Way, Lekki Phase 1, Lagos"
+              />
+
+              <Text style={styles.label}>Office Address (Work Location)</Text>
+              <TextInput
+                style={[styles.input, { height: 70 }]}
+                multiline
+                value={editOfficeAddr}
+                onChangeText={setEditOfficeAddr}
+                placeholder="e.g. 42 Marina Street, Lagos Island"
+              />
+
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile} disabled={savingProfile}>
+                {savingProfile ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Profile Details</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 2: Avatar Photo Picker Modal */}
+      <Modal visible={isAvatarPickerOpen} animationType="fade" transparent>
+        <View style={styles.modalOverlayForm}>
+          <View style={styles.formCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.formTitle}>Choose Profile Picture</Text>
+              <TouchableOpacity onPress={() => setIsAvatarPickerOpen(false)}>
+                <Feather name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Select a profile picture style:</Text>
+            
+            <View style={styles.presetGrid}>
+              {AVATAR_PRESETS.map((url, idx) => (
+                <TouchableOpacity key={idx} onPress={() => handleSelectAvatar(url)} style={styles.presetItem}>
+                  <Image source={{ uri: url }} style={styles.presetImage} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsAvatarPickerOpen(false)}>
+              <Text style={styles.cancelBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 3: Saved Addresses Sheet */}
       <Modal visible={isAddressesOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheetLong}>
@@ -186,7 +456,7 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* MODAL 2A: Add Address Form */}
+      {/* MODAL 3A: Add Address Form */}
       <Modal visible={isAddAddressOpen} animationType="fade" transparent>
         <View style={styles.modalOverlayForm}>
           <View style={styles.formCard}>
@@ -213,16 +483,14 @@ export default function ProfileScreen() {
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleAddAddress}>
-                <Text style={styles.saveBtnText}>Save Address</Text>
+                <Text style={styles.saveBtnText}>Save Location</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-
-
-    </View>
+    </ScrollView>
   );
 }
 
@@ -234,26 +502,26 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
-    marginVertical: 24,
-    paddingTop: 24,
+    marginVertical: 16,
+    paddingTop: 16,
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: '#E6F0FA',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#002B7F',
     overflow: 'hidden',
     shadowColor: '#0066FF',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 3,
   },
@@ -263,43 +531,133 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#002B7F',
   },
   editBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: 2,
+    right: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#0066FF',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   name: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#0F172A',
   },
   phone: {
     fontSize: 14,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
+  },
+  emailText: {
+    fontSize: 13,
+    color: '#0066FF',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  editProfileTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  editProfileTriggerText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#0066FF',
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  editLink: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#0066FF',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+    gap: 12,
+  },
+  detailRowNoBorder: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  detailIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginTop: 2,
   },
   menu: {
     borderTopWidth: 1.5,
     borderTopColor: '#E2E8F0',
-    marginTop: 12,
+    marginTop: 8,
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderBottomWidth: 1.5,
     borderBottomColor: '#E2E8F0',
   },
@@ -313,7 +671,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    marginTop: 'auto',
+    marginTop: 24,
     backgroundColor: '#FFF1F2',
     borderWidth: 1,
     borderColor: '#FECDD3',
@@ -333,17 +691,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
-  bottomSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 40,
-  },
   bottomSheetLong: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '75%',
+    maxHeight: '85%',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -358,47 +710,98 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0F172A',
   },
-  promptText: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 16,
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 6,
+    marginTop: 10,
   },
-  /* Mock photo gallery picker */
-  mockGallery: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  input: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 10,
+    backgroundColor: '#F8FAFC',
   },
-  galleryThumb: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-  },
-  selectBtn: {
-    backgroundColor: '#0066FF',
+  saveBtn: {
     paddingVertical: 14,
     borderRadius: 12,
+    backgroundColor: '#0066FF',
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
+    marginTop: 16,
+    marginBottom: 32,
   },
-  selectBtnText: {
+  saveBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
   },
-  loaderContainer: {
-    alignItems: 'center',
+  /* Form components overlay */
+  modalOverlayForm: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    paddingVertical: 48,
+    alignItems: 'center',
+    padding: 20,
   },
-  loaderText: {
-    fontSize: 14,
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  formTitle: {
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#0F172A',
-    marginTop: 16,
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    justifyContent: 'center',
+    marginVertical: 16,
+  },
+  presetItem: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: '#0066FF',
+    overflow: 'hidden',
+  },
+  presetImage: {
+    width: '100%',
+    height: '100%',
+  },
+  formActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 12,
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelBtnText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
   },
   /* Saved Addresses list UI */
   addrCard: {
@@ -440,138 +843,6 @@ const styles = StyleSheet.create({
   addTriggerBtnText: {
     fontSize: 14,
     color: '#0066FF',
-    fontWeight: 'bold',
-  },
-  /* Form components overlay */
-  modalOverlayForm: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0F172A',
-    marginBottom: 14,
-    backgroundColor: '#F8FAFC',
-  },
-  formActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  cancelBtnText: {
-    color: '#475569',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#0066FF',
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  /* Cards visual designs */
-  cardBlock: {
-    marginBottom: 20,
-  },
-  creditCardVisual: {
-    backgroundColor: '#002B7F',
-    borderRadius: 16,
-    padding: 20,
-    minHeight: 180,
-    justifyContent: 'space-between',
-    shadowColor: '#002B7F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardBrand: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontStyle: 'italic',
-  },
-  cardNumber: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    letterSpacing: 2,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-  cardFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  cardHolderLabel: {
-    color: '#93C5FD',
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  cardHolderName: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  cardRemoveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginTop: 8,
-  },
-  cardRemoveBtnText: {
-    color: '#EF4444',
-    fontSize: 13,
     fontWeight: 'bold',
   },
 });

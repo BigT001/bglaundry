@@ -64,7 +64,7 @@ export default function BasketScreen() {
       }
     }
     void loadSavedUser();
-  }, []);
+  }, [isScheduleVisible]);
 
   const selectAddressOption = (option: 'HOME' | 'OFFICE' | 'DROPOFF' | 'CUSTOM') => {
     setSelectedAddrOption(option);

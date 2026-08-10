@@ -194,8 +194,8 @@ export default function CustomerDashboard() {
 
       const savedAddress = user.homeAddress || user.pickupAddress || user.officeAddress || '';
       if (savedAddress) {
-        setPickupAddress((current) => current || savedAddress);
-        setDeliveryAddress((current) => current || savedAddress);
+        setPickupAddress(savedAddress);
+        setDeliveryAddress(savedAddress);
       }
     }
   }, [user]);
