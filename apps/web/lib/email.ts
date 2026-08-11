@@ -32,7 +32,7 @@ const shell = (title: string, preheader: string, content: string) => `<!doctype 
 
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RESEND_FROM_EMAIL?.trim() || 'BG Laundry <notifications@nextgenkiddies.com>';
+  const from = process.env.RESEND_FROM_EMAIL?.trim() || 'BG Laundry <onboarding@resend.dev>';
   if (!apiKey) {
     console.warn('[Email] RESEND_API_KEY is not configured.');
     return false;
@@ -176,6 +176,34 @@ export async function sendPaymentConfirmedEmails(order: OrderEmailInput) {
       html: shell(`Payment Confirmed - Order ${order.orderNumber}`, 'Your BG Laundry payment was successful.', `<p style="color:#526077;line-height:1.6">Hello ${escapeHtml(order.customerName)}, your payment has been confirmed! A rider will be assigned shortly for pickup.</p>${details}`),
       text: `Hello ${order.customerName}, payment confirmed for order ${order.orderNumber}. Total Paid: ${money.format(order.totalAmount)}.`,
       tags: [{ name: 'category', value: 'payment-confirmed' }],
+    }));
+  }
+  return Promise.all(deliveries);
+}
+
+export async function sendNewUserSignupEmails(user: {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  pickupAddress: string;
+}) {
+  const adminEmails = await adminNotificationEmails();
+  const details = `<p style="color:#1e40af;font-weight:bold;line-height:1.6">👤 New Customer Registered on BG Laundry!</p>
+  <div style="background:#f7f9fc;border-radius:12px;padding:16px;margin:20px 0">
+    <p style="margin:0 0 8px"><strong>Full Name:</strong> ${escapeHtml(user.fullName)}</p>
+    <p style="margin:0 0 8px"><strong>Email Address:</strong> ${escapeHtml(user.email)}</p>
+    <p style="margin:0 0 8px"><strong>Phone Number:</strong> ${escapeHtml(user.phoneNumber)}</p>
+    <p style="margin:0"><strong>Pickup Address:</strong> ${escapeHtml(user.pickupAddress)}</p>
+  </div>`;
+
+  const deliveries: Promise<boolean>[] = [];
+  if (adminEmails.length) {
+    deliveries.push(sendEmail({
+      to: adminEmails,
+      subject: `👤 New Customer Registration · ${user.fullName} (${user.phoneNumber})`,
+      html: shell(`New Customer Registration`, `New user account created: ${user.fullName}`, details),
+      text: `NEW CUSTOMER REGISTRATION\nName: ${user.fullName}\nEmail: ${user.email}\nPhone: ${user.phoneNumber}\nAddress: ${user.pickupAddress}`,
+      tags: [{ name: 'category', value: 'user-signup' }],
     }));
   }
   return Promise.all(deliveries);

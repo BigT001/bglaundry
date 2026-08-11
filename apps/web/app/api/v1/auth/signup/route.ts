@@ -107,6 +107,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Send instant email notification to admin for new user signups
+    const { sendNewUserSignupEmails } = await import('@/lib/email');
+    sendNewUserSignupEmails({
+      fullName: user.fullName,
+      email: user.email || '',
+      phoneNumber: user.phoneNumber,
+      pickupAddress: user.pickupAddress || '',
+    }).catch(err => console.warn('[Signup Admin Email Warning]', err));
+
     // Generate JWT token
     const token = jwt.sign(
       {
