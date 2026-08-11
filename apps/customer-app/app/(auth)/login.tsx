@@ -104,12 +104,19 @@ export default function LoginScreen() {
       );
 
       const { token, user } = response.data;
-      await AsyncStorage.setItem('@bglaundry_token', token);
-      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(user));
+      if (typeof token !== 'string' || token.trim().length === 0 || !user?.id) {
+        throw new Error('Verification succeeded, but the server did not return a valid login session. Please request a new code and try again.');
+      }
+
+      const sessionToken = token.trim();
+      setTempToken(sessionToken);
+      setTempUser(user);
+      await AsyncStorage.multiSet([
+        ['@bglaundry_token', sessionToken],
+        ['@bglaundry_user', JSON.stringify(user)],
+      ]);
 
       if (!user.fullName || user.fullName === 'Customer Account') {
-        setTempToken(token);
-        setTempUser(user);
         setStep('PROFILE');
       } else {
         const { clearBasket } = require('../booking/basketState');
@@ -119,11 +126,7 @@ export default function LoginScreen() {
           {
             text: 'OK',
             onPress: () => {
-              try {
-                router.replace('/' as any);
-              } catch {
-                router.replace('/(tabs)' as any);
-              }
+              router.replace('/(tabs)' as any);
             },
           },
         ]);
@@ -184,6 +187,7 @@ export default function LoginScreen() {
           homeAddress: cleanHome,
           officeAddress: cleanOffice,
           pickupAddress: cleanHome || cleanOffice,
+          sessionToken: authToken,
         },
         {
           headers: {
@@ -204,11 +208,7 @@ export default function LoginScreen() {
         {
           text: 'OK',
           onPress: () => {
-            try {
-              router.replace('/' as any);
-            } catch {
-              router.replace('/(tabs)' as any);
-            }
+            router.replace('/(tabs)' as any);
           },
         },
       ]);

@@ -10,14 +10,15 @@ const JWT_SECRET =
 
 export async function PATCH(request: NextRequest) {
   try {
+    const body = await request.json();
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing session token' }, { status: 401 });
-    }
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.replace(/^Bearer\s+/i, '').trim()
+      : '';
+    const token = bearerToken || String(body.sessionToken || '').trim();
 
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: Empty session token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized: Missing session token' }, { status: 401 });
     }
 
     let decoded: any;
@@ -39,7 +40,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType, avatarUrl } = await request.json();
+    if (decoded.role !== 'CUSTOMER') {
+      return NextResponse.json(
+        { error: 'Customer authentication required.' },
+        { status: 403 },
+      );
+    }
+
+    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType, avatarUrl } = body;
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },

@@ -6,6 +6,8 @@ export const metadata = {
   description: 'Download and install the latest BG Laundry Customer App for Android.',
 };
 
+const DOWNLOAD_URL = 'https://www.bglaundry.org/download';
+
 export default function DownloadPage() {
   return (
     <div style={styles.container}>
@@ -19,7 +21,7 @@ export default function DownloadPage() {
         <div style={styles.qrWrapper}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/apk-qr.png"
+            src="/customer-apk-qr.png"
             alt="Scan QR Code to Download APK"
             style={styles.qrImage}
           />
@@ -33,6 +35,10 @@ export default function DownloadPage() {
         >
           📲 Download Android APK (Direct)
         </a>
+
+        <p style={styles.directUrl}>
+          Download page: <a href={DOWNLOAD_URL} style={styles.directUrlLink}>{DOWNLOAD_URL}</a>
+        </p>
 
         <div style={styles.infoBox}>
           <p style={styles.infoTitle}>Installation Instructions:</p>
@@ -130,7 +136,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     textDecoration: 'none',
     boxShadow: '0 4px 12px rgba(0, 43, 127, 0.2)',
+    marginBottom: '12px',
+  },
+  directUrl: {
+    fontSize: '12px',
+    color: '#475569',
+    overflowWrap: 'anywhere',
     marginBottom: '24px',
+  },
+  directUrlLink: {
+    color: '#0066FF',
+    fontWeight: '700',
+    textDecoration: 'none',
   },
   infoBox: {
     backgroundColor: '#F8FAFC',

@@ -97,11 +97,7 @@ export default function SplashScreen() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const token = await AsyncStorage.getItem('@bglaundry_token');
       if (token) {
-        try {
-          router.replace('/' as any);
-        } catch {
-          router.replace('/(tabs)' as any);
-        }
+        router.replace('/(tabs)' as any);
       } else {
         setCheckingSession(false);
         // Staggered reveal for details
@@ -243,12 +239,7 @@ export default function SplashScreen() {
             activeOpacity={0.85}
             style={styles.primaryButton}
             onPress={() => {
-              try {
-                router.push('/login' as any);
-              } catch (err) {
-                console.warn('Navigation error, trying fallback:', err);
-                router.push('/(auth)/login' as any);
-              }
+              router.push('/(auth)/login' as any);
             }}
           >
             <Text style={styles.primaryButtonText}>Get Started</Text>
