@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer authentication required.' }, { status: 401 });
     }
     const body = await request.json();
-    const { orderId } = body;
+    const { orderId, client } = body;
 
     if (!orderId) {
       return NextResponse.json(
@@ -74,10 +74,16 @@ export async function POST(request: NextRequest) {
     });
 
     const origin = process.env.APP_URL || new URL(request.url).origin;
+    const redirectUrl = new URL(
+      process.env.FLW_REDIRECT_URL || `${origin}/api/v1/payments/callback`,
+    );
+    if (client === 'mobile') {
+      redirectUrl.searchParams.set('client', 'mobile');
+    }
     const checkout = await createFlutterwaveCheckout({
       reference,
       amount: order.totalAmount,
-      redirectUrl: process.env.FLW_REDIRECT_URL || `${origin}/api/v1/payments/callback`,
+      redirectUrl: redirectUrl.toString(),
       orderId,
       orderNumber: order.orderNumber,
       customer: {

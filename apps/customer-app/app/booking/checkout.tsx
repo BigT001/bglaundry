@@ -9,6 +9,16 @@ const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
+const getSessionToken = async () => {
+  const storedToken = await AsyncStorage.getItem('@bglaundry_token');
+  const token = typeof storedToken === 'string' ? storedToken.trim() : '';
+  if (!token || token === 'undefined' || token === 'null') {
+    await AsyncStorage.multiRemove(['@bglaundry_token', '@bglaundry_user']);
+    return '';
+  }
+  return token;
+};
+
 const getStaticItemPrice = (key: string): number => {
   const normalizedKey = key.toLowerCase();
   
@@ -272,8 +282,13 @@ export default function CheckoutScreen() {
           price: getItemPrice(key),
         }));
 
-      const token = await AsyncStorage.getItem('@bglaundry_token');
-      if (!token) throw new Error('Please sign in before checking out.');
+      const token = await getSessionToken();
+      if (!token) {
+        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
+          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
+        ]);
+        return;
+      }
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
       const payloadPickup = formPickupAddress || pickupAddress || '';
@@ -302,6 +317,7 @@ export default function CheckoutScreen() {
       // 2. Initialize Payment
       const paymentResponse = await axios.post(`${API_URL}/payments/initialize`, {
         orderId,
+        client: 'mobile',
       }, authConfig);
 
       const checkoutUrl = paymentResponse.data.checkoutUrl;
@@ -317,9 +333,13 @@ export default function CheckoutScreen() {
       }
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
+        const latestToken = await getSessionToken();
+        if (!latestToken) {
+          throw new Error('Your session expired while checking payment. Please sign in again.');
+        }
         const result = await axios.get(`${API_URL}/payments/status`, {
           params: { reference },
-          ...authConfig,
+          headers: { Authorization: `Bearer ${latestToken}` },
         });
         if (result.data.status === 'SUCCESSFUL') {
           Alert.alert(
@@ -339,7 +359,13 @@ export default function CheckoutScreen() {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error || 'Unable to start payment. Please try again.'
         : error instanceof Error ? error.message : 'Unable to start payment. Please try again.';
-      Alert.alert('Payment not completed', message);
+      if (message === 'Customer authentication required.' || message.includes('session')) {
+        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
+          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
+        ]);
+      } else {
+        Alert.alert('Payment not completed', message);
+      }
     } finally {
       setLoading(false);
     }

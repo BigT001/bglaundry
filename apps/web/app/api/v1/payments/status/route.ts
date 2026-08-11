@@ -32,7 +32,16 @@ export async function GET(request: NextRequest) {
     },
   });
   if (!payment) return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
-  if (payment.order.customerId !== customer.id) {
+  const userProfile = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: customer.id },
+        ...(customer.phoneNumber ? [{ phoneNumber: customer.phoneNumber }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  if (payment.order.customerId !== customer.id && payment.order.customerId !== userProfile?.id) {
     return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
   }
   const { customerId: _customerId, ...safeOrder } = payment.order;
