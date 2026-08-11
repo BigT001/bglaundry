@@ -63,7 +63,11 @@ export default function ProfileScreen() {
         onPress: async () => {
           setLoading(true);
           await clearRiderSession();
-          router.replace('/(auth)/login');
+          try {
+            router.replace('/login' as any);
+          } catch {
+            router.replace('/(auth)/login' as any);
+          }
         },
       },
     ]);

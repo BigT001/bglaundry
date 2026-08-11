@@ -225,10 +225,18 @@ export default function ProfileScreen() {
               '@bglaundry_addresses',
               '@bglaundry_basket',
             ]);
-            router.replace('/(auth)/login');
+            try {
+              router.replace('/login' as any);
+            } catch {
+              router.replace('/(auth)/login' as any);
+            }
           } catch (err) {
             console.error('Logout error:', err);
-            router.replace('/(auth)/login');
+            try {
+              router.replace('/login' as any);
+            } catch {
+              router.replace('/(auth)/login' as any);
+            }
           }
         },
       },

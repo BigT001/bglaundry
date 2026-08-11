@@ -238,7 +238,14 @@ export default function SplashScreen() {
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.primaryButton}
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => {
+              try {
+                router.push('/login' as any);
+              } catch (err) {
+                console.warn('Navigation error, trying fallback:', err);
+                router.push('/(auth)/login' as any);
+              }
+            }}
           >
             <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
