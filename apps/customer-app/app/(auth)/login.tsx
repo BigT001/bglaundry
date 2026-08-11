@@ -108,6 +108,9 @@ export default function LoginScreen() {
         setTempUser(user);
         setStep('PROFILE');
       } else {
+        const { clearBasket } = require('../booking/basketState');
+        clearBasket();
+        await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
         await AsyncStorage.setItem('@bglaundry_token', token);
         await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(user));
         Alert.alert('Success', 'Logged in successfully!', [
@@ -172,6 +175,9 @@ export default function LoginScreen() {
 
       const updatedUser = response.data.user;
 
+      const { clearBasket } = require('../booking/basketState');
+      clearBasket();
+      await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
       await AsyncStorage.setItem('@bglaundry_token', tempToken);
       await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
 

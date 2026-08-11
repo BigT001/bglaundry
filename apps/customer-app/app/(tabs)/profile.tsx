@@ -216,8 +216,15 @@ export default function ProfileScreen() {
             console.warn('Firebase signout on logout failed:', e);
           }
           try {
-            await AsyncStorage.removeItem('@bglaundry_token');
-            await AsyncStorage.removeItem('@bglaundry_user');
+            const { clearBasket } = require('../booking/basketState');
+            clearBasket();
+            await AsyncStorage.multiRemove([
+              '@bglaundry_token',
+              '@bglaundry_user',
+              '@bglaundry_receipts',
+              '@bglaundry_addresses',
+              '@bglaundry_basket',
+            ]);
             router.replace('/(auth)/login');
           } catch (err) {
             console.error('Logout error:', err);

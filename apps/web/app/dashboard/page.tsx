@@ -134,29 +134,37 @@ export default function CustomerDashboard() {
   }, [router]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    const userBasketKey = `bglaundry_basket_${user.id}`;
     try {
-      const savedBasket = localStorage.getItem(BASKET_STORAGE_KEY);
+      const savedBasket = localStorage.getItem(userBasketKey);
       if (savedBasket) {
         const parsedBasket = JSON.parse(savedBasket);
         if (parsedBasket && typeof parsedBasket === 'object' && !Array.isArray(parsedBasket)) {
-          setBasket((currentBasket) => ({ ...parsedBasket, ...currentBasket }));
+          setBasket(parsedBasket);
+        } else {
+          setBasket({});
         }
+      } else {
+        setBasket({});
       }
     } catch (err) {
       console.warn('Unable to restore basket:', err);
+      setBasket({});
     } finally {
       setBasketReady(true);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    if (!basketReady) return;
+    if (!basketReady || !user?.id) return;
+    const userBasketKey = `bglaundry_basket_${user.id}`;
     try {
-      localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basket));
+      localStorage.setItem(userBasketKey, JSON.stringify(basket));
     } catch (err) {
       console.warn('Unable to save basket:', err);
     }
-  }, [basket, basketReady]);
+  }, [basket, basketReady, user]);
 
   useEffect(() => {
     if (!token || !user) return;

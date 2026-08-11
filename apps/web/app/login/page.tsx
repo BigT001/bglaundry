@@ -39,6 +39,10 @@ export default function LoginPage() {
         password: password,
       });
 
+      localStorage.removeItem('bglaundry_basket');
+      if (data.user?.id) {
+        localStorage.removeItem(`bglaundry_basket_${data.user.id}`);
+      }
       localStorage.setItem('customerToken', data.token);
       localStorage.setItem('customerUser', JSON.stringify(data.user));
       router.push('/dashboard');
@@ -73,6 +77,10 @@ export default function LoginPage() {
         password: password,
       });
 
+      localStorage.removeItem('bglaundry_basket');
+      if (data.user?.id) {
+        localStorage.removeItem(`bglaundry_basket_${data.user.id}`);
+      }
       localStorage.setItem('customerToken', data.token);
       localStorage.setItem('customerUser', JSON.stringify(data.user));
       setStep('SUCCESS');
