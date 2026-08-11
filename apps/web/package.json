@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5001",
-    "prebuild": "pnpm --filter @bglaundry/database exec prisma migrate deploy",
+    "prebuild": "node scripts/prebuild.js",
     "build": "next build",
     "start": "next start"
   },
