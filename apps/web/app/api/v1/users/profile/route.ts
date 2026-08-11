@@ -10,23 +10,28 @@ const JWT_SECRET =
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized: Missing session token' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized: Empty session token' }, { status: 401 });
+    }
+
     let decoded: any;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (err) {
+      console.warn('[Profile JWT Verification Error]', err);
       return NextResponse.json(
         { error: 'Invalid or expired session token' },
         { status: 401 },
       );
     }
 
-    const userId = decoded.sub || decoded.id;
+    const userId = decoded.id || decoded.sub;
     if (!userId) {
       return NextResponse.json(
         { error: 'Invalid session payload' },

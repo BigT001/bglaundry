@@ -103,6 +103,9 @@ export default function LoginScreen() {
       );
 
       const { token, user } = response.data;
+      await AsyncStorage.setItem('@bglaundry_token', token);
+      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(user));
+
       if (!user.fullName || user.fullName === 'Customer Account') {
         setTempToken(token);
         setTempUser(user);
@@ -111,8 +114,6 @@ export default function LoginScreen() {
         const { clearBasket } = require('../booking/basketState');
         clearBasket();
         await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
-        await AsyncStorage.setItem('@bglaundry_token', token);
-        await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(user));
         Alert.alert('Success', 'Logged in successfully!', [
           { text: 'OK', onPress: () => router.replace('/(tabs)') },
         ]);
@@ -155,6 +156,14 @@ export default function LoginScreen() {
       return;
     }
 
+    const authToken = tempToken || (await AsyncStorage.getItem('@bglaundry_token'));
+    if (!authToken) {
+      Alert.alert('Session Note', 'Your login token was missing. Please re-enter your verification code.', [
+        { text: 'OK', onPress: () => setStep('PHONE') },
+      ]);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.patch(
@@ -168,7 +177,7 @@ export default function LoginScreen() {
         },
         {
           headers: {
-            Authorization: `Bearer ${tempToken}`,
+            Authorization: `Bearer ${authToken}`,
           },
         },
       );
@@ -178,7 +187,7 @@ export default function LoginScreen() {
       const { clearBasket } = require('../booking/basketState');
       clearBasket();
       await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
-      await AsyncStorage.setItem('@bglaundry_token', tempToken);
+      await AsyncStorage.setItem('@bglaundry_token', authToken);
       await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
 
       Alert.alert('Success', 'Profile completed!', [
@@ -208,12 +217,13 @@ export default function LoginScreen() {
     >
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        {/* Brand visual header */}
+        {/* Brand visual header with official logo */}
         <View style={styles.headerSection}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>BG</Text>
-          </View>
-          <Text style={styles.brandTitle}>BG Laundry</Text>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.brandSubtitle}>Clean today, ready tomorrow!</Text>
         </View>
 
@@ -375,7 +385,13 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 44,
+    marginBottom: 36,
+  },
+  logoImage: {
+    width: 96,
+    height: 96,
+    marginBottom: 12,
+    borderRadius: 22,
   },
   logoBadge: {
     width: 68,
