@@ -13,7 +13,6 @@ const getSessionToken = async () => {
   const storedToken = await AsyncStorage.getItem('@bglaundry_token');
   const token = typeof storedToken === 'string' ? storedToken.trim() : '';
   if (!token || token === 'undefined' || token === 'null') {
-    await AsyncStorage.multiRemove(['@bglaundry_token', '@bglaundry_user']);
     return '';
   }
   return token;
@@ -284,8 +283,9 @@ export default function CheckoutScreen() {
 
       const token = await getSessionToken();
       if (!token) {
-        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
+        Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
+          { text: 'Stay here', style: 'cancel' },
+          { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
         ]);
         return;
       }
@@ -360,8 +360,9 @@ export default function CheckoutScreen() {
         ? error.response?.data?.error || 'Unable to start payment. Please try again.'
         : error instanceof Error ? error.message : 'Unable to start payment. Please try again.';
       if (message === 'Customer authentication required.' || message.includes('session')) {
-        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
+        Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
+          { text: 'Stay here', style: 'cancel' },
+          { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
         ]);
       } else {
         Alert.alert('Payment not completed', message);

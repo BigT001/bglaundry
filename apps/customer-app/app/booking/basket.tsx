@@ -15,7 +15,6 @@ const getSessionToken = async () => {
   const storedToken = await AsyncStorage.getItem('@bglaundry_token');
   const token = typeof storedToken === 'string' ? storedToken.trim() : '';
   if (!token || token === 'undefined' || token === 'null') {
-    await AsyncStorage.multiRemove(['@bglaundry_token', '@bglaundry_user']);
     return '';
   }
   return token;
@@ -107,6 +106,13 @@ export default function BasketScreen() {
     deleteFromBasket(itemName, serviceName);
   };
 
+  const promptForSignIn = () => {
+    Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
+      { text: 'Stay here', style: 'cancel' },
+      { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
+    ]);
+  };
+
   const handleProceedCheckout = () => {
     if (totalCount <= 0) {
       Alert.alert('Empty Basket', 'Please add some items to your basket first.');
@@ -145,9 +151,7 @@ export default function BasketScreen() {
     try {
       const token = await getSessionToken();
       if (!token) {
-        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
-        ]);
+        promptForSignIn();
         return;
       }
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
@@ -233,9 +237,7 @@ export default function BasketScreen() {
         : error?.message || 'Please try again. No payment was confirmed.';
       setIsFlutterwaveVisible(false);
       if (errMsg === 'Customer authentication required.' || errMsg.includes('session')) {
-        Alert.alert('Sign in required', 'Please sign in again before making payment.', [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
-        ]);
+        promptForSignIn();
       } else {
         Alert.alert('Payment Note', errMsg);
       }

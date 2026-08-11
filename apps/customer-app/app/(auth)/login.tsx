@@ -119,9 +119,6 @@ export default function LoginScreen() {
       if (!user.fullName || user.fullName === 'Customer Account') {
         setStep('PROFILE');
       } else {
-        const { clearBasket } = require('../booking/basketState');
-        clearBasket();
-        await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
         Alert.alert('Success', 'Logged in successfully!', [
           {
             text: 'OK',
@@ -198,9 +195,6 @@ export default function LoginScreen() {
 
       const updatedUser = response.data.user;
 
-      const { clearBasket } = require('../booking/basketState');
-      clearBasket();
-      await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
       await AsyncStorage.setItem('@bglaundry_token', authToken);
       await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
 
