@@ -3,7 +3,7 @@
     "name": "BG Laundry Rider",
     "owner": "bglaundry",
     "slug": "bg-laundry-rider",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "bglaundry-rider",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "org.bglaundry.rider",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#002B7F"
