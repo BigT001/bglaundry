@@ -61,17 +61,27 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
 }
 
 async function adminNotificationEmails() {
+  const primaryAdmin = 'bglaundry01@gmail.com';
   try {
     const settings = await prisma.notificationSettings.findUnique({
       where: { id: 'default' },
       select: { adminEmails: true },
     });
-    if (settings?.adminEmails.length) return settings.adminEmails.slice(0, 3);
+    if (settings?.adminEmails.length) {
+      const list = settings.adminEmails.map(e => e.trim().toLowerCase());
+      if (!list.includes(primaryAdmin)) list.unshift(primaryAdmin);
+      return list.slice(0, 5);
+    }
   } catch (error) {
     console.error('[Email] Unable to load notification recipients:', error);
   }
-  return (process.env.ADMIN_NOTIFICATION_EMAILS || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || '')
-    .split(',').map(email => email.trim().toLowerCase()).filter(Boolean).slice(0, 3);
+  const envEmails = (process.env.ADMIN_NOTIFICATION_EMAILS || process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || '')
+    .split(',').map(email => email.trim().toLowerCase()).filter(Boolean);
+
+  if (!envEmails.includes(primaryAdmin)) {
+    envEmails.unshift(primaryAdmin);
+  }
+  return envEmails.slice(0, 5);
 }
 
 export async function sendRiderArrivalEmails(input: { orderNumber: string; customerName: string; place: string }) {
@@ -130,6 +140,42 @@ export async function sendNewOrderEmails(order: OrderEmailInput) {
       html: shell(`Order ${order.orderNumber} received`, 'Your BG Laundry order has been received.', `<p style="color:#526077;line-height:1.6">Hello ${escapeHtml(order.customerName)}, your order has been created. Complete payment to confirm your pickup.</p>${details}`),
       text: `Hello ${order.customerName}, we received order ${order.orderNumber}. Complete payment to confirm your pickup. Total: ${money.format(order.totalAmount)}.`,
       tags: [{ name: 'category', value: 'order-received' }],
+    }));
+  }
+  return Promise.all(deliveries);
+}
+
+export async function sendPaymentConfirmedEmails(order: OrderEmailInput) {
+  const adminEmails = await adminNotificationEmails();
+  const itemRows = order.items.map(item =>
+    `<tr><td style="padding:8px 0;border-bottom:1px solid #edf0f4">${escapeHtml(item.serviceName)} × ${item.quantity}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #edf0f4">${money.format(item.price * item.quantity)}</td></tr>`,
+  ).join('');
+  const details = `<p style="color:#047857;font-weight:bold;line-height:1.6">✅ Payment Confirmed! Action required: Assign a rider for pickup.</p>
+  <div style="background:#f7f9fc;border-radius:12px;padding:16px;margin:20px 0">
+    <p style="margin:0 0 8px"><strong>Customer Name:</strong> ${escapeHtml(order.customerName)}</p>
+    <p style="margin:0 0 8px"><strong>Customer Phone:</strong> ${escapeHtml(order.customerPhone)}</p>
+    <p style="margin:0 0 8px"><strong>Pickup Date:</strong> ${escapeHtml(order.pickupDate.toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }))}</p>
+    <p style="margin:0"><strong>Pickup Address:</strong> ${escapeHtml(order.pickupAddress)}</p>
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${itemRows}<tr><td style="padding-top:14px"><strong>Total Paid</strong></td><td align="right" style="padding-top:14px;font-size:18px;color:#047857"><strong>${money.format(order.totalAmount)}</strong></td></tr></table>`;
+
+  const deliveries: Promise<boolean>[] = [];
+  if (adminEmails.length) {
+    deliveries.push(sendEmail({
+      to: adminEmails,
+      subject: `🚨 PAID ORDER ${order.orderNumber} · ${money.format(order.totalAmount)} · ${order.customerName}`,
+      html: shell(`PAID Order ${order.orderNumber}`, `Paid BG Laundry order from ${order.customerName}`, details),
+      text: `PAID ORDER ${order.orderNumber}\nCustomer: ${order.customerName}\nPhone: ${order.customerPhone}\nPickup: ${order.pickupDate.toLocaleString('en-NG')}\nAddress: ${order.pickupAddress}\nTotal Paid: ${money.format(order.totalAmount)}`,
+      tags: [{ name: 'category', value: 'order-paid' }],
+    }));
+  }
+  if (order.customerEmail) {
+    deliveries.push(sendEmail({
+      to: order.customerEmail,
+      subject: `Payment Confirmed - BG Laundry Order ${order.orderNumber}`,
+      html: shell(`Payment Confirmed - Order ${order.orderNumber}`, 'Your BG Laundry payment was successful.', `<p style="color:#526077;line-height:1.6">Hello ${escapeHtml(order.customerName)}, your payment has been confirmed! A rider will be assigned shortly for pickup.</p>${details}`),
+      text: `Hello ${order.customerName}, payment confirmed for order ${order.orderNumber}. Total Paid: ${money.format(order.totalAmount)}.`,
+      tags: [{ name: 'category', value: 'payment-confirmed' }],
     }));
   }
   return Promise.all(deliveries);

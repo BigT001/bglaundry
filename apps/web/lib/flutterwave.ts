@@ -126,6 +126,23 @@ export async function verifyAndRecordTransaction(
             note: 'Payment confirmed. Order submitted and waiting for driver assignment.',
           },
         });
+        const fullOrder = await database.order.findUnique({
+          where: { id: payment.orderId },
+          include: { items: true, customer: true },
+        });
+        if (fullOrder) {
+          const { sendPaymentConfirmedEmails } = await import('@/lib/email');
+          sendPaymentConfirmedEmails({
+            orderNumber: fullOrder.orderNumber,
+            customerName: fullOrder.customer.fullName,
+            customerEmail: fullOrder.customer.email,
+            customerPhone: fullOrder.customer.phoneNumber,
+            pickupAddress: fullOrder.pickupAddress,
+            pickupDate: fullOrder.pickupDate,
+            totalAmount: fullOrder.totalAmount,
+            items: fullOrder.items,
+          }).catch(e => console.warn('[Payment Email Error]', e));
+        }
       }
     });
   } else if (payment.status !== PaymentStatus.SUCCESSFUL && payment.status !== status) {
