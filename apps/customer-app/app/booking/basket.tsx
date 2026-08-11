@@ -6,17 +6,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { getBasket, subscribeBasket, addToBasket, removeFromBasket, deleteFromBasket, getBasketTotal, getBasketItemsCount, clearBasket } from './basketState';
 import { API_URL } from '../../lib/config';
+import { getCustomerSession } from '../../lib/session';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
 const getSessionToken = async () => {
-  const storedToken = await AsyncStorage.getItem('@bglaundry_token');
-  const token = typeof storedToken === 'string' ? storedToken.trim() : '';
-  if (!token || token === 'undefined' || token === 'null') {
-    return '';
-  }
+  const { token } = await getCustomerSession();
   return token;
 };
 

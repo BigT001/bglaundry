@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBasketItemsCount, subscribeBasket } from '../booking/basketState';
 import axios from 'axios';
 import { API_URL } from '../../lib/config';
+import { clearCustomerSession, getCustomerSession } from '../../lib/session';
 
 // Comprehensive fallback service items list for offline searching
 const FALLBACK_SEARCH_ITEMS = [
@@ -62,13 +62,15 @@ export default function HomeDashboard() {
     // Load stored user profile info
     const loadUserProfile = async () => {
       try {
-        const userStr = await AsyncStorage.getItem('@bglaundry_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          if (user.fullName) {
-            const firstName = user.fullName.split(' ')[0] || 'Blessed';
-            setUserName(firstName);
-          }
+        const { token, user } = await getCustomerSession();
+        if (!token || !user?.id) {
+          await clearCustomerSession();
+          router.replace('/(auth)/login' as any);
+          return;
+        }
+        if (user.fullName) {
+          const firstName = user.fullName.split(' ')[0] || 'Blessed';
+          setUserName(firstName);
         }
       } catch (err) {
         console.error('Failed to load user info:', err);

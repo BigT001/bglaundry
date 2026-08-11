@@ -18,6 +18,7 @@ import axios from 'axios';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { API_URL } from '../../lib/config';
+import { getCustomerSession, saveCustomerSession } from '../../lib/session';
 
 type LoginStep = 'PHONE' | 'OTP' | 'PROFILE';
 
@@ -111,10 +112,7 @@ export default function LoginScreen() {
       const sessionToken = token.trim();
       setTempToken(sessionToken);
       setTempUser(user);
-      await AsyncStorage.multiSet([
-        ['@bglaundry_token', sessionToken],
-        ['@bglaundry_user', JSON.stringify(user)],
-      ]);
+      await saveCustomerSession(sessionToken, user);
 
       if (!user.fullName || user.fullName === 'Customer Account') {
         setStep('PROFILE');
@@ -166,7 +164,8 @@ export default function LoginScreen() {
       return;
     }
 
-    const authToken = tempToken || (await AsyncStorage.getItem('@bglaundry_token'));
+    const { token: storedToken } = await getCustomerSession();
+    const authToken = tempToken || storedToken;
     if (!authToken) {
       Alert.alert('Session Note', 'Your login token was missing. Please re-enter your verification code.', [
         { text: 'OK', onPress: () => setStep('PHONE') },
@@ -195,8 +194,7 @@ export default function LoginScreen() {
 
       const updatedUser = response.data.user;
 
-      await AsyncStorage.setItem('@bglaundry_token', authToken);
-      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+      await saveCustomerSession(authToken, updatedUser);
 
       Alert.alert('Success', 'Profile completed!', [
         {

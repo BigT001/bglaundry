@@ -4,17 +4,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../../lib/config';
+import { getCustomerSession } from '../../lib/session';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
 const getSessionToken = async () => {
-  const storedToken = await AsyncStorage.getItem('@bglaundry_token');
-  const token = typeof storedToken === 'string' ? storedToken.trim() : '';
-  if (!token || token === 'undefined' || token === 'null') {
-    return '';
-  }
+  const { token } = await getCustomerSession();
   return token;
 };
 
@@ -188,7 +185,7 @@ export default function CheckoutScreen() {
       setProfileSaving(true);
       setProfileSaveMessage('');
       const localUser = await persistProfileLocally();
-      const token = await AsyncStorage.getItem('@bglaundry_token');
+      const { token } = await getCustomerSession();
       if (!token) {
         setCanSaveToProfile(false);
         setProfileSaveMessage('Sign in to save this information to your profile.');
@@ -260,7 +257,7 @@ export default function CheckoutScreen() {
           }
         }
 
-        const token = await AsyncStorage.getItem('@bglaundry_token');
+        const { token } = await getCustomerSession();
         setCanSaveToProfile(Boolean(token));
       } catch (err) {
         console.error('Failed to load stored user for checkout:', err);

@@ -5,6 +5,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../../lib/config';
+import { clearCustomerSession, getCustomerSession, saveCustomerSession } from '../../lib/session';
 
 interface SavedAddress {
   id: string;
@@ -55,9 +56,13 @@ export default function ProfileScreen() {
   // Load stored profile and addresses on mount & focus
   const loadProfile = async () => {
     try {
-      const userStr = await AsyncStorage.getItem('@bglaundry_user');
-      if (userStr) {
-        const u = JSON.parse(userStr);
+      const { token, user: u } = await getCustomerSession();
+      if (!token || !u?.id) {
+        await clearCustomerSession();
+        router.replace('/(auth)/login' as any);
+        return;
+      }
+      if (u) {
         setUserProfile(u);
         setProfileName(u.fullName || 'Customer');
         setProfilePhone(u.phoneNumber || '');
@@ -98,7 +103,7 @@ export default function ProfileScreen() {
 
     setSavingProfile(true);
     try {
-      const token = await AsyncStorage.getItem('@bglaundry_token');
+      const { token } = await getCustomerSession();
       const payload = {
         fullName: editName.trim(),
         email: editEmail.trim(),
@@ -108,7 +113,7 @@ export default function ProfileScreen() {
         avatarUrl,
       };
 
-      const response = await axios.patch(`${API_URL}/api/v1/users/profile`, payload, {
+      const response = await axios.patch(`${API_URL}/users/profile`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -121,7 +126,7 @@ export default function ProfileScreen() {
       setPickupAddress(updatedUser.pickupAddress || '');
       setAvatarUrl(updatedUser.avatarUrl || '');
 
-      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+      await saveCustomerSession(token, updatedUser);
       setIsEditProfileOpen(false);
       Alert.alert('Success', 'Your profile details have been updated!');
     } catch (err: any) {
@@ -136,7 +141,7 @@ export default function ProfileScreen() {
     setAvatarUrl(url);
     setIsAvatarPickerOpen(false);
     try {
-      const token = await AsyncStorage.getItem('@bglaundry_token');
+      const { token } = await getCustomerSession();
       const payload = {
         fullName: profileName,
         email: profileEmail,
@@ -145,16 +150,17 @@ export default function ProfileScreen() {
         pickupAddress,
         avatarUrl: url,
       };
-      const res = await axios.patch(`${API_URL}/api/v1/users/profile`, payload, {
+      const res = await axios.patch(`${API_URL}/users/profile`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const updatedUser = res.data.user || { ...userProfile, avatarUrl: url };
       setUserProfile(updatedUser);
-      await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
+      await saveCustomerSession(token, updatedUser);
     } catch (e) {
       console.warn('Failed to update avatar on server:', e);
       if (userProfile) {
-        const u = { ...userProfile, avatarUrl: url };
+        const { token } = await getCustomerSession();
+        const u = { ...userProfile, avatarUrl: url, sessionToken: token || userProfile.sessionToken };
         setUserProfile(u);
         await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(u));
       }

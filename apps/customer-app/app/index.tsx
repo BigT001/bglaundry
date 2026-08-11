@@ -10,8 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { clearCustomerSession, getCustomerSession } from '../lib/session';
 
 const { height } = Dimensions.get('window');
 
@@ -95,10 +95,13 @@ export default function SplashScreen() {
     try {
       // Small simulated delay for premium branding feel
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const token = await AsyncStorage.getItem('@bglaundry_token');
-      if (token) {
+      const { token, user } = await getCustomerSession();
+      if (token && user?.id) {
         router.replace('/(tabs)' as any);
       } else {
+        if (user && !token) {
+          await clearCustomerSession();
+        }
         setCheckingSession(false);
         // Staggered reveal for details
         triggerRevealOnboarding();
