@@ -13,8 +13,6 @@ import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
-    setTheme(R.style.AppTheme)
-    SplashScreenManager.registerOnActivity(this)
     super.onCreate(null)
   }
 
