@@ -8,9 +8,10 @@ const getApiUrl = () => {
   }
 
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  if (host) return `http://${host}:5001/api/v1`;
+  if (host && __DEV__) return `http://${host}:5001/api/v1`;
 
-  return 'http://192.168.18.4:5001/api/v1';
+  // Production backend URL for standalone Release APKs (works on 4G/5G/Wi-Fi everywhere)
+  return 'https://bglaundry.org/api/v1';
 };
 
 const getMapboxToken = () => {

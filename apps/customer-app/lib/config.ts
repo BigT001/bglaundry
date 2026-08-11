@@ -8,13 +8,13 @@ const getApiUrl = () => {
   }
 
   const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
+  if (hostUri && __DEV__) {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:5001/api/v1`;
   }
 
-  // Active Wi-Fi IP address fallback for standalone Release APKs
-  return 'http://192.168.18.4:5001/api/v1';
+  // Production backend URL for standalone Release APKs (works on 4G/5G/Wi-Fi everywhere)
+  return 'https://bglaundry.org/api/v1';
 };
 
 export const API_URL = getApiUrl();
