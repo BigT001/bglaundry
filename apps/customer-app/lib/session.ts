@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { API_URL } from './config';
 
 export const CUSTOMER_TOKEN_KEY = '@bglaundry_token';
 export const CUSTOMER_USER_KEY = '@bglaundry_user';
@@ -59,6 +61,32 @@ export const getCustomerSession = async () => {
   }
 
   return { token, user };
+};
+
+export const getOrRecoverCustomerSession = async () => {
+  const session = await getCustomerSession();
+  if (session.token) {
+    return session;
+  }
+
+  const user = session.user;
+  const phoneNumber = user?.phoneNumber;
+  if (!user?.id || !phoneNumber) {
+    return session;
+  }
+
+  const response = await axios.post(`${API_URL}/auth/mobile-session`, {
+    userId: user.id,
+    phoneNumber,
+    client: 'mobile',
+  });
+
+  const token = response.data?.token;
+  const recoveredUser = response.data?.user || user;
+  return saveCustomerSession(token, {
+    ...user,
+    ...recoveredUser,
+  });
 };
 
 export const clearCustomerSession = async () => {

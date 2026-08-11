@@ -4,14 +4,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../../lib/config';
-import { getCustomerSession } from '../../lib/session';
+import { getCustomerSession, getOrRecoverCustomerSession } from '../../lib/session';
 
 const formatNaira = (amount: number) => {
   return '₦' + amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
 const getSessionToken = async () => {
-  const { token } = await getCustomerSession();
+  const { token } = await getOrRecoverCustomerSession();
   return token;
 };
 
