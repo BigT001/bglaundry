@@ -97,7 +97,11 @@ export default function SplashScreen() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const token = await AsyncStorage.getItem('@bglaundry_token');
       if (token) {
-        router.replace('/(tabs)');
+        try {
+          router.replace('/' as any);
+        } catch {
+          router.replace('/(tabs)' as any);
+        }
       } else {
         setCheckingSession(false);
         // Staggered reveal for details

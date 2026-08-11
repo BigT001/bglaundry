@@ -19,9 +19,17 @@ export default function RootLayout() {
         const inAuthGroup = segments[0] === '(auth)';
 
         if (!token && !inAuthGroup) {
-          router.replace('/(auth)/login');
+          try {
+            router.replace('/login' as any);
+          } catch {
+            router.replace('/(auth)/login' as any);
+          }
         } else if (token && inAuthGroup) {
-          router.replace('/(tabs)');
+          try {
+            router.replace('/' as any);
+          } catch {
+            router.replace('/(tabs)' as any);
+          }
         }
       } catch (e) {
         console.error('[Rider Auth Error]', e);

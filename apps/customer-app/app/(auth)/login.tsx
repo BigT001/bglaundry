@@ -115,7 +115,16 @@ export default function LoginScreen() {
         clearBasket();
         await AsyncStorage.multiRemove(['@bglaundry_receipts', '@bglaundry_addresses', '@bglaundry_basket']);
         Alert.alert('Success', 'Logged in successfully!', [
-          { text: 'OK', onPress: () => router.replace('/(tabs)') },
+          {
+            text: 'OK',
+            onPress: () => {
+              try {
+                router.replace('/' as any);
+              } catch {
+                router.replace('/(tabs)' as any);
+              }
+            },
+          },
         ]);
       }
     } catch (error: any) {
@@ -191,7 +200,16 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(updatedUser));
 
       Alert.alert('Success', 'Profile completed!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+        {
+          text: 'OK',
+          onPress: () => {
+            try {
+              router.replace('/' as any);
+            } catch {
+              router.replace('/(tabs)' as any);
+            }
+          },
+        },
       ]);
     } catch (error: any) {
       console.error('Onboarding Error:', error);
