@@ -40,21 +40,30 @@ export function createFlutterwaveCheckout(input: {
   reference: string;
   amount: number;
   redirectUrl: string;
-  customer: { email: string; name: string; phoneNumber: string };
+  customer: { email?: string | null; name?: string | null; phoneNumber?: string | null };
   orderId: string;
   orderNumber: string;
 }) {
+  const rawEmail = String(input.customer?.email || '').trim().toLowerCase();
+  const validEmail = rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : 'customer@bglaundry.com';
+
+  const rawPhone = String(input.customer?.phoneNumber || '').replace(/[^\d]/g, '');
+  const validPhone = rawPhone.length >= 7 ? rawPhone : '08000000000';
+
+  const rawName = String(input.customer?.name || '').trim();
+  const validName = rawName.length > 0 ? rawName : 'Valued Customer';
+
   return requestFlutterwave<{ data: { link: string } }>('/payments', {
     method: 'POST',
     body: JSON.stringify({
       tx_ref: input.reference,
-      amount: input.amount.toFixed(2),
+      amount: Number(input.amount).toFixed(2),
       currency: CURRENCY,
       redirect_url: input.redirectUrl,
       customer: {
-        email: input.customer.email,
-        name: input.customer.name,
-        phonenumber: input.customer.phoneNumber,
+        email: validEmail,
+        name: validName,
+        phonenumber: validPhone,
       },
       meta: { order_id: input.orderId, order_number: input.orderNumber },
       customizations: {
