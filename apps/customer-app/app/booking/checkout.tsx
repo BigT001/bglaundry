@@ -280,11 +280,7 @@ export default function CheckoutScreen() {
 
       const token = await getSessionToken();
       if (!token) {
-        Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
-          { text: 'Stay here', style: 'cancel' },
-          { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
-        ]);
-        return;
+        throw new Error('Your saved login session could not be restored. Please sign in once to refresh checkout.');
       }
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -357,10 +353,7 @@ export default function CheckoutScreen() {
         ? error.response?.data?.error || 'Unable to start payment. Please try again.'
         : error instanceof Error ? error.message : 'Unable to start payment. Please try again.';
       if (message === 'Customer authentication required.' || message.includes('session')) {
-        Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
-          { text: 'Stay here', style: 'cancel' },
-          { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
-        ]);
+        Alert.alert('Checkout session problem', message);
       } else {
         Alert.alert('Payment not completed', message);
       }

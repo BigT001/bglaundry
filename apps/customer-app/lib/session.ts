@@ -70,14 +70,15 @@ export const getOrRecoverCustomerSession = async () => {
   }
 
   const user = session.user;
-  const phoneNumber = user?.phoneNumber;
-  if (!user?.id || !phoneNumber) {
-    return session;
+  if (!user?.id) {
+    throw new Error('Your saved profile is missing its customer id. Please sign in once to refresh your account session.');
   }
 
   const response = await axios.post(`${API_URL}/auth/mobile-session`, {
     userId: user.id,
-    phoneNumber,
+    phoneNumber: user.phoneNumber || '',
+    email: user.email || '',
+    fullName: user.fullName || '',
     client: 'mobile',
   });
 

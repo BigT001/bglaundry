@@ -103,13 +103,6 @@ export default function BasketScreen() {
     deleteFromBasket(itemName, serviceName);
   };
 
-  const promptForSignIn = () => {
-    Alert.alert('Sign in required', 'Please sign in to make payment. Your basket will stay saved.', [
-      { text: 'Stay here', style: 'cancel' },
-      { text: 'Sign in', onPress: () => router.push('/(auth)/login' as any) },
-    ]);
-  };
-
   const handleProceedCheckout = () => {
     if (totalCount <= 0) {
       Alert.alert('Empty Basket', 'Please add some items to your basket first.');
@@ -148,8 +141,7 @@ export default function BasketScreen() {
     try {
       const token = await getSessionToken();
       if (!token) {
-        promptForSignIn();
-        return;
+        throw new Error('Your saved login session could not be restored. Please sign in once to refresh checkout.');
       }
       const authConfig = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -234,7 +226,7 @@ export default function BasketScreen() {
         : error?.message || 'Please try again. No payment was confirmed.';
       setIsFlutterwaveVisible(false);
       if (errMsg === 'Customer authentication required.' || errMsg.includes('session')) {
-        promptForSignIn();
+        Alert.alert('Checkout session problem', errMsg);
       } else {
         Alert.alert('Payment Note', errMsg);
       }

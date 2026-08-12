@@ -7,7 +7,7 @@ const getApiUrl = () => {
   }
 
   // Live production backend URL for all release APKs (works on 4G/5G/Wi-Fi everywhere)
-  return 'https://bglaundry.org/api/v1';
+  return 'https://www.bglaundry.org/api/v1';
 };
 
 export const API_URL = getApiUrl();
