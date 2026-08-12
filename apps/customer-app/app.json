@@ -3,7 +3,7 @@
     "name": "BG Laundry",
     "owner": "bglaundry",
     "slug": "bg-laundry-customer",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "icon": "./assets/icon.png",
     "scheme": "bglaundry",
     "orientation": "portrait",
@@ -15,12 +15,13 @@
     },
     "android": {
       "package": "org.bglaundry.customer",
-      "versionCode": 15,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "./plugins/withFirebaseIosBuildFix",

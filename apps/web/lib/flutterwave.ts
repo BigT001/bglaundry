@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { OrderStatus, PaymentStatus } from '@bglaundry/database';
 import { prisma } from '@/lib/prisma';
+import { notifyCustomerOrderStatus } from '@/lib/notifications';
 
 const API_URL = 'https://api.flutterwave.com/v3';
 const CURRENCY = 'NGN';
@@ -142,6 +143,12 @@ export async function verifyAndRecordTransaction(
             totalAmount: fullOrder.totalAmount,
             items: fullOrder.items,
           }).catch(e => console.warn('[Payment Email Error]', e));
+          notifyCustomerOrderStatus({
+            pushToken: fullOrder.customer.pushToken,
+            orderId: fullOrder.id,
+            orderNumber: fullOrder.orderNumber,
+            status: OrderStatus.PICKUP_PENDING,
+          }).catch(e => console.warn('[Payment Push Error]', e));
         }
       }
     });

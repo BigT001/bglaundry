@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
 import { bearerToken, verifyRiderToken } from '@/lib/auth';
+import { notifyCustomerOrderStatus } from '@/lib/notifications';
 
 const transitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
   PICKUP_PENDING: [OrderStatus.PICKUP_IN_PROGRESS],
@@ -57,8 +58,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       pickupDate: true,
       deliveryDate: true,
       items: { select: { id: true, serviceName: true, quantity: true } },
-      customer: { select: { fullName: true, phoneNumber: true } },
+      customer: { select: { fullName: true, phoneNumber: true, pushToken: true } },
     },
   });
+  notifyCustomerOrderStatus({
+    pushToken: updated.customer.pushToken,
+    orderId: updated.id,
+    orderNumber: updated.orderNumber,
+    status: updated.status,
+  }).catch(e => console.warn('[Rider Status Push Error]', e));
   return NextResponse.json(updated);
 }

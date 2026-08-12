@@ -55,6 +55,7 @@ model User {
   officeAddress   String?   // Office Address
   addressType     String?   // "HOME", "OFFICE", or "BOTH"
   avatarUrl       String?   // User profile picture / avatar URL or base64
+  pushToken       String?   // Expo push token for customer mobile notifications
   role            Role      @default(CUSTOMER)
   permissions     String[]  @default([])
   isActive        Boolean   @default(true)

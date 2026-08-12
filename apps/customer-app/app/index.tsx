@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { clearCustomerSession, getCustomerSession } from '../lib/session';
+import { registerForLiveNotifications } from '../lib/push-notifications';
 
 const { height } = Dimensions.get('window');
 
@@ -97,6 +98,7 @@ export default function SplashScreen() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const { token, user } = await getCustomerSession();
       if (token && user?.id) {
+        void registerForLiveNotifications();
         router.replace('/(tabs)' as any);
       } else {
         if (user && !token) {

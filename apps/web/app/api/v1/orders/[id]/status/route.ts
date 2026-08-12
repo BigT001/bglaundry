@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus } from '@bglaundry/database';
 import { bearerToken, verifyAdminToken } from '@/lib/auth';
+import { notifyCustomerOrderStatus } from '@/lib/notifications';
 
 export async function PATCH(
   request: NextRequest,
@@ -65,7 +66,17 @@ export async function PATCH(
           },
         },
       },
+      include: {
+        customer: { select: { pushToken: true } },
+      },
     });
+
+    notifyCustomerOrderStatus({
+      pushToken: updatedOrder.customer.pushToken,
+      orderId: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.status,
+    }).catch(e => console.warn('[Admin Status Push Error]', e));
 
     return NextResponse.json(updatedOrder);
   } catch (error: any) {

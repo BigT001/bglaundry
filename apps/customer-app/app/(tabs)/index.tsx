@@ -182,7 +182,7 @@ export default function HomeDashboard() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* 1. Header Section: User Info, Basket & Notification */}
+      {/* 1. Header Section: User Info & Basket */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
@@ -205,10 +205,6 @@ export default function HomeDashboard() {
                 <Text style={styles.badgeText}>{basketCount}</Text>
               </View>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtnHeader, { marginLeft: 10 }]}>
-            <Feather name="bell" size={20} color="#0066FF" />
-            <View style={styles.redDot} />
           </TouchableOpacity>
         </View>
       </View>
@@ -410,15 +406,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: 'bold',
-  },
-  redDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
   },
   searchBar: {
     flexDirection: 'row',

@@ -19,6 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { API_URL } from '../../lib/config';
 import { getCustomerSession, saveCustomerSession } from '../../lib/session';
+import { registerForLiveNotifications } from '../../lib/push-notifications';
 
 type LoginStep = 'PHONE' | 'OTP' | 'PROFILE';
 
@@ -117,6 +118,7 @@ export default function LoginScreen() {
       if (!user.fullName || user.fullName === 'Customer Account') {
         setStep('PROFILE');
       } else {
+        void registerForLiveNotifications();
         Alert.alert('Success', 'Logged in successfully!', [
           {
             text: 'OK',
@@ -195,6 +197,7 @@ export default function LoginScreen() {
       const updatedUser = response.data.user;
 
       await saveCustomerSession(authToken, updatedUser);
+      void registerForLiveNotifications();
 
       Alert.alert('Success', 'Profile completed!', [
         {
