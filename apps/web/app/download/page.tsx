@@ -7,6 +7,8 @@ export const metadata = {
 };
 
 const DOWNLOAD_URL = 'https://www.bglaundry.org/download';
+const CUSTOMER_APK_URL =
+  'https://raw.githubusercontent.com/BigT001/bglaundry/main/apps/web/public/bglaundry-customer.apk';
 
 export default function DownloadPage() {
   return (
@@ -29,7 +31,7 @@ export default function DownloadPage() {
         </div>
 
         <a
-          href="/bglaundry-customer.apk"
+          href={CUSTOMER_APK_URL}
           download="bglaundry-customer.apk"
           style={styles.downloadBtn}
         >
