@@ -3,7 +3,7 @@
     "name": "BG Laundry",
     "owner": "bglaundry",
     "slug": "bg-laundry-customer",
-    "version": "1.0.15",
+    "version": "1.0.16",
     "icon": "./assets/icon.png",
     "scheme": "bglaundry",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "org.bglaundry.customer",
-      "versionCode": 16,
+      "versionCode": 17,
       "googleServicesFile": "./google-services.json",
       "usesCleartextTraffic": true
     },

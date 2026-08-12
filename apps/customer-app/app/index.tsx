@@ -98,7 +98,9 @@ export default function SplashScreen() {
       await new Promise((resolve) => setTimeout(resolve, 800));
       const { token, user } = await getCustomerSession();
       if (token && user?.id) {
-        void registerForLiveNotifications();
+        setTimeout(() => {
+          void registerForLiveNotifications();
+        }, 1500);
         router.replace('/(tabs)' as any);
       } else {
         if (user && !token) {
