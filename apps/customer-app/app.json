@@ -16,9 +16,7 @@
     "android": {
       "package": "org.bglaundry.customer",
       "versionCode": 18,
-      "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": false,
-      "privacyPolicyUrl": "https://www.bglaundry.org/privacy-policy"
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
@@ -32,7 +30,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "router": {},

@@ -81,11 +81,6 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def releaseKeystoreFile = findProperty('BGLAUNDRY_RELEASE_STORE_FILE')
-def releaseKeystorePassword = findProperty('BGLAUNDRY_RELEASE_STORE_PASSWORD')
-def releaseKeyAlias = findProperty('BGLAUNDRY_RELEASE_KEY_ALIAS')
-def releaseKeyPassword = findProperty('BGLAUNDRY_RELEASE_KEY_PASSWORD')
-
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -117,12 +112,12 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        if (releaseKeystoreFile && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword) {
-            release {
-                storeFile file(releaseKeystoreFile)
-                storePassword releaseKeystorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
+        release {
+            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
             }
         }
     }
@@ -131,15 +126,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
-                taskName.toLowerCase().contains('release')
-            }
-            if (isReleaseTask && (!releaseKeystoreFile || !releaseKeystorePassword || !releaseKeyAlias || !releaseKeyPassword)) {
-                throw new GradleException('Release signing is not configured. Provide BGLAUNDRY_RELEASE_STORE_FILE, BGLAUNDRY_RELEASE_STORE_PASSWORD, BGLAUNDRY_RELEASE_KEY_ALIAS, and BGLAUNDRY_RELEASE_KEY_PASSWORD in gradle.properties or the Gradle command line.')
-            }
-            if (releaseKeystoreFile && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

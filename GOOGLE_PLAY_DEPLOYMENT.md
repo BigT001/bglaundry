@@ -104,12 +104,12 @@ eas build --platform android --profile production
 
 Before building, ensure the EAS project is connected to the correct Expo owner/project and that the Android package remains `org.bglaundry.customer`.
 
-The native Gradle project requires these values if building locally:
+The native Gradle project uses these standard EAS-injected values if building locally:
 
-- `BGLAUNDRY_RELEASE_STORE_FILE`
-- `BGLAUNDRY_RELEASE_STORE_PASSWORD`
-- `BGLAUNDRY_RELEASE_KEY_ALIAS`
-- `BGLAUNDRY_RELEASE_KEY_PASSWORD`
+- `MYAPP_UPLOAD_STORE_FILE`
+- `MYAPP_UPLOAD_STORE_PASSWORD`
+- `MYAPP_UPLOAD_KEY_ALIAS`
+- `MYAPP_UPLOAD_KEY_PASSWORD`
 
 Local validation commands:
 
