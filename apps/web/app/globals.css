@@ -19,6 +19,41 @@ select {
   text-size-adjust: 100%;
 }
 
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  padding: 22px max(20px, 6vw);
+  background: #10244a;
+  color: #dbeafe;
+  font-size: 14px;
+}
+
+.site-footer-brand {
+  font-weight: 800;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.site-footer-links a {
+  color: #bfdbfe;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-footer-links a:hover,
+.site-footer-links a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+}
+
 .policy-page {
   min-height: 100vh;
   padding: 32px 20px 64px;
@@ -151,5 +186,15 @@ select {
   .policy-content {
     margin-top: 34px;
     padding: 32px 22px;
+  }
+
+  .site-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .site-footer-links {
+    justify-content: flex-start;
+    gap: 12px 18px;
   }
 }

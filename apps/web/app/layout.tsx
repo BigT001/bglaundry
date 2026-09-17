@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import './globals.css';
 
 export const metadata = {
@@ -17,7 +18,16 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <footer className="site-footer">
+          <span className="site-footer-brand">BG Laundry</span>
+          <nav className="site-footer-links" aria-label="Legal links">
+            <Link href="/privacy-policy">Privacy Policy</Link>
+            <Link href="/delete-account">Delete Account</Link>
+          </nav>
+        </footer>
+      </body>
     </html>
   );
 }
