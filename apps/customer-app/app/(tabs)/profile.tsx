@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform, Image, ActivityIndicator, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -249,6 +249,42 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your BG Laundry account, saved addresses, orders, and associated personal data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { token } = await getCustomerSession();
+              if (!token) throw new Error('Your session has expired.');
+              await axios.delete(`${API_URL}/users/account`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              await AsyncStorage.multiRemove([
+                '@bglaundry_token',
+                '@bglaundry_user',
+                '@bglaundry_receipts',
+                '@bglaundry_addresses',
+                '@bglaundry_basket',
+              ]);
+              await clearCustomerSession();
+              Alert.alert('Account deleted', 'Your BG Laundry account has been deleted.', [
+                { text: 'OK', onPress: () => router.replace('/(auth)/login' as any) },
+              ]);
+            } catch (err: any) {
+              Alert.alert('Unable to delete account', err.response?.data?.error || err.message || 'Please try again later.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const initials = profileName
     .split(/\s+/)
     .filter(Boolean)
@@ -350,10 +386,22 @@ export default function ProfileScreen() {
           </View>
           <Feather name="chevron-right" size={16} color="#94A3B8" />
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => void Linking.openURL('https://www.bglaundry.org/privacy-policy')}>
+          <View style={styles.menuLeft}>
+            <Feather name="shield" size={20} color="#0066FF" style={{ marginRight: 12 }} />
+            <Text style={styles.menuText}>Privacy Policy</Text>
+          </View>
+          <Feather name="chevron-right" size={16} color="#94A3B8" />
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>Log Out</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+        <Text style={styles.deleteAccountButtonText}>Delete account</Text>
       </TouchableOpacity>
 
       {/* MODAL 1: Edit Profile Modal */}
@@ -705,6 +753,16 @@ const styles = StyleSheet.create({
     color: '#F43F5E',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  deleteAccountButton: {
+    alignItems: 'center',
+    marginBottom: 20,
+    padding: 12,
+  },
+  deleteAccountButtonText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    fontWeight: '600',
   },
   /* Bottom sheet overlays */
   modalOverlay: {

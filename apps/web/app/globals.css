@@ -18,3 +18,138 @@ select {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+
+.policy-page {
+  min-height: 100vh;
+  padding: 32px 20px 64px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e8f1fb 100%);
+  color: #17233f;
+}
+
+.policy-shell {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.policy-header,
+.policy-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.policy-brand,
+.policy-footer a {
+  color: #0757a6;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.policy-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.policy-brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 10px;
+  background: #0757a6;
+  color: #fff;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.policy-updated,
+.policy-footer {
+  color: #60708b;
+  font-size: 14px;
+}
+
+.policy-content {
+  margin-top: 58px;
+  padding: 48px clamp(24px, 6vw, 72px);
+  background: #fff;
+  border: 1px solid #d9e3ef;
+  border-radius: 8px;
+  box-shadow: 0 18px 45px rgba(25, 61, 104, 0.09);
+}
+
+.policy-eyebrow {
+  margin: 0 0 12px;
+  color: #0c72b8;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.policy-content h1 {
+  margin: 0;
+  color: #10244a;
+  font-size: clamp(34px, 6vw, 52px);
+  line-height: 1.05;
+}
+
+.policy-lead {
+  margin: 24px 0 44px;
+  color: #52627d;
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.policy-content section + section {
+  margin-top: 34px;
+}
+
+.policy-content h2 {
+  margin: 0 0 10px;
+  color: #10244a;
+  font-size: 21px;
+}
+
+.policy-content p,
+.policy-content li {
+  color: #40516e;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.policy-content ul {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.policy-content li + li {
+  margin-top: 8px;
+}
+
+.policy-content a {
+  color: #0757a6;
+  font-weight: 700;
+}
+
+.policy-footer {
+  justify-content: flex-start;
+  padding: 24px 4px 0;
+}
+
+@media (max-width: 600px) {
+  .policy-page {
+    padding: 20px 14px 42px;
+  }
+
+  .policy-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .policy-content {
+    margin-top: 34px;
+    padding: 32px 22px;
+  }
+}

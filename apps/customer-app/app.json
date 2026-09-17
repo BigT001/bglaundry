@@ -17,7 +17,8 @@
       "package": "org.bglaundry.customer",
       "versionCode": 18,
       "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": false,
+      "privacyPolicyUrl": "https://www.bglaundry.org/privacy-policy"
     },
     "plugins": [
       "expo-router",
