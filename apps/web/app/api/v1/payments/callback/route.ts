@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
   }
 
   const deepLink = `bglaundry://payment?status=${successful ? 'successful' : 'failed'}&reference=${encodeURIComponent(reference || '')}`;
+  if (isMobileApp) {
+    return NextResponse.redirect(deepLink);
+  }
   return new NextResponse(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>BG Laundry Payment</title></head>
 <body style="font-family:system-ui;text-align:center;padding:48px 20px;background:#f8fafc;color:#0f172a"><h1>${successful ? 'Payment successful' : 'Payment pending'}</h1><p>${escapeHtml(message)}</p><a href="${escapeHtml(deepLink)}" style="display:inline-block;margin-top:20px;padding:14px 22px;border-radius:8px;background:#0066ff;color:white;text-decoration:none">Return to BG Laundry</a></body></html>`, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },

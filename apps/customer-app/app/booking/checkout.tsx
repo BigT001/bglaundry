@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, TextInput, Linking } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../../lib/config';
@@ -318,12 +319,7 @@ export default function CheckoutScreen() {
       if (!checkoutUrl) {
         throw new Error('Flutterwave checkout URL was not generated. Please try again.');
       }
-      try {
-        await Linking.openURL(checkoutUrl);
-      } catch (openErr) {
-        console.warn('[Flutterwave] Linking.openURL fallback attempt:', openErr);
-        await Linking.openURL(checkoutUrl);
-      }
+      await WebBrowser.openAuthSessionAsync(checkoutUrl, 'bglaundry://payment');
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const latestToken = await getSessionToken();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -177,12 +178,7 @@ export default function BasketScreen() {
 
       setPaymentStep('WAITING');
       setPaymentMessage('Complete payment in Flutterwave, then return to BG Laundry.');
-      try {
-        await Linking.openURL(checkoutUrl);
-      } catch (openErr) {
-        console.warn('[Flutterwave] Linking.openURL fallback attempt:', openErr);
-        await Linking.openURL(checkoutUrl);
-      }
+      await WebBrowser.openAuthSessionAsync(checkoutUrl, 'bglaundry://payment');
 
       for (let attempt = 0; attempt < 60; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
