@@ -86,6 +86,17 @@ model PasswordResetToken {
   @@index([expiresAt])
 }
 
+model PhoneVerificationToken {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 model NotificationSettings {
   id          String   @id @default("default")
   adminEmails String[] @default([])

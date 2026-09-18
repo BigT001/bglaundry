@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
-import { firebaseAuth, isFirebaseAdminInitialized } from '@/lib/firebase-admin';
 import { verifyServerOtp } from '@/lib/otp-service';
 
 export const runtime = 'nodejs';
@@ -36,7 +35,7 @@ function normalizePhone(phone: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phoneNumber, idToken, code } = body;
+    const { phoneNumber, code } = body;
 
     if (!phoneNumber) {
       return NextResponse.json(
@@ -46,31 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { localPhone, intlPhone, rawIntl } = normalizePhone(phoneNumber);
-    let verified = false;
-
-    // Method 1: Firebase ID Token Verification
-    if (idToken && isFirebaseAdminInitialized && firebaseAuth) {
-      try {
-        const decodedToken = await firebaseAuth.verifyIdToken(idToken);
-        const verifiedPhone = decodedToken.phone_number;
-        if (
-          verifiedPhone &&
-          verifiedPhone.replace(/\D/g, '') === intlPhone.replace(/\D/g, '')
-        ) {
-          verified = true;
-        }
-      } catch (error: any) {
-        console.warn('[Firebase ID Token verification fallback]', error?.message);
-      }
-    }
-
-    // Method 2: Direct Server SMS OTP Verification
-    if (!verified && code) {
-      const isValidOtp = verifyServerOtp(phoneNumber, code);
-      if (isValidOtp) {
-        verified = true;
-      }
-    }
+    const verified = typeof code === 'string' && await verifyServerOtp(phoneNumber, code);
 
     if (!verified) {
       return NextResponse.json(

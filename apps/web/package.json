@@ -14,8 +14,6 @@
     "@bglaundry/rider-core": "workspace:*",
     "axios": "^1.6.0",
     "bcrypt": "^6.0.0",
-    "firebase": "^12.16.0",
-    "firebase-admin": "^13.10.0",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",

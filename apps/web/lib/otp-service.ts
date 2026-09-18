@@ -1,18 +1,7 @@
+import crypto from 'node:crypto';
+import bcrypt from 'bcrypt';
+import { prisma } from './prisma';
 import { sendSms } from './sms-service';
-
-type OtpRecord = {
-  code: string;
-  expiresAt: number;
-  attempts: number;
-};
-
-// Global in-memory store for OTP records across request invocations
-const globalForOtp = globalThis as unknown as {
-  otpStore?: Map<string, OtpRecord>;
-};
-
-const otpStore = globalForOtp.otpStore || new Map<string, OtpRecord>();
-if (process.env.NODE_ENV !== 'production') globalForOtp.otpStore = otpStore;
 
 function cleanPhoneNumber(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -26,17 +15,18 @@ export async function generateAndSendOtp(phone: string) {
   const cleanPhone = cleanPhoneNumber(phone);
   const formattedIntl = '+' + cleanPhone;
 
-  // Generate 6-digit OTP code
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const recent = await prisma.phoneVerificationToken.findUnique({ where: { phone: cleanPhone } });
+  if (recent && Date.now() - recent.createdAt.getTime() < 60_000) {
+    throw new Error('Please wait one minute before requesting another code.');
+  }
 
-  // Store OTP with 10-minute expiry
-  otpStore.set(cleanPhone, {
-    code,
-    expiresAt: Date.now() + 10 * 60 * 1000,
-    attempts: 0,
+  const code = crypto.randomInt(100000, 1000000).toString();
+  const codeHash = await bcrypt.hash(code, 10);
+  await prisma.phoneVerificationToken.upsert({
+    where: { phone: cleanPhone },
+    update: { codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000), attempts: 0, createdAt: new Date() },
+    create: { phone: cleanPhone, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
   });
-
-  console.log(`[SMS OTP Generated] Phone: ${formattedIntl} | Code: ${code}`);
 
   const smsDelivered = await sendSms({
     to: cleanPhone,
@@ -44,7 +34,8 @@ export async function generateAndSendOtp(phone: string) {
   });
 
   if (!smsDelivered) {
-    console.warn(`[SMS Dispatch Warning] SMS provider is missing, mocked, or failed. Code logged for testing: ${code}`);
+    await prisma.phoneVerificationToken.delete({ where: { phone: cleanPhone } });
+    throw new Error('SMS delivery is temporarily unavailable. Please try again later.');
   }
 
   return {
@@ -53,42 +44,36 @@ export async function generateAndSendOtp(phone: string) {
   };
 }
 
-export function verifyServerOtp(phone: string, inputCode: string): boolean {
+export async function verifyServerOtp(phone: string, inputCode: string): Promise<boolean> {
   const cleanPhone = cleanPhoneNumber(phone);
   const cleanInput = inputCode.replace(/\D/g, '').trim();
 
-  // Master testing code for dev/emergency verification
-  if (cleanInput === '123456') {
-    console.log(`[OTP Master Code Used] Phone: ${cleanPhone}`);
-    otpStore.delete(cleanPhone);
-    return true;
-  }
-
-  const record = otpStore.get(cleanPhone);
+  const record = await prisma.phoneVerificationToken.findUnique({ where: { phone: cleanPhone } });
   if (!record) {
     console.warn(`[OTP Verification] No active session record found for ${cleanPhone}`);
     return false;
   }
 
-  if (Date.now() > record.expiresAt) {
+  if (Date.now() > record.expiresAt.getTime()) {
     console.warn(`[OTP Verification] Code expired for ${cleanPhone}`);
-    otpStore.delete(cleanPhone);
+    await prisma.phoneVerificationToken.delete({ where: { phone: cleanPhone } });
     return false;
   }
 
   if (record.attempts >= 5) {
     console.warn(`[OTP Verification] Too many failed attempts for ${cleanPhone}`);
-    otpStore.delete(cleanPhone);
+    await prisma.phoneVerificationToken.delete({ where: { phone: cleanPhone } });
     return false;
   }
 
-  if (record.code === cleanInput) {
+  if (await bcrypt.compare(cleanInput, record.codeHash)) {
     console.log(`[OTP Verification Success] Phone: ${cleanPhone}`);
-    otpStore.delete(cleanPhone);
+    await prisma.phoneVerificationToken.delete({ where: { phone: cleanPhone } });
     return true;
   }
 
-  record.attempts += 1;
-  console.warn(`[OTP Verification Failed] Invalid code for ${cleanPhone}. Attempt ${record.attempts}/5`);
+  const attempts = record.attempts + 1;
+  await prisma.phoneVerificationToken.update({ where: { phone: cleanPhone }, data: { attempts } });
+  console.warn(`[OTP Verification Failed] Invalid code for ${cleanPhone}. Attempt ${attempts}/5`);
   return false;
 }
