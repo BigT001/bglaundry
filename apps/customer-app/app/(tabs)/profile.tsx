@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Platform, Image, ActivityIndicator, Linking } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal, TextInput, ScrollView, Image, ActivityIndicator, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -206,21 +206,6 @@ export default function ProfileScreen() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          try {
-            if (Platform.OS === 'web') {
-              const { auth: webAuth } = require('../../lib/firebase');
-              const { signOut } = require('firebase/auth');
-              await signOut(webAuth).catch(() => {});
-            } else {
-              const rnfbAuth = require('@react-native-firebase/auth');
-              const authInst = typeof rnfbAuth === 'function' ? rnfbAuth() : (rnfbAuth && typeof rnfbAuth.default === 'function' ? rnfbAuth.default() : rnfbAuth);
-              if (authInst && typeof authInst.signOut === 'function') {
-                await authInst.signOut().catch(() => {});
-              }
-            }
-          } catch (e) {
-            console.warn('Firebase signout on logout failed:', e);
-          }
           try {
             const { clearBasket } = require('../booking/basketState');
             clearBasket();
