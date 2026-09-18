@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import axios from 'axios';
 import { prisma } from '@/lib/prisma';
 import { normalizePhone } from '@/lib/phone';
 import { STAFF_ROLES } from '@/lib/admin-permissions';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { sendSms } from '@/lib/sms-service';
 
 const GENERIC_MESSAGE = 'If an eligible account matches those details, a verification code has been sent.';
 
@@ -54,24 +54,10 @@ export async function POST(request: NextRequest) {
     const emailDelivered = user.email
       ? await sendPasswordResetEmail({ email: user.email, fullName: user.fullName, code })
       : false;
-    let smsDelivered = false;
-    const termiiApiKey = process.env.TERMII_API_KEY;
-    const rawPhone = user.phoneNumber.replace(/\D/g, '');
-    if (termiiApiKey && termiiApiKey !== 'termii_mock_api_key') {
-      try {
-        await axios.post('https://api.ng.termii.com/api/sms/send', {
-          to: rawPhone,
-          from: process.env.TERMII_SENDER_ID || 'BGLAUNDRY',
-          sms: `Your BG Laundry password reset code is ${code}. It expires in 10 minutes. Do not share it.`,
-          type: 'plain',
-          channel: 'generic',
-          api_key: termiiApiKey,
-        }, { timeout: 12_000 });
-        smsDelivered = true;
-      } catch (error: any) {
-        console.error('[Password Reset SMS Error]', error?.response?.data || error?.message);
-      }
-    }
+    const smsDelivered = await sendSms({
+      to: user.phoneNumber,
+      message: `Your BG Laundry password reset code is ${code}. It expires in 10 minutes. Do not share it.`,
+    });
 
     if (!emailDelivered && !smsDelivered && process.env.NODE_ENV === 'production') {
       await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });

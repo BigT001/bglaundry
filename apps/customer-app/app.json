@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BG Laundry",
+    "name": "BGLaundry",
     "owner": "bglaundry",
     "slug": "bg-laundry-customer",
     "version": "1.0.17",
@@ -20,9 +20,6 @@
     },
     "plugins": [
       "expo-router",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "./plugins/withFirebaseIosBuildFix",
       [
         "expo-build-properties",
         {

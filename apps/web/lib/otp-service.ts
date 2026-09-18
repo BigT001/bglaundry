@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { sendSms } from './sms-service';
 
 type OtpRecord = {
   code: string;
@@ -38,26 +38,13 @@ export async function generateAndSendOtp(phone: string) {
 
   console.log(`[SMS OTP Generated] Phone: ${formattedIntl} | Code: ${code}`);
 
-  // Dispatch via Termii SMS Gateway
-  const termiiApiKey = process.env.TERMII_API_KEY;
-  const termiiSenderId = process.env.TERMII_SENDER_ID || 'N-ALERT';
+  const smsDelivered = await sendSms({
+    to: cleanPhone,
+    message: `Your BG Laundry verification code is: ${code}. Valid for 10 minutes.`,
+  });
 
-  if (termiiApiKey && termiiApiKey !== 'termii_mock_api_key') {
-    try {
-      const res = await axios.post('https://api.ng.termii.com/api/sms/send', {
-        to: cleanPhone,
-        from: termiiSenderId,
-        sms: `Your BG Laundry verification code is: ${code}. Valid for 10 minutes.`,
-        type: 'plain',
-        channel: 'generic',
-        api_key: termiiApiKey,
-      });
-      console.log(`[SMS OTP Sent via Termii] to ${formattedIntl}:`, res.data);
-    } catch (err: any) {
-      console.error('[Termii SMS Dispatch Error]', err?.response?.data || err?.message);
-    }
-  } else {
-    console.warn(`[SMS Dispatch Warning] TERMII_API_KEY is missing or set to mock. Code logged for testing: ${code}`);
+  if (!smsDelivered) {
+    console.warn(`[SMS Dispatch Warning] SMS provider is missing, mocked, or failed. Code logged for testing: ${code}`);
   }
 
   return {
