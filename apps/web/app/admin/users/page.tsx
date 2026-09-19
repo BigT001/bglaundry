@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { ChevronDown, Clock, MapPin, Search, ShoppingBag, Trash2, TrendingUp, User, Plus } from '@/lib/icons';
+import { ChevronDown, Clock, MapPin, Search, ShoppingBag, TrendingUp, User, Plus } from '@/lib/icons';
 import { getAdminCache, setAdminCache } from '../adminCache';
 import styles from './customers.module.css';
 
@@ -82,11 +82,11 @@ export default function AdminCustomersPage() {
   const [segment, setSegment] = useState<'ALL' | 'REPEAT' | 'NEW' | 'INACTIVE'>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const createDialog = useRef<HTMLDialogElement>(null);
+  const [createError, setCreateError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showApology, setShowApology] = useState(false);
-  const [form, setForm] = useState({ fullName: '', email: '', phoneNumber: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', phoneNumber: '', address: '' });
   const [apology, setApology] = useState('We are sorry for the disruption to your BG Laundry account. We have restored our systems and are working to make your account and service history available again. Please use the account recovery email we send you to set a new password.');
   const [actionMessage, setActionMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -122,45 +122,33 @@ export default function AdminCustomersPage() {
     setAuthorized(true);
     axios.get('/api/v1/admin/auth/session', {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((response) => {
-      setIsSuperAdmin(response.data?.user?.role === 'SUPER_ADMIN');
-    }).catch(() => setIsSuperAdmin(false));
+    }).catch(() => undefined);
     fetchCustomers();
     const refresh = window.setInterval(() => fetchCustomers(true), 30000);
     return () => window.clearInterval(refresh);
   }, [fetchCustomers, router]);
 
-  async function deleteCustomer(customer: Customer) {
-    const confirmed = window.confirm(
-      `Permanently delete ${customer.fullName || 'this customer'}?\n\nThis will also delete their orders, payments, invoices, and history. This action cannot be undone.`,
-    );
-    if (!confirmed) return;
-
-    setDeletingId(customer.id);
-    setError('');
-    try {
-      const token = localStorage.getItem('adminToken');
-      await axios.delete(`/api/v1/admin/users?id=${encodeURIComponent(customer.id)}`, {
-        headers: { Authorization: `Bearer ${token || ''}` },
-      });
-      const next = customers.filter((item) => item.id !== customer.id);
-      setCustomers(next);
-      setAdminCache('admin-users', next);
-      setExpandedId(null);
-    } catch (requestError: any) {
-      setError(requestError.response?.data?.error || 'Unable to delete this customer.');
-    } finally {
-      setDeletingId(null);
-    }
-  }
+  useEffect(() => {
+    if (!showCreate || !createDialog.current) return;
+    const dialog = createDialog.current;
+    dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showCreate]);
 
   async function createCustomer(event: React.FormEvent) {
-    event.preventDefault(); setActionLoading(true); setActionMessage('');
+    event.preventDefault();
+    if (actionLoading) return;
+    setActionLoading(true); setActionMessage(''); setCreateError('');
     try {
       const token = localStorage.getItem('adminToken');
-      await axios.post('/api/v1/admin/users', form, { headers: { Authorization: `Bearer ${token || ''}` } });
-      setForm({ fullName: '', email: '', phoneNumber: '' }); setShowCreate(false); setActionMessage('Customer created. A recovery email has been sent.'); await fetchCustomers(true);
-    } catch (requestError: any) { setActionMessage(requestError.response?.data?.error || 'Unable to create customer.'); } finally { setActionLoading(false); }
+      const response = await axios.post('/api/v1/admin/users', form, { headers: { Authorization: `Bearer ${token || ''}` } });
+      setForm({ fullName: '', email: '', phoneNumber: '', address: '' }); setShowCreate(false); setActionMessage(response.data.message || 'Customer saved.'); setSearch(''); setSegment('ALL'); setExpandedId(response.data.user.id); await fetchCustomers();
+    } catch (requestError: any) { setCreateError(requestError.response?.data?.error || 'Unable to create customer.'); } finally { setActionLoading(false); }
   }
 
   async function sendApology(event: React.FormEvent) {
@@ -218,10 +206,35 @@ export default function AdminCustomersPage() {
 
       <section className={styles.recoveryBar}>
         <div><strong>Customer recovery</strong><span>Create restored accounts and contact customers securely.</span></div>
-        <div className={styles.recoveryActions}><button onClick={() => setShowCreate(true)}><Plus size={15} />Create customer</button><button onClick={() => setShowApology(true)}><User size={15} />Send apology email</button></div>
+        <div className={styles.recoveryActions}><button onClick={() => { setCreateError(''); setShowCreate(true); }}><Plus size={15} />Add customer</button><button onClick={() => setShowApology(true)}><User size={15} />Send apology email</button></div>
       </section>
-      {actionMessage && <div className={styles.actionMessage}>{actionMessage}</div>}
-      {showCreate && <div className={styles.formPanel}><div><h2>Create customer account</h2><p>A recovery email will be sent so the customer can set a new password.</p></div><form onSubmit={createCustomer}><input required placeholder="Full name" value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} /><input required type="email" placeholder="Email address" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /><input required placeholder="Phone number" value={form.phoneNumber} onChange={event => setForm({ ...form, phoneNumber: event.target.value })} /><div><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create and email'}</button></div></form></div>}
+      {actionMessage && <div className={styles.actionMessage} role="status">{actionMessage}</div>}
+      {showCreate && (
+        <dialog ref={createDialog} className={styles.createDialog} aria-labelledby="create-customer-title" aria-describedby="create-customer-description"
+          onCancel={event => { event.preventDefault(); if (!actionLoading) setShowCreate(false); }}>
+          <div className={styles.dialogHeader}>
+            <h2 id="create-customer-title">Add customer</h2>
+            <p id="create-customer-description">Restore an existing customer or add a new one. Their details will be saved, and a recovery email will help them set a password.</p>
+          </div>
+          <form onSubmit={createCustomer} className={styles.customerForm}>
+            <fieldset disabled={actionLoading}>
+              <label htmlFor="customer-name">Full name</label>
+              <input id="customer-name" name="fullName" autoComplete="name" autoFocus required minLength={2} value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} />
+              <label htmlFor="customer-email">Email address</label>
+              <input id="customer-email" name="email" type="email" autoComplete="email" required value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} />
+              <label htmlFor="customer-phone">Phone number</label>
+              <input id="customer-phone" name="phoneNumber" type="tel" autoComplete="tel" required value={form.phoneNumber} onChange={event => setForm({ ...form, phoneNumber: event.target.value })} />
+              <label htmlFor="customer-address">Home / pickup address</label>
+              <textarea id="customer-address" name="address" autoComplete="street-address" required minLength={5} rows={3} placeholder="House number, street, area and city" value={form.address} onChange={event => setForm({ ...form, address: event.target.value })} />
+            </fieldset>
+            {createError && <p className={styles.error} role="alert">{createError}</p>}
+            <div className={styles.dialogActions}>
+              <button type="button" disabled={actionLoading} onClick={() => setShowCreate(false)}>Cancel</button>
+              <button type="submit" disabled={actionLoading}>{actionLoading ? 'Saving…' : 'Save customer'}</button>
+            </div>
+          </form>
+        </dialog>
+      )}
       {showApology && <div className={styles.formPanel}><div><h2>Send apology email</h2><p>This sends to active customers with an email address.</p></div><form onSubmit={sendApology}><textarea required minLength={20} maxLength={2000} value={apology} onChange={event => setApology(event.target.value)} /><div><button type="button" onClick={() => setShowApology(false)}>Cancel</button><button disabled={actionLoading}>{actionLoading ? 'Sending…' : 'Send to customers'}</button></div></form></div>}
 
       <section className={styles.metrics}>
@@ -303,14 +316,7 @@ export default function AdminCustomersPage() {
                     {customer.orders[0] && (
                       <div className={styles.lastLocation}><MapPin size={15} /><span>Most recent pickup:</span><strong>{customer.orders[0].pickupAddress}</strong><Clock size={14} /><span>{relativeDate(customer.orders[0].createdAt)}</span></div>
                     )}
-                    {isSuperAdmin && (
-                      <div className={styles.dangerZone}>
-                        <div><strong>Delete test customer</strong><span>Permanently removes this customer and all related operational records.</span></div>
-                        <button type="button" onClick={() => deleteCustomer(customer)} disabled={deletingId === customer.id}>
-                          <Trash2 size={15} />{deletingId === customer.id ? 'Deleting…' : 'Delete customer'}
-                        </button>
-                      </div>
-                    )}
+
                   </div>
                 )}
               </article>

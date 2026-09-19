@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
     const fullName = String(body.fullName || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const phoneNumber = normalizePhone(String(body.phoneNumber || '').trim());
-    if (fullName.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || phoneNumber.replace(/\D/g, '').length < 10) {
-      return NextResponse.json({ error: 'Enter a valid full name, email address, and phone number.' }, { status: 400 });
+    const address = String(body.address || '').trim();
+    if (fullName.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || phoneNumber.replace(/\D/g, '').length < 10 || address.length < 5) {
+      return NextResponse.json({ error: 'Enter a valid full name, email address, phone number, and address.' }, { status: 400 });
     }
     const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { phoneNumber }] }, select: { email: true, phoneNumber: true } });
     if (existing) return NextResponse.json({ error: 'A user already exists with that email or phone number.' }, { status: 409 });
@@ -42,18 +43,34 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
     const code = crypto.randomInt(100000, 1000000).toString();
     const codeHash = await bcrypt.hash(code, 10);
-    const user = await prisma.user.create({ data: { fullName, email, phoneNumber, passwordHash, role: Role.CUSTOMER } });
-    await prisma.passwordResetToken.create({ data: { userId: user.id, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
-    const delivered = await sendCustomerRecoveryEmail({ email, fullName, code });
-    if (!delivered) {
-      await prisma.$transaction([
-        prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
-        prisma.user.delete({ where: { id: user.id } }),
-      ]);
-      return NextResponse.json({ error: 'The account was not created because the recovery email could not be sent.' }, { status: 503 });
+    const user = await prisma.$transaction(async (database) => {
+      const createdUser = await database.user.create({ data: {
+        fullName, email, phoneNumber, passwordHash,
+        pickupAddress: address, homeAddress: address, addressType: 'HOME',
+        role: Role.CUSTOMER,
+      } });
+      await database.passwordResetToken.create({ data: { userId: createdUser.id, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
+      return createdUser;
+    });
+    // Saving customer details must not depend on the email provider being available.
+    let delivered = false;
+    try {
+      delivered = await sendCustomerRecoveryEmail({ email, fullName, code });
+    } catch (error) {
+      console.error('[Customer Recovery Email Error]', error);
     }
-    return NextResponse.json({ success: true, user: { id: user.id, fullName, email, phoneNumber }, message: 'Customer account created and recovery email sent.' }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      emailSent: delivered,
+      user: { id: user.id, fullName, email, phoneNumber, address },
+      message: delivered
+        ? 'Customer saved. A recovery email has been sent.'
+        : 'Customer saved, but the recovery email could not be sent. The customer can use Forgot password to request a new code.',
+    }, { status: 201 });
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A user already exists with that email or phone number.' }, { status: 409 });
+    }
     console.error('[Admin Customer Recovery Error]', error);
     return NextResponse.json({ error: 'Unable to complete the customer recovery action.' }, { status: 500 });
   }
@@ -193,7 +210,7 @@ export async function DELETE(request: NextRequest) {
       prisma.user.delete({ where: { id: customer.id } }),
     ]);
 
-    return NextResponse.json({ message: 'Customer and related test data deleted.' });
+    return NextResponse.json({ message: 'Customer and related records deleted.' });
   } catch (error: any) {
     console.error('[Admin Delete Customer Error]', error);
     return NextResponse.json(
