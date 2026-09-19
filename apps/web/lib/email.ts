@@ -218,3 +218,23 @@ export function sendPasswordResetEmail(input: { email: string; fullName: string;
     tags: [{ name: 'category', value: 'password-reset' }],
   });
 }
+
+export function sendCustomerRecoveryEmail(input: { email: string; fullName: string; code: string }) {
+  return sendEmail({
+    to: input.email,
+    subject: 'Restore your BG Laundry account',
+    html: shell('Restore your BG Laundry account', 'Your BG Laundry account is ready to recover.', `<p style="color:#526077;line-height:1.6">Hello ${escapeHtml(input.fullName)}, your BG Laundry account has been restored. Use the verification code below to create a new password.</p><div style="font-size:32px;letter-spacing:8px;font-weight:800;text-align:center;background:#f2f5fb;border-radius:12px;padding:20px;margin:24px 0">${escapeHtml(input.code)}</div><p style="color:#718096;font-size:13px">This code expires in 10 minutes. If you did not request this, contact BG Laundry support.</p>`),
+    text: `Hello ${input.fullName}, your BG Laundry account has been restored. Use this code to create a new password: ${input.code}. It expires in 10 minutes.`,
+    tags: [{ name: 'category', value: 'account-recovery' }],
+  });
+}
+
+export function sendCustomerApologyEmail(input: { email: string; fullName: string; message: string }) {
+  return sendEmail({
+    to: input.email,
+    subject: 'An important update from BG Laundry',
+    html: shell('An important update from BG Laundry', 'We are sorry and are working to restore your experience.', `<p style="color:#526077;line-height:1.7">Hello ${escapeHtml(input.fullName)},</p><p style="color:#526077;line-height:1.7;white-space:pre-line">${escapeHtml(input.message)}</p><p style="color:#526077;line-height:1.7">Thank you for your patience and for choosing BG Laundry.</p>`),
+    text: `Hello ${input.fullName},\n\n${input.message}\n\nThank you for your patience and for choosing BG Laundry.`,
+    tags: [{ name: 'category', value: 'customer-apology' }],
+  });
+}

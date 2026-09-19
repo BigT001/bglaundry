@@ -1,9 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'node:crypto';
+import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
 import { OrderStatus, PaymentStatus, Role } from '@bglaundry/database';
 import { bearerToken, verifyAdminToken } from '@/lib/auth';
+import { normalizePhone } from '@/lib/phone';
+import { sendCustomerApologyEmail, sendCustomerRecoveryEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
+  if (!verifyAdminToken(bearerToken(request), 'customers.view')) {
+    return NextResponse.json({ error: 'Admin authentication required.' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    if (body.action === 'apology') {
+      const message = String(body.message || '').trim();
+      if (message.length < 20 || message.length > 2000) {
+        return NextResponse.json({ error: 'Apology message must be between 20 and 2,000 characters.' }, { status: 400 });
+      }
+      const customers = await prisma.user.findMany({
+        where: { role: Role.CUSTOMER, isActive: true, email: { not: null } },
+        select: { email: true, fullName: true },
+      });
+      const results = await Promise.all(customers.map(customer => sendCustomerApologyEmail({ email: customer.email!, fullName: customer.fullName, message })));
+      return NextResponse.json({ sent: results.filter(Boolean).length, failed: results.filter(result => !result).length, total: customers.length });
+    }
+
+    const fullName = String(body.fullName || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const phoneNumber = normalizePhone(String(body.phoneNumber || '').trim());
+    if (fullName.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || phoneNumber.replace(/\D/g, '').length < 10) {
+      return NextResponse.json({ error: 'Enter a valid full name, email address, and phone number.' }, { status: 400 });
+    }
+    const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { phoneNumber }] }, select: { email: true, phoneNumber: true } });
+    if (existing) return NextResponse.json({ error: 'A user already exists with that email or phone number.' }, { status: 409 });
+
+    const temporaryPassword = crypto.randomBytes(18).toString('base64url');
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+    const user = await prisma.user.create({ data: { fullName, email, phoneNumber, passwordHash, role: Role.CUSTOMER } });
+    await prisma.passwordResetToken.create({ data: { userId: user.id, codeHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
+    const delivered = await sendCustomerRecoveryEmail({ email, fullName, code });
+    if (!delivered) {
+      await prisma.$transaction([
+        prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+        prisma.user.delete({ where: { id: user.id } }),
+      ]);
+      return NextResponse.json({ error: 'The account was not created because the recovery email could not be sent.' }, { status: 503 });
+    }
+    return NextResponse.json({ success: true, user: { id: user.id, fullName, email, phoneNumber }, message: 'Customer account created and recovery email sent.' }, { status: 201 });
+  } catch (error: any) {
+    console.error('[Admin Customer Recovery Error]', error);
+    return NextResponse.json({ error: 'Unable to complete the customer recovery action.' }, { status: 500 });
+  }
+}
 
 export async function GET(request: NextRequest) {
   if (!verifyAdminToken(bearerToken(request), 'customers.view')) {

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { ChevronDown, Clock, MapPin, Search, ShoppingBag, Trash2, TrendingUp, User } from '@/lib/icons';
+import { ChevronDown, Clock, MapPin, Search, ShoppingBag, Trash2, TrendingUp, User, Plus } from '@/lib/icons';
 import { getAdminCache, setAdminCache } from '../adminCache';
 import styles from './customers.module.css';
 
@@ -84,6 +84,12 @@ export default function AdminCustomersPage() {
   const [error, setError] = useState('');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showApology, setShowApology] = useState(false);
+  const [form, setForm] = useState({ fullName: '', email: '', phoneNumber: '' });
+  const [apology, setApology] = useState('We are sorry for the disruption to your BG Laundry account. We have restored our systems and are working to make your account and service history available again. Please use the account recovery email we send you to set a new password.');
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchCustomers = useCallback(async (quiet = false) => {
     if (!quiet && !getAdminCache<Customer[]>('admin-users')) setLoading(true);
@@ -148,6 +154,24 @@ export default function AdminCustomersPage() {
     }
   }
 
+  async function createCustomer(event: React.FormEvent) {
+    event.preventDefault(); setActionLoading(true); setActionMessage('');
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.post('/api/v1/admin/users', form, { headers: { Authorization: `Bearer ${token || ''}` } });
+      setForm({ fullName: '', email: '', phoneNumber: '' }); setShowCreate(false); setActionMessage('Customer created. A recovery email has been sent.'); await fetchCustomers(true);
+    } catch (requestError: any) { setActionMessage(requestError.response?.data?.error || 'Unable to create customer.'); } finally { setActionLoading(false); }
+  }
+
+  async function sendApology(event: React.FormEvent) {
+    event.preventDefault(); setActionLoading(true); setActionMessage('');
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.post('/api/v1/admin/users', { action: 'apology', message: apology }, { headers: { Authorization: `Bearer ${token || ''}` } });
+      setShowApology(false); setActionMessage(`Apology email sent to ${response.data.sent} of ${response.data.total} customers.`);
+    } catch (requestError: any) { setActionMessage(requestError.response?.data?.error || 'Unable to send apology emails.'); } finally { setActionLoading(false); }
+  }
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return customers.filter((customer) => {
@@ -191,6 +215,14 @@ export default function AdminCustomersPage() {
         </div>
         <div className={styles.customerCount}><User size={16} /><strong>{customers.length}</strong><span>customers</span></div>
       </header>
+
+      <section className={styles.recoveryBar}>
+        <div><strong>Customer recovery</strong><span>Create restored accounts and contact customers securely.</span></div>
+        <div className={styles.recoveryActions}><button onClick={() => setShowCreate(true)}><Plus size={15} />Create customer</button><button onClick={() => setShowApology(true)}><User size={15} />Send apology email</button></div>
+      </section>
+      {actionMessage && <div className={styles.actionMessage}>{actionMessage}</div>}
+      {showCreate && <div className={styles.formPanel}><div><h2>Create customer account</h2><p>A recovery email will be sent so the customer can set a new password.</p></div><form onSubmit={createCustomer}><input required placeholder="Full name" value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} /><input required type="email" placeholder="Email address" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /><input required placeholder="Phone number" value={form.phoneNumber} onChange={event => setForm({ ...form, phoneNumber: event.target.value })} /><div><button type="button" onClick={() => setShowCreate(false)}>Cancel</button><button disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create and email'}</button></div></form></div>}
+      {showApology && <div className={styles.formPanel}><div><h2>Send apology email</h2><p>This sends to active customers with an email address.</p></div><form onSubmit={sendApology}><textarea required minLength={20} maxLength={2000} value={apology} onChange={event => setApology(event.target.value)} /><div><button type="button" onClick={() => setShowApology(false)}>Cancel</button><button disabled={actionLoading}>{actionLoading ? 'Sending…' : 'Send to customers'}</button></div></form></div>}
 
       <section className={styles.metrics}>
         <article><div className={styles.metricIcon}><User size={19} /></div><div><span>Total customers</span><strong>{customers.length}</strong><small>Customer accounts only</small></div></article>
