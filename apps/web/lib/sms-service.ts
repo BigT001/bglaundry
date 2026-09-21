@@ -43,8 +43,7 @@ async function sendViaSendchamp({ to, message }: SendSmsParams) {
     timeout: 12_000,
   });
 
-  console.log(`[SMS Sent via Sendchamp] to +${phone}:`, response.data);
-  return true;
+  return response.data?.status === 'success' && Number(response.data?.code) === 200;
 }
 
 async function sendViaTermii({ to, message }: SendSmsParams) {
@@ -60,12 +59,11 @@ async function sendViaTermii({ to, message }: SendSmsParams) {
     from: process.env.TERMII_SENDER_ID || 'BGLAUNDRY',
     sms: message,
     type: 'plain',
-    channel: 'generic',
+    channel: 'dnd',
     api_key: apiKey,
   }, { timeout: 12_000 });
 
-  console.log(`[SMS Sent via Termii] to +${phone}:`, response.data);
-  return true;
+  return response.data?.code === 'ok' && Boolean(response.data?.message_id || response.data?.message_id_str);
 }
 
 export async function sendSms(params: SendSmsParams): Promise<boolean> {
@@ -83,7 +81,7 @@ export async function sendSms(params: SendSmsParams): Promise<boolean> {
     console.warn(`[SMS Dispatch Warning] Unknown SMS_PROVIDER "${provider}".`);
     return false;
   } catch (error: any) {
-    console.error('[SMS Dispatch Error]', error?.response?.data || error?.message);
+    console.error('[SMS Dispatch Error]', { provider, status: error?.response?.status || null, code: error?.code || 'PROVIDER_ERROR' });
     return false;
   }
 }

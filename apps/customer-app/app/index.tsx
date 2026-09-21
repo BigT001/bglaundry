@@ -8,6 +8,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -167,9 +168,13 @@ export default function SplashScreen() {
             },
           ]}
         >
-          <Text style={styles.logoText}>BG</Text>
+          <Image
+            source={require('../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </Animated.View>
-        
+
         <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 32 }} />
       </View>
     );
@@ -205,7 +210,11 @@ export default function SplashScreen() {
               },
             ]}
           >
-            <Text style={styles.logoTextLarge}>BG</Text>
+            <Image
+              source={require('../assets/icon.png')}
+              style={styles.logoImageLarge}
+              resizeMode="contain"
+            />
           </Animated.View>
 
           <Animated.View
@@ -217,7 +226,6 @@ export default function SplashScreen() {
               },
             ]}
           >
-            <Text style={styles.title}>BG Laundry</Text>
             <Text style={styles.subtitle}>
               Premium laundry & dry cleaning service at your doorstep.
             </Text>
@@ -269,26 +277,26 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#0A192F', // Modern, richer dark navy background
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   bgBubble1: {
     position: 'absolute',
-    top: '10%',
-    left: '-20%',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(0, 102, 255, 0.08)',
+    top: '12%',
+    left: '-10%',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(59, 130, 246, 0.04)',
   },
   bgBubble2: {
     position: 'absolute',
-    bottom: '20%',
-    right: '-15%',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(56, 189, 248, 0.05)',
+    bottom: '12%',
+    right: '-10%',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(14, 165, 233, 0.04)',
   },
   innerContainer: {
     flex: 1,
@@ -302,64 +310,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    marginTop: '10%',
+    marginTop: '8%',
   },
   logoBadge: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: '#0066FF',
+    width: 82,
+    height: 82,
+    borderRadius: 22,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0066FF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    overflow: 'visible',
   },
   logoBadgeLarge: {
-    width: 100,
-    height: 100,
-    borderRadius: 26,
-    backgroundColor: '#0066FF',
+    width: 150,
+    height: 150,
+    borderRadius: 36,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0066FF',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-    marginBottom: 36,
+    marginBottom: 22,
+    overflow: 'visible',
   },
-  logoText: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
   },
-  logoTextLarge: {
-    fontSize: 44,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -1,
+  logoImageLarge: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 38,
   },
   textContainer: {
     alignItems: 'center',
     width: '100%',
     paddingHorizontal: 16,
   },
-  title: {
-    fontSize: 38,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    letterSpacing: -1,
-  },
   subtitle: {
-    fontSize: 16,
-    color: '#94A3B8',
+    fontSize: 18,
+    color: '#1F2937',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 30,
     marginBottom: 24,
     fontWeight: '500',
   },
@@ -369,15 +360,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   capsuleBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 102, 255, 0.15)',
+    backgroundColor: '#F1F5F9',
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#3B82F6',
+    color: '#1D4ED8',
   },
   buttonContainer: {
     width: '100%',
@@ -386,25 +377,25 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    height: 56,
-    backgroundColor: '#0066FF',
-    borderRadius: 16,
+    height: 60,
+    backgroundColor: '#2563EB',
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0066FF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 4,
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   footerText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#64748B',
     marginTop: 18,
     fontWeight: '700',
     letterSpacing: 1,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType, avatarUrl } = body;
+    const { fullName, phoneNumber, email, pickupAddress, homeAddress, officeAddress, addressType, avatarUrl, password } = body;
     if (!fullName || fullName.trim().length === 0) {
       return NextResponse.json(
         { error: 'Full name parameter is required' },
@@ -70,6 +71,16 @@ export async function PATCH(request: NextRequest) {
     const dataToUpdate: Record<string, any> = {
       fullName: fullName.trim(),
     };
+
+    if (password !== undefined) {
+      if (typeof password !== 'string' || password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+        return NextResponse.json(
+          { error: 'Password must contain at least eight characters, one letter, and one number.' },
+          { status: 400 },
+        );
+      }
+      dataToUpdate.passwordHash = await bcrypt.hash(password, 12);
+    }
 
     if (cleanHome) dataToUpdate.homeAddress = cleanHome;
     if (cleanOffice) dataToUpdate.officeAddress = cleanOffice;

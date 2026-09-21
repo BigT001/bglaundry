@@ -97,6 +97,18 @@ model PhoneVerificationToken {
   @@index([expiresAt])
 }
 
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 model NotificationSettings {
   id          String   @id @default("default")
   adminEmails String[] @default([])
@@ -220,4 +232,31 @@ model Service {
   washIronPrice Float    @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Operational reports contain no customer identifiers, request bodies, or OTP values.
+model MobileReport {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  source       String   @default("MOBILE")
+  kind         String
+  platform     String
+  appVersion   String
+  osVersion    String?
+  errorName    String?
+  stack        String?
+  endpoint     String?
+  httpStatus   Int?
+  durationMs   Int?
+  fingerprint  String
+  rateKey      String?
+  status       String   @default("OPEN")
+  occurredAt   DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([fingerprint])
+  @@index([rateKey, createdAt])
 }

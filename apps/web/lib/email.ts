@@ -219,6 +219,16 @@ export function sendPasswordResetEmail(input: { email: string; fullName: string;
   });
 }
 
+export function sendRegistrationVerificationEmail(input: { email: string; code: string }) {
+  return sendEmail({
+    to: input.email,
+    subject: 'Your BG Laundry verification code',
+    html: shell('Verify your BG Laundry account', 'Your BG Laundry email verification code.', `<p style="color:#526077;line-height:1.6">Use the verification code below to finish creating your BG Laundry account. It expires in 10 minutes.</p><div style="font-size:32px;letter-spacing:8px;font-weight:800;text-align:center;background:#f2f5fb;border-radius:12px;padding:20px;margin:24px 0">${escapeHtml(input.code)}</div><p style="color:#718096;font-size:13px">If you did not request this, you can safely ignore this email. Never share this code.</p>`),
+    text: `Your BG Laundry verification code is ${input.code}. It expires in 10 minutes. Do not share it.`,
+    tags: [{ name: 'category', value: 'registration-verification' }],
+  });
+}
+
 export function sendCustomerRecoveryEmail(input: { email: string; fullName: string; code: string }) {
   return sendEmail({
     to: input.email,

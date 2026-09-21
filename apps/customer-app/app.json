@@ -5,9 +5,15 @@
     "slug": "bg-laundry-customer",
     "version": "1.0.17",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#061A2E"
+    },
     "scheme": "bglaundry",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "newArchEnabled": false,
     "ios": {
       "bundleIdentifier": "org.bglaundry.customer",
       "supportsTablet": true,

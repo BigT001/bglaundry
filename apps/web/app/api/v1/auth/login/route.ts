@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret-key-for-dev-bglaundry-chang
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phoneNumber, password } = body;
+    const { phoneNumber, password, client } = body;
 
     // Validation
     if (!phoneNumber || !password) {
@@ -47,6 +47,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid phone number or password' },
         { status: 401 }
+      );
+    }
+
+    if (client === 'customer-mobile' && user.role !== 'CUSTOMER') {
+      return NextResponse.json(
+        { error: 'This account must use its assigned staff or rider application.' },
+        { status: 403 },
       );
     }
 
