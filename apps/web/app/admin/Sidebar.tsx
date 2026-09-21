@@ -192,9 +192,16 @@ export default function Sidebar() {
       name: isSuperAdmin(adminUser) ? 'Dashboard' : 'My Workspace',
       href: isSuperAdmin(adminUser) ? '/admin/dashboard' : '/admin/workspace',
       icon: IconDashboard,
+      permission: null as AdminPermission | null,
     },
-    ...permittedModules,
-  ];
+    {
+      name: 'Crashes',
+      href: '/admin/crashes',
+      icon: IconSettings,
+      permission: 'dashboard.view' as AdminPermission,
+    },
+    ...permittedModules.map((item) => ({ ...item, permission: item.permission })),
+  ].filter((item) => !item.permission || hasAdminPermission(adminUser, item.permission));
   // A collapsed desktop preference should not turn the mobile drawer into an
   // icon-only menu, where the expand control is intentionally hidden.
   const sidebarIsCompact = isCollapsed && !isMobile;

@@ -115,6 +115,23 @@ model NotificationSettings {
   updatedAt   DateTime @updatedAt
 }
 
+model AppCrashLog {
+  id          String   @id @default(uuid())
+  appName     String   @default("BG Laundry")
+  platform    String
+  appVersion  String?
+  osVersion   String?
+  deviceModel String?
+  screen      String?
+  errorMessage String
+  stackTrace  String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([platform, createdAt])
+}
+
 model DriverProfile {
   id            String    @id @default(uuid())
   userId        String    @unique

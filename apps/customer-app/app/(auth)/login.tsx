@@ -30,6 +30,17 @@ const getFormattedPhone = (rawPhone: string) => {
   return `+234${digits.replace(/^0+/, '')}`;
 };
 
+const validatePassword = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Password is required.';
+  if (trimmed.length < 8) return 'Password must be at least 8 characters long.';
+  if (!/[A-Za-z]/.test(trimmed)) return 'Password must include at least one letter.';
+  if (!/\d/.test(trimmed) && !/[^A-Za-z0-9]/.test(trimmed)) {
+    return 'Password must include at least one number or special character.';
+  }
+  return '';
+};
+
 export default function LoginScreen() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -40,8 +51,16 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [step, setStep] = useState<LoginStep>('PHONE');
   const [loading, setLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [tempUser, setTempUser] = useState<any>(null);
+
+  const handlePasswordChange = (nextValue: string) => {
+    setPassword(nextValue);
+    if (authMode === 'REGISTER' || step === 'PROFILE') {
+      setPasswordError(validatePassword(nextValue));
+    }
+  };
 
   const handlePasswordLogin = async () => {
     const digits = phoneNumber.replace(/\D/g, '');
@@ -75,6 +94,14 @@ export default function LoginScreen() {
       Alert.alert('Missing details', 'Enter a valid phone number and email address to register.');
       return;
     }
+
+    const passwordIssue = validatePassword(password);
+    if (passwordIssue) {
+      setPasswordError(passwordIssue);
+      Alert.alert('Weak password', passwordIssue);
+      return;
+    }
+
     setLoading(true);
     setCode('');
     const formattedPhone = getFormattedPhone(phoneNumber);
@@ -193,8 +220,10 @@ export default function LoginScreen() {
       Alert.alert('Error', 'Please enter a valid email address for account recovery.');
       return;
     }
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      Alert.alert('Invalid Password', 'Use at least 8 characters with one letter and one number.');
+    const passwordIssue = validatePassword(password);
+    if (passwordIssue) {
+      setPasswordError(passwordIssue);
+      Alert.alert('Weak password', passwordIssue);
       return;
     }
     const cleanHome = homeAddress.trim();
@@ -275,16 +304,18 @@ export default function LoginScreen() {
     >
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <View style={styles.headerSection}>
-          <View style={styles.logoFrame}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+        {step !== 'PROFILE' && (
+          <View style={styles.headerSection}>
+            <View style={styles.logoFrame}>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.brandSubtitle}>Clean today, ready tomorrow!</Text>
           </View>
-          <Text style={styles.brandSubtitle}>Clean today, ready tomorrow!</Text>
-        </View>
+        )}
 
         {step === 'PHONE' && (
           <View style={styles.formContainer}>
@@ -331,14 +362,21 @@ export default function LoginScreen() {
                   editable={!loading}
                 />
                 <TextInput
-                  style={styles.nameInput}
+                  style={[styles.nameInput, passwordError ? styles.inputError : null]}
                   placeholder="Create password (8+ characters)"
                   placeholderTextColor="#94A3B8"
                   secureTextEntry
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
                   editable={!loading}
                 />
+                {password ? (
+                  <Text style={[styles.passwordHint, passwordError ? styles.passwordHintError : styles.passwordHintValid]}>
+                    {passwordError || 'Password looks good.'}
+                  </Text>
+                ) : (
+                  <Text style={styles.passwordHint}>Use 8+ characters with a letter and a number or special character.</Text>
+                )}
               </>
             )}
 
@@ -349,7 +387,7 @@ export default function LoginScreen() {
                 placeholderTextColor="#94A3B8"
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={handlePasswordChange}
                 editable={!loading}
               />
             )}
@@ -440,14 +478,21 @@ export default function LoginScreen() {
 
             <Text style={styles.fieldLabel}>Password *</Text>
             <TextInput
-              style={styles.nameInput}
+              style={[styles.nameInput, passwordError ? styles.inputError : null]}
               placeholder="At least 8 characters"
               placeholderTextColor="#94A3B8"
               secureTextEntry
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               editable={!loading}
             />
+            {password ? (
+              <Text style={[styles.passwordHint, passwordError ? styles.passwordHintError : styles.passwordHintValid]}>
+                {passwordError || 'Password looks good.'}
+              </Text>
+            ) : (
+              <Text style={styles.passwordHint}>Use 8+ characters with a letter and a number or special character.</Text>
+            )}
 
             <Text style={styles.fieldLabel}>Home Address (Pickup Location) *</Text>
             <TextInput
@@ -491,13 +536,13 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F3F3',
+    backgroundColor: 'transparent',
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 26,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   headerSection: {
     alignItems: 'center',
@@ -533,8 +578,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 2,
   },
   modeRow: {
     flexDirection: 'row',
@@ -568,28 +614,28 @@ const styles = StyleSheet.create({
     color: '#002B7F',
   },
   sectionTitle: {
-    fontSize: 26,
+    fontSize: 21,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 8,
-    letterSpacing: -0.4,
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    lineHeight: 21,
-    marginBottom: 20,
+    fontSize: 13,
+    color: '#667085',
+    lineHeight: 19,
+    marginBottom: 16,
   },
   phoneInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 58,
+    height: 52,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    backgroundColor: '#F7F7F7',
-    paddingHorizontal: 16,
-    marginBottom: 18,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    marginBottom: 16,
   },
   countryCodeText: {
     fontSize: 16,
@@ -610,49 +656,66 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#002B7F',
-    marginBottom: 6,
+    color: '#475467',
+    marginBottom: 5,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   nameInput: {
-    height: 58,
+    height: 46,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    backgroundColor: '#F7F7F7',
-    paddingHorizontal: 16,
-    fontSize: 15,
-    fontWeight: '600',
+    borderColor: '#EDF1F5',
+    borderRadius: 10,
+    backgroundColor: '#F7F9FC',
+    paddingHorizontal: 14,
+    fontSize: 14.5,
+    fontWeight: '500',
     color: '#0F172A',
-    marginBottom: 18,
+    marginBottom: 12,
+  },
+  inputError: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
+  },
+  passwordHint: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: -8,
+    marginBottom: 12,
+    lineHeight: 17,
+  },
+  passwordHintError: {
+    color: '#DC2626',
+  },
+  passwordHintValid: {
+    color: '#15803D',
   },
   codeOtpInput: {
-    height: 60,
+    height: 56,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    backgroundColor: '#F7F7F7',
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     fontSize: 20,
     color: '#0F172A',
     textAlign: 'center',
     letterSpacing: 8,
     fontWeight: '800',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   button: {
-    height: 58,
-    backgroundColor: '#002B7F',
-    borderRadius: 14,
+    height: 50,
+    backgroundColor: '#0B2A6B',
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#002B7F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowColor: '#0B2A6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
   buttonDisabled: {
     backgroundColor: '#94A3B8',

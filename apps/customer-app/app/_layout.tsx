@@ -1,6 +1,12 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { registerCrashReporter } from '../lib/crash-reporting';
 
 export default function RootLayout() {
+  useEffect(() => {
+    registerCrashReporter();
+  }, []);
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />

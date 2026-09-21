@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../../lib/config';
 import { clearCustomerSession, getCustomerSession, saveCustomerSession } from '../../lib/session';
 
@@ -140,8 +141,16 @@ export default function ProfileScreen() {
   const handleSelectAvatar = async (url: string) => {
     setAvatarUrl(url);
     setIsAvatarPickerOpen(false);
+
     try {
       const { token } = await getCustomerSession();
+      const nextUser = { ...userProfile, avatarUrl: url, sessionToken: token || userProfile?.sessionToken };
+      setUserProfile(nextUser);
+      await saveCustomerSession(token, nextUser);
+
+      const isRemoteAsset = /^https?:\/\//i.test(url);
+      if (!isRemoteAsset) return;
+
       const payload = {
         fullName: profileName,
         email: profileEmail,
@@ -153,7 +162,7 @@ export default function ProfileScreen() {
       const res = await axios.patch(`${API_URL}/users/profile`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const updatedUser = res.data.user || { ...userProfile, avatarUrl: url };
+      const updatedUser = res.data.user || nextUser;
       setUserProfile(updatedUser);
       await saveCustomerSession(token, updatedUser);
     } catch (e) {
@@ -164,6 +173,43 @@ export default function ProfileScreen() {
         setUserProfile(u);
         await AsyncStorage.setItem('@bglaundry_user', JSON.stringify(u));
       }
+    }
+  };
+
+  const pickAvatarFromLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photo library to set a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await handleSelectAvatar(result.assets[0].uri);
+    }
+  };
+
+  const takeAvatarPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow camera access so you can take a profile photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await handleSelectAvatar(result.assets[0].uri);
     }
   };
 
@@ -381,13 +427,20 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Log Out</Text>
-      </TouchableOpacity>
+      <View style={styles.accountActionsCard}>
+        <Text style={styles.accountActionsTitle}>Account</Text>
 
-      <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
-        <Text style={styles.deleteAccountButtonText}>Delete account</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Log Out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+          <View style={styles.deleteRow}>
+            <Feather name="trash-2" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.deleteAccountButtonText}>Delete account</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {/* MODAL 1: Edit Profile Modal */}
       <Modal visible={isEditProfileOpen} animationType="slide" transparent>
@@ -460,14 +513,18 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Select a profile picture style:</Text>
-            
-            <View style={styles.presetGrid}>
-              {AVATAR_PRESETS.map((url, idx) => (
-                <TouchableOpacity key={idx} onPress={() => handleSelectAvatar(url)} style={styles.presetItem}>
-                  <Image source={{ uri: url }} style={styles.presetImage} />
-                </TouchableOpacity>
-              ))}
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Upload your own photo or take a new one:</Text>
+
+            <View style={styles.uploadActions}>
+              <TouchableOpacity style={styles.uploadButton} onPress={() => void pickAvatarFromLibrary()}>
+                <Feather name="image" size={18} color="#0066FF" style={{ marginRight: 8 }} />
+                <Text style={styles.uploadButtonText}>Upload from gallery</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.uploadButtonSecondary} onPress={() => void takeAvatarPhoto()}>
+                <Feather name="camera" size={18} color="#0F172A" style={{ marginRight: 8 }} />
+                <Text style={styles.uploadButtonSecondaryText}>Take a photo</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsAvatarPickerOpen(false)}>
@@ -724,30 +781,60 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     fontWeight: '600',
   },
-  logoutButton: {
-    marginTop: 24,
-    backgroundColor: '#FFF1F2',
+  accountActionsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginTop: 10,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  accountActionsTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 14,
+    textTransform: 'uppercase',
+  },
+  logoutButton: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   logoutButtonText: {
-    color: '#F43F5E',
+    color: '#0F172A',
     fontSize: 15,
     fontWeight: 'bold',
   },
   deleteAccountButton: {
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    marginBottom: 20,
-    padding: 12,
+  },
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteAccountButtonText: {
-    color: '#B91C1C',
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   /* Bottom sheet overlays */
   modalOverlay: {
@@ -829,24 +916,39 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0F172A',
   },
-  presetGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-    justifyContent: 'center',
+  uploadActions: {
+    gap: 12,
     marginVertical: 16,
   },
-  presetItem: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: '#0066FF',
-    overflow: 'hidden',
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  presetImage: {
-    width: '100%',
-    height: '100%',
+  uploadButtonText: {
+    color: '#0066FF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  uploadButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  uploadButtonSecondaryText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
   },
   formActions: {
     flexDirection: 'row',

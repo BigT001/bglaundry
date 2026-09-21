@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ['/admin/staffs', 'staff.manage'], ['/admin/settings', 'staff.manage'], ['/admin/staff', 'staff.manage'], ['/admin/pricing', 'pricing.manage'],
         ['/admin/riders', 'riders.manage'], ['/admin/users', 'customers.view'],
         ['/admin/invoices', 'invoices.manage'], ['/admin/orders', 'orders.manage'],
-        ['/admin/dashboard', 'dashboard.view'],
+        ['/admin/crashes', 'dashboard.view'], ['/admin/dashboard', 'dashboard.view'],
       ];
       const required = routes.find(([route]) => pathname.startsWith(route))?.[1];
       if (required && !hasAdminPermission(user, required)) {
